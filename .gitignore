@@ -1,0 +1,68 @@
+# Entornos virtuales de Python
+venv/
+*.pyenv
+env/
+.env
+
+# Archivos de caché y compilados de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Bases de datos SQLite
+*.sqlite3
+/backend/app/test.db
+
+# Dependencias de Python (si se instalan localmente)
+/backend/deps/
+
+# Caches de Pytest
+.pytest_cache/
+
+# Archivos de configuración de IDEs y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# === Frontend (Node.js / Next.js) ===
+
+# Dependencias
+/frontend/node_modules/
+/backend/frontend/node_modules
+
+# Archivos de build y desarrollo de Next.js
+/frontend/.next/
+/frontend/out/
+
+# Archivos de entorno locales del frontend
+/frontend/.env.local
+/frontend/.env.development.local
+/frontend/.env.test.local
+/frontend/.env.production.local
+
+# Archivos de log de npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Docker
+docker-compose.override.yml
+
+# Volúmenes de Docker (si se mapean a local)
+postgres_data/
+localstack_data/
+
+# Archivos de secrets (si se usan)
+secrets/
+*.key
+*.secret

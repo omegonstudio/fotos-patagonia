@@ -1,0 +1,120 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { apiFetch } from "@/lib/api";
+import { Album } from "@/lib/types";
+
+interface BackendAlbum {
+  id: number;
+  name: string;
+  description?: string | null;
+  sessions?: any[];
+  tags?: any[];
+}
+
+export function useAlbums(albumId?: string) {
+  const [data, setData] = useState<BackendAlbum | BackendAlbum[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAlbums = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const url = albumId ? `/albums/${albumId}` : `/albums/`;
+      const result = await apiFetch(url);
+
+      setData(result);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message);
+      console.error("Error fetching albums:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [albumId]);
+
+  const createAlbum = async (albumData: Partial<Album>): Promise<BackendAlbum> => {
+    try {
+      // Enviar solo los campos que el backend acepta
+      const backendData = {
+        name: albumData.name!,
+        description: albumData.description || null
+      };
+      
+      console.log("Creating album with data:", backendData);
+      
+      const result = await apiFetch('/albums/', {
+        method: 'POST',
+        body: JSON.stringify(backendData)
+      });
+      
+      console.log("Album created:", result);
+      return result;
+    } catch (err: any) {
+      setError(err.message);
+      console.error("Error creating album:", err);
+      throw err;
+    }
+  };
+
+  const updateAlbum = async (id: number | string, albumData: Partial<Album>): Promise<BackendAlbum> => {
+    try {
+      // Enviar solo los campos que el backend acepta
+      const backendData = {
+        name: albumData.name!,
+        description: albumData.description || null
+      };
+      
+      console.log(`Updating album ${id} with data:`, backendData);
+      
+      const result = await apiFetch(`/albums/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(backendData)
+      });
+      
+      console.log("Album updated:", result);
+      return result;
+    } catch (err: any) {
+      setError(err.message);
+      console.error("Error updating album:", err);
+      throw err;
+    }
+  };
+
+  const deleteAlbum = async (id: number | string): Promise<void> => {
+    try {
+      console.log(`Deleting album ${id}`);
+      
+      await apiFetch(`/albums/${id}`, {
+        method: 'DELETE'
+      });
+      
+      console.log("Album deleted successfully");
+    } catch (err: any) {
+      setError(err.message);
+      console.error("Error deleting album:", err);
+      throw err;
+    }
+  };
+
+  // NOTA: El endpoint GET /albums/{id}/photos NO existe en el OpenAPI actual.
+  // Las fotos de un álbum se obtienen a través de las sesiones:
+  // - GET /albums/{album_id} devuelve el álbum con sus sesiones
+  // - Cada sesión tiene sus fotos en el campo "photos"
+
+  useEffect(() => {
+    fetchAlbums();
+  }, [fetchAlbums]);
+
+  return {
+    data,
+    loading,
+    error,
+    refetch: fetchAlbums,
+    createAlbum,
+    updateAlbum,
+    deleteAlbum
+  };
+}
+
