@@ -13,8 +13,7 @@ router = APIRouter(
 
 @router.get("/")
 def list_photographers(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(PermissionChecker([Permissions.LIST_PHOTOGRAPHERS]))
+    db: Session = Depends(get_db)
 ):
     return PhotographerService(db).list_photographers()
 

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # JWT settings
     SECRET_KEY: str = "a_super_secret_key_that_should_be_changed"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     # S3 settings
     S3_ENDPOINT_URL: str | None = None
