@@ -37,10 +37,13 @@ export function useAlbums(albumId?: string) {
   const createAlbum = async (albumData: Partial<Album>): Promise<BackendAlbum> => {
     try {
       // Enviar solo los campos que el backend acepta
-      const backendData = {
-        name: albumData.name!,
-        description: albumData.description || null
-      };
+     const backendData = {
+  name: albumData.name!,
+  description: albumData.description || null,
+  session_ids: albumData.sessionIds ?? [],
+  tag_ids: albumData.tagIds ?? [],
+}
+
       
       console.log("Creating album with data:", backendData);
       
@@ -62,9 +65,12 @@ export function useAlbums(albumId?: string) {
     try {
       // Enviar solo los campos que el backend acepta
       const backendData = {
-        name: albumData.name!,
-        description: albumData.description || null
-      };
+  name: albumData.name!,
+  description: albumData.description || null,
+  session_ids: albumData.sessionIds,
+  tag_ids: albumData.tagIds,
+}
+
       
       console.log(`Updating album ${id} with data:`, backendData);
       

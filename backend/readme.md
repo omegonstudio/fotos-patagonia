@@ -9,7 +9,7 @@ docker compose exec localstack awslocal s3api create-bucket --bucket fotopatagon
 
 # 2. Configura CORS pasando el JSON directamente
 docker compose exec localstack awslocal s3api put-bucket-cors --bucket fotopatagonia --cors-configuration '{"CORSRules": [{"AllowedHeaders": ["*"], "AllowedMethods": 
-     ["GET", "PUT", "POST", "DELETE", "HEAD"], "AllowedOrigins": ["http://localhost:5173", "http://127.0.0.1:5173"], "ExposeHeaders": ["ETag", "x-amz-meta-custom-header"], 
+     ["GET", "PUT", "POST", "DELETE", "HEAD"], "AllowedOrigins": ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3001", "http://127.0.0.1:3001"], "ExposeHeaders": ["ETag", "x-amz-meta-custom-header"], 
      "MaxAgeSeconds": 3000}]}' --region us-east-1
 
 # 3. Levantar frontend

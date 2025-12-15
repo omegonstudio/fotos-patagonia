@@ -143,6 +143,8 @@ export interface Album {
   location?: string
   photoCount?: number
   isPublic?: boolean
+  sessionIds?: number[]
+  tagIds?: number[]
 }
 
 export interface Photographer {
@@ -152,6 +154,32 @@ export interface Photographer {
   contact_info: string
   user_id?: number
 }
+
+export interface Earning {
+  id: number
+  photographer_id: number
+  order_id: number
+  photo_id: string
+  amount: number
+  earned_photo_fraction: number
+  created_at: string // ISO date string
+}
+
+export interface PhotographerEarningsSummary {
+  total_earnings: number
+  total_earned_photo_fraction: number
+  total_orders_involved: number
+  photographer_id: number
+  start_date: string | null // ISO date string or null
+  end_date: string | null   // ISO date string or null
+}
+
+export interface EarningsSummaryAllItem {
+  photographer_id: number
+  photographer_name: string
+  total_earnings: number
+}
+
 
 export interface LightboxState {
   isOpen: boolean

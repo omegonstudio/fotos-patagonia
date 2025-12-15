@@ -7,6 +7,8 @@ from models.album import Album, AlbumCreateSchema, AlbumUpdateSchema
 from models.tag import Tag
 from models.user import User
 from core.permissions import Permissions
+from models.photo_session import PhotoSession
+from models.tag import Tag
 
 class AlbumService(BaseService):
     def list_albums(self) -> list[Album]:
@@ -26,21 +28,61 @@ class AlbumService(BaseService):
         return album
 
     def create_album(self, album_in: AlbumCreateSchema) -> Album:
-        """Creates a new album and saves it to the database."""
-        album_data = album_in.model_dump()
-        
-        db_album = Album(**album_data)
-        return self._save_and_refresh(db_album)
+    # Excluimos ids que no son columnas
+     data = album_in.model_dump(exclude={"session_ids", "tag_ids"})
+
+     db_album = Album(**data)
+
+     # Relacionar sesiones
+     if album_in.session_ids:
+        sessions = (
+            self.db.query(PhotoSession)
+            .filter(PhotoSession.id.in_(album_in.session_ids))
+            .all()
+        )
+        db_album.sessions = sessions
+
+     # Relacionar tags
+     if album_in.tag_ids:
+        tags = (
+            self.db.query(Tag)
+            .filter(Tag.id.in_(album_in.tag_ids))
+            .all()
+        )
+        db_album.tags = tags
+
+     return self._save_and_refresh(db_album)
+
 
     def update_album(self, album_id: int, album_in: AlbumUpdateSchema) -> Album:
-        """Updates an existing album, checking for admin privileges."""
-        db_album = self.get_album(album_id)
+     db_album = self.get_album(album_id)
+     data = album_in.model_dump(exclude_unset=True)
 
-        update_data = album_in.model_dump(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(db_album, field, value)
-            
-        return self._save_and_refresh(db_album)
+     # Campos simples
+     for field in ["name", "description"]:
+        if field in data:
+            setattr(db_album, field, data[field])
+
+     # Sessions
+     if "session_ids" in data:
+        sessions = (
+            self.db.query(PhotoSession)
+            .filter(PhotoSession.id.in_(data["session_ids"]))
+            .all()
+        )
+        db_album.sessions = sessions
+
+     # Tags
+     if "tag_ids" in data:
+        tags = (
+            self.db.query(Tag)
+            .filter(Tag.id.in_(data["tag_ids"]))
+            .all()
+        )
+        db_album.tags = tags
+
+     return self._save_and_refresh(db_album)
+
 
     def delete_album(self, album_id: int):
         """Deletes an album, checking for admin privileges."""

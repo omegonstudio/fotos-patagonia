@@ -8,8 +8,10 @@ from .tag import TagSchema
 
 # Pydantic models (Schemas)
 class AlbumBaseSchema(BaseModel):
-    name: str
+    name: Optional[str] = None
     description: Optional[str] = None
+    session_ids: Optional[List[int]] = None
+    tag_ids: Optional[List[int]] = None
 
 class AlbumCreateSchema(AlbumBaseSchema):
     pass

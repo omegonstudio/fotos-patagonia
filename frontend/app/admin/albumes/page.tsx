@@ -170,6 +170,7 @@ export default function AdminAlbumesPage() {
     }
   }
 
+
   // Loading state
   if (albumsLoading || photographersLoading) {
     return (
