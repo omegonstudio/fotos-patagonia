@@ -1,178 +1,210 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useMemo, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft, CreditCard, Store, CheckCircle2, Printer } from "lucide-react"
-import { Header } from "@/components/organisms/header"
-import { Button } from "@/components/ui/button"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useCartStore, useAuthStore } from "@/lib/store"
-import { usePhotos } from "@/hooks/photos/usePhotos"
-import { isAdmin } from "@/lib/types"
-import type { Order, OrderItem, Photo } from "@/lib/types"
-import { Badge } from "@/components/ui/badge"
-import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
-import { useCheckout } from "@/hooks/checkout/useCheckout"
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  CreditCard,
+  Store,
+  CheckCircle2,
+  Printer,
+} from "lucide-react";
+import { Header } from "@/components/organisms/header";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useCartStore, useAuthStore } from "@/lib/store";
+import { usePhotos } from "@/hooks/photos/usePhotos";
+import { isAdmin } from "@/lib/types";
+import type { Order, OrderItem, Photo } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
+import { useCheckout } from "@/hooks/checkout/useCheckout";
 
 type MercadoPagoPreferenceResponse = {
-  init_point?: string
-  preference_id?: string
-}
+  init_point?: string;
+  preference_id?: string;
+};
 
 export default function CheckoutPage() {
-  const router = useRouter()
-  const { items, email, total, channel, clearCart } = useCartStore()
-  const { user, isAuthenticated } = useAuthStore()
-  const { photos } = usePhotos()
-  const { createMercadoPagoPreference } = useCheckout()
+  const router = useRouter();
+  const { items, email, total, channel, clearCart } = useCartStore();
+  const { user, isAuthenticated } = useAuthStore();
+  const { photos } = usePhotos();
+  const { createOrder, createMercadoPagoPreference } = useCheckout();
 
   // Create photos map for quick lookup
-  const mappedPhotos = useMemo(() => photos.map((photo) => mapBackendPhotoToPhoto(photo)), [photos])
+  const mappedPhotos = useMemo(
+    () => photos.map((photo) => mapBackendPhotoToPhoto(photo)),
+    [photos]
+  );
 
   const photosMap = useMemo(() => {
-    const map = new Map<string, Photo>()
+    const map = new Map<string, Photo>();
     mappedPhotos.forEach((photo) => {
-      map.set(photo.id, photo)
-    })
-    return map
-  }, [mappedPhotos])
-  
+      map.set(photo.id, photo);
+    });
+    return map;
+  }, [mappedPhotos]);
+
   // Determinar el canal según el tipo de usuario
   // Staff users (admin o usuarios con photographer_id) pueden usar el canal "local"
-  const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
-  const defaultChannel = isStaffUser ? "local" : "web"
-  
-  const [selectedChannel, setSelectedChannel] = useState<"web" | "local">(defaultChannel)
-  const [paymentMethod, setPaymentMethod] = useState<"efectivo" | "transferencia" | "posnet" | "mp">()
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
+  const isStaffUser =
+    isAuthenticated && user && (isAdmin(user) || user.photographer_id);
+  const defaultChannel = isStaffUser ? "local" : "web";
+
+  const [selectedChannel, setSelectedChannel] = useState<"web" | "local">(
+    defaultChannel
+  );
+  const [paymentMethod, setPaymentMethod] = useState<
+    "efectivo" | "transferencia" | "posnet" | "mp"
+  >();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (items.length === 0) {
-      router.push("/carrito")
+      router.push("/carrito");
     }
     if (!email) {
-      router.push("/carrito")
+      router.push("/carrito");
     }
-  }, [items, email, router])
+  }, [items, email, router]);
 
   // Actualizar el canal según el tipo de usuario
   useEffect(() => {
-    setSelectedChannel(defaultChannel)
-  }, [defaultChannel])
+    setSelectedChannel(defaultChannel);
+  }, [defaultChannel]);
 
   const cartPhotos = useMemo(() => {
     return items
       .map((item) => {
-        const photo = photosMap.get(item.photoId)
-        return photo ? { photo, item } : null
+        const photo = photosMap.get(item.photoId);
+        return photo ? { photo, item } : null;
       })
-      .filter((item) => item !== null)
-  }, [items, photosMap])
+      .filter((item) => item !== null);
+  }, [items, photosMap]);
 
   const digitalPhotos = useMemo(() => {
-    return cartPhotos.filter((item) => !item.item.printer)
-  }, [cartPhotos])
+    return cartPhotos.filter((item) => !item.item.printer);
+  }, [cartPhotos]);
 
   const printPhotos = useMemo(() => {
-    return cartPhotos.filter((item) => item.item.printer)
-  }, [cartPhotos])
+    return cartPhotos.filter((item) => item.item.printer);
+  }, [cartPhotos]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (!paymentMethod || !email) return
+    if (!paymentMethod || !email) return;
 
-    setIsProcessing(true)
-    setSubmitError(null)
+    setIsProcessing(true);
+    setSubmitError(null);
 
     // Determinar el canal según el tipo de usuario
-    const orderChannel = isStaffUser ? "local" : "web"
-    
+    const orderChannel = isStaffUser ? "local" : "web";
+
     // Crear los OrderItems con la información de impresión
     const orderItems: OrderItem[] = items.map((item) => {
-      const photo = photosMap.get(item.photoId)
-      const price = item.printer && item.printFormat 
-        ? item.printFormat.price 
-        : (photo?.price || 0)
-      
+      const photo = photosMap.get(item.photoId);
+      const price =
+        item.printer && item.printFormat
+          ? item.printFormat.price
+          : photo?.price || 0;
+
       return {
         photoId: item.photoId,
         forPrint: item.printer,
         printFormat: item.printFormat,
         priceAtPurchase: price,
-      }
-    })
-    
-    const order: Order = {
-      id: `ORD-${Date.now()}`,
-      channel: orderChannel,
-      status: orderChannel === "web" ? "en_espera" : "pagado",
-      email,
-      paymentMethod,
-      total,
-      createdAt: new Date().toISOString(),
-      editableUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      photos: items.map((item) => item.photoId),
-      items: orderItems,
-    }
+      };
+    });
+
+    // Payload para backend (ajustar si el backend espera campos distintos)
+  // Payload para backend (ajustado al esquema real)
+const orderPayload = {
+  total,
+  payment_method: paymentMethod === "mp" ? "mercadopago" : paymentMethod,
+  payment_status: "pending",
+  order_status: "pending",
+  external_payment_id: null,
+  user_id: isAuthenticated ? user?.id ?? null : null,
+  discount_id: null,
+
+  items: orderItems.map((it) => ({
+    price: it.priceAtPurchase,
+    quantity: 1,
+    photo_id: Number(it.photoId),
+  })),
+
+  // EXTRA — si querés mantener metadata útil sin romper el backend
+  metadata: {
+    email,
+    channel: orderChannel,
+    items: orderItems,
+  },
+};
+
+
 
     try {
-      if (orderChannel === "web") {
-        const preference = (await createMercadoPagoPreference({
-          email,
-          total,
-          paymentMethod,
-          channel: orderChannel,
-          items: orderItems,
-          photos: order.photos,
-        })) as MercadoPagoPreferenceResponse
-
-        if (!preference?.init_point) {
-          throw new Error("No se recibió el enlace de pago de Mercado Pago.")
-        }
-
-        window.location.href = preference.init_point
-        return
+      // 1) Crear orden en el backend obligatorio antes de generar preferencia
+      const createdOrder = (await createOrder(orderPayload)) as Order;
+      // Guardar orden en localStorage para poder mostrarla en la página de éxito
+      try {
+        const existingOrders = localStorage.getItem("orders");
+        const orders = existingOrders ? JSON.parse(existingOrders) : [];
+        orders.push(createdOrder);
+        localStorage.setItem("orders", JSON.stringify(orders));
+      } catch (err) {
+        // no bloquear si falla el guardado local
+        console.warn("No se pudo guardar la orden en localStorage", err);
       }
 
-      // Simulate API call for órdenes locales hasta que el backend esté listo
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      if (orderChannel === "web") {
+        // 2) Crear preferencia MERCADO PAGO enviando SOLO { order_id }
+        const preference = (await createMercadoPagoPreference({
+          order_id: createdOrder.id,
+        })) as MercadoPagoPreferenceResponse;
 
-      // TODO: Enviar orden al backend cuando esté implementado
-      // if (orderChannel === "local") {
-      //   await fetch('/api/orders', {
-      //     method: 'POST',
-      //     body: JSON.stringify(order)
-      //   })
-      // }
+        if (!preference?.init_point) {
+          throw new Error("No se recibió el enlace de pago de Mercado Pago.");
+        }
 
-      // Save order to localStorage
-      const existingOrders = localStorage.getItem("orders")
-      const orders = existingOrders ? JSON.parse(existingOrders) : []
-      orders.push(order)
-      localStorage.setItem("orders", JSON.stringify(orders))
+        // Redirigir al init_point de Mercado Pago
+        window.location.href = preference.init_point;
+        return;
+      }
 
-      // Clear cart
-      clearCart()
-
-      // Redirect to confirmation
-      router.push(`/checkout/confirmacion?orderId=${order.id}`)
+      // Canal local: limpiar carrito y redirigir a página de éxito/confirmación
+      clearCart();
+      router.push(
+        `/checkout/success?orderId=${encodeURIComponent(
+          String(createdOrder.id)
+        )}`
+      );
     } catch (error: any) {
-      console.error("Error procesando el checkout:", error)
-      setSubmitError(error?.message || "No pudimos iniciar el pago, intenta nuevamente.")
+      console.error("Error procesando el checkout:", error);
+      setSubmitError(
+        error?.message || "No pudimos iniciar el pago, intenta nuevamente."
+      );
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
 
   if (items.length === 0 || !email) {
-    return null
+    return null;
   }
 
   return (
@@ -188,19 +220,23 @@ export default function CheckoutPage() {
         </Link>
 
         <div className="mb-8">
-          <h1 className="mb-2 text-4xl font-heading text-balance">Finalizar Compra</h1>
-          <p className="text-muted-foreground">Completa tu información para procesar el pedido</p>
+          <h1 className="mb-2 text-4xl font-heading text-balance">
+            Finalizar Compra
+          </h1>
+          <p className="text-muted-foreground">
+            Completa tu información para procesar el pedido
+          </p>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Checkout Form */}
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit} className="space-y-6">
-            <Card className="rounded-2xl border-gray-200 shadow-md">
+              <Card className="rounded-2xl border-gray-200 shadow-md">
                 <CardHeader>
                   <CardTitle>Canal de Pago</CardTitle>
                   <CardDescription>
-                    {isStaffUser 
+                    {isStaffUser
                       ? "Como usuario del personal, puedes generar órdenes para pago en local"
                       : "Selecciona tu método de pago online"}
                   </CardDescription>
@@ -213,7 +249,8 @@ export default function CheckoutPage() {
                       <div className="flex-1">
                         <div className="font-semibold">Pago en Local</div>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          Genera un número de orden (ORD-[ID]) que se comunicará con el backend
+                          Genera un número de orden (ORD-[ID]) que se comunicará
+                          con el backend
                         </p>
                       </div>
                     </div>
@@ -230,7 +267,7 @@ export default function CheckoutPage() {
                     </div>
                   )}
                 </CardContent>
-              </Card> 
+              </Card>
 
               <Card className="rounded-2xl border-gray-200 shadow-md">
                 <CardHeader>
@@ -244,20 +281,28 @@ export default function CheckoutPage() {
                 <CardContent>
                   <RadioGroup
                     value={paymentMethod}
-                    onValueChange={(value) => setPaymentMethod(value as typeof paymentMethod)}
+                    onValueChange={(value) =>
+                      setPaymentMethod(value as typeof paymentMethod)
+                    }
                   >
                     {isStaffUser ? (
                       // Opciones para pago en local
                       <>
                         <div className="flex items-center space-x-3 rounded-xl border border-gray-200 p-4">
                           <RadioGroupItem value="efectivo" id="efectivo" />
-                          <Label htmlFor="efectivo" className="flex-1 cursor-pointer font-medium">
+                          <Label
+                            htmlFor="efectivo"
+                            className="flex-1 cursor-pointer font-medium"
+                          >
                             Efectivo
                           </Label>
                         </div>
                         <div className="flex items-center space-x-3 rounded-xl border border-gray-200 p-4">
                           <RadioGroupItem value="posnet" id="posnet_local" />
-                          <Label htmlFor="posnet_local" className="flex-1 cursor-pointer font-medium">
+                          <Label
+                            htmlFor="posnet_local"
+                            className="flex-1 cursor-pointer font-medium"
+                          >
                             Tarjeta (POS en local)
                           </Label>
                         </div>
@@ -266,7 +311,10 @@ export default function CheckoutPage() {
                       // Solo Mercado Pago para visitantes
                       <div className="flex items-center space-x-3 rounded-xl border border-gray-200 p-4">
                         <RadioGroupItem value="mp" id="mp" />
-                        <Label htmlFor="mp" className="flex-1 cursor-pointer font-medium">
+                        <Label
+                          htmlFor="mp"
+                          className="flex-1 cursor-pointer font-medium"
+                        >
                           Mercado Pago
                         </Label>
                       </div>
@@ -277,11 +325,21 @@ export default function CheckoutPage() {
 
               {isStaffUser && (
                 <div className="rounded-xl bg-secondary/50 p-4 text-sm">
-                  <p className="font-medium">Instrucciones para pago en local:</p>
+                  <p className="font-medium">
+                    Instrucciones para pago en local:
+                  </p>
                   <ol className="mt-2 list-inside list-decimal space-y-1 text-muted-foreground">
-                    <li>Confirma tu pedido para generar el número de orden (ORD-[ID])</li>
-                    <li>La orden se comunicará automáticamente con el backend</li>
-                    <li>El cliente puede pagar en el local con el método seleccionado</li>
+                    <li>
+                      Confirma tu pedido para generar el número de orden
+                      (ORD-[ID])
+                    </li>
+                    <li>
+                      La orden se comunicará automáticamente con el backend
+                    </li>
+                    <li>
+                      El cliente puede pagar en el local con el método
+                      seleccionado
+                    </li>
                   </ol>
                 </div>
               )}
@@ -296,12 +354,16 @@ export default function CheckoutPage() {
                 ) : (
                   <>
                     <CheckCircle2 className="mr-2 h-5 w-5" />
-                    {isStaffUser ? "Generar Orden Local (ORD-[ID])" : "Proceder a Mercado Pago"}
+                    {isStaffUser
+                      ? "Generar Orden Local (ORD-[ID])"
+                      : "Proceder a Mercado Pago"}
                   </>
                 )}
               </Button>
               {submitError && (
-                <p className="text-sm text-destructive text-center">{submitError}</p>
+                <p className="text-sm text-destructive text-center">
+                  {submitError}
+                </p>
               )}
             </form>
           </div>
@@ -320,11 +382,15 @@ export default function CheckoutPage() {
                       FOTOS IMPRESAS
                     </h3>
                     <span className="text-xs text-muted-foreground">
-                      {printPhotos.length} {printPhotos.length === 1 ? "foto" : "fotos"}
+                      {printPhotos.length}{" "}
+                      {printPhotos.length === 1 ? "foto" : "fotos"}
                     </span>
                   </div>
                   {printPhotos.slice(0, 3).map((item) => (
-                    <div key={item.photo.id} className="flex items-center gap-3">
+                    <div
+                      key={item.photo.id}
+                      className="flex items-center gap-3"
+                    >
                       <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
                         <img
                           src={item.photo.urls.thumb || "/placeholder.svg"}
@@ -333,13 +399,18 @@ export default function CheckoutPage() {
                         />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{item.photo.place}</p>
+                        <p className="text-sm font-medium">
+                          {item.photo.place}
+                        </p>
                         {item.item.printFormat ? (
                           <Badge variant="secondary" className="text-xs mt-1">
-                            {item.item.printFormat.name} ({item.item.printFormat.size})
+                            {item.item.printFormat.name} (
+                            {item.item.printFormat.size})
                           </Badge>
                         ) : (
-                          <p className="text-xs text-destructive">Sin formato</p>
+                          <p className="text-xs text-destructive">
+                            Sin formato
+                          </p>
                         )}
                       </div>
                       <p className="text-sm font-semibold">
@@ -348,7 +419,9 @@ export default function CheckoutPage() {
                     </div>
                   ))}
                   {printPhotos.length > 3 && (
-                    <p className="text-sm text-muted-foreground">+ {printPhotos.length - 3} fotos más</p>
+                    <p className="text-sm text-muted-foreground">
+                      + {printPhotos.length - 3} fotos más
+                    </p>
                   )}
                 </div>
               )}
@@ -357,13 +430,19 @@ export default function CheckoutPage() {
               {digitalPhotos.length > 0 && (
                 <div className="mb-4 space-y-3 border-b border-gray-200 pb-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-muted-foreground">FOTOS DIGITALES</h3>
+                    <h3 className="text-sm font-semibold text-muted-foreground">
+                      FOTOS DIGITALES
+                    </h3>
                     <span className="text-xs text-muted-foreground">
-                      {digitalPhotos.length} {digitalPhotos.length === 1 ? "foto" : "fotos"}
+                      {digitalPhotos.length}{" "}
+                      {digitalPhotos.length === 1 ? "foto" : "fotos"}
                     </span>
                   </div>
                   {digitalPhotos.slice(0, 3).map((item) => (
-                    <div key={item.photo.id} className="flex items-center gap-3">
+                    <div
+                      key={item.photo.id}
+                      className="flex items-center gap-3"
+                    >
                       <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
                         <img
                           src={item.photo.urls.thumb || "/placeholder.svg"}
@@ -372,16 +451,25 @@ export default function CheckoutPage() {
                         />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{item.photo.place}</p>
+                        <p className="text-sm font-medium">
+                          {item.photo.place}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          {item.photo.takenAt && new Date(item.photo.takenAt).toLocaleDateString("es-AR")}
+                          {item.photo.takenAt &&
+                            new Date(item.photo.takenAt).toLocaleDateString(
+                              "es-AR"
+                            )}
                         </p>
                       </div>
-                      <p className="text-sm font-semibold">${item.photo.price}</p>
+                      <p className="text-sm font-semibold">
+                        ${item.photo.price}
+                      </p>
                     </div>
                   ))}
                   {digitalPhotos.length > 3 && (
-                    <p className="text-sm text-muted-foreground">+ {digitalPhotos.length - 3} fotos más</p>
+                    <p className="text-sm text-muted-foreground">
+                      + {digitalPhotos.length - 3} fotos más
+                    </p>
                   )}
                 </div>
               )}
@@ -392,7 +480,9 @@ export default function CheckoutPage() {
                   <span className="font-medium">{email}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total ({items.length} fotos)</span>
+                  <span className="text-muted-foreground">
+                    Total ({items.length} fotos)
+                  </span>
                   <span className="font-medium">${total}</span>
                 </div>
                 {printPhotos.length > 0 && (
@@ -400,26 +490,26 @@ export default function CheckoutPage() {
                     {printPhotos
                       .filter((item) => item.item.printFormat)
                       .reduce((acc, item) => {
-                        const format = item.item.printFormat!
-                        const existing = acc.find((f) => f.id === format.id)
+                        const format = item.item.printFormat!;
+                        const existing = acc.find((f) => f.id === format.id);
                         if (existing) {
-                          existing.count++
-                          existing.totalPrice += format.price
+                          existing.count++;
+                          existing.totalPrice += format.price;
                         } else {
-                          acc.push({ 
-                            id: format.id, 
-                            name: format.name, 
-                            size: format.size, 
+                          acc.push({
+                            id: format.id,
+                            name: format.name,
+                            size: format.size,
                             price: format.price,
                             count: 1,
-                            totalPrice: format.price
-                          })
+                            totalPrice: format.price,
+                          });
                         }
-                        return acc
-                      }, [] as Array<{id: string, name: string, size: string, price: number, count: number, totalPrice: number}>)
+                        return acc;
+                      }, [] as Array<{ id: string; name: string; size: string; price: number; count: number; totalPrice: number }>)
                       .map((format) => (
                         <div key={format.id} className="flex justify-between">
-                        {/*   <span>• {format.name} ({format.size}) × {format.count}</span>
+                          {/*   <span>• {format.name} ({format.size}) × {format.count}</span>
                           <span>${format.totalPrice}</span> */}
                         </div>
                       ))}
@@ -434,7 +524,9 @@ export default function CheckoutPage() {
               <div className="mt-6 space-y-2 border-t border-gray-200 pt-6 text-xs text-muted-foreground">
                 <p>✓ Descarga inmediata después del pago</p>
                 <p>✓ Resolución web y alta calidad</p>
-                {printPhotos.length > 0 && <p>✓ Impresiones en formato seleccionado</p>}
+                {printPhotos.length > 0 && (
+                  <p>✓ Impresiones en formato seleccionado</p>
+                )}
                 <p>✓ Soporte técnico incluido</p>
               </div>
             </div>
@@ -442,5 +534,5 @@ export default function CheckoutPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
