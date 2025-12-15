@@ -20,15 +20,14 @@ interface PhotoCompletionData {
   description?: string;
   price: number;
   photographer_id: number;
-  session_id: number;
 }
 
 interface UploadPhotoParams {
   files: File[];
   photographer_id: number;
-  session_id: number;
   price: number;
   description?: string;
+  album_id?: number;
 }
 
 export function usePhotoUpload() {
@@ -70,33 +69,31 @@ export function usePhotoUpload() {
   /**
    * Paso 3: Notificar al backend que los archivos fueron subidos
    */
-  const completeUpload = async (photos: PhotoCompletionData[]) => {
-    const response = await apiFetch("/photos/complete-upload", {
-      method: "POST",
-      body: JSON.stringify({ photos }),
-    });
-
-    return response;
-  };
+  const completeUpload = async (
+  photos: PhotoCompletionData[],
+  album_id?: number
+) => {
+  return apiFetch("/photos/complete-upload", {
+    method: "POST",
+    body: JSON.stringify({ photos, album_id }),
+  });
+};
 
   /**
    * Función principal: Maneja todo el proceso de upload
    */
-  const uploadPhotos = async ({
-    files,
-    photographer_id,
-    session_id,
-    price,
-    description,
-  }: UploadPhotoParams) => {
+const uploadPhotos = async ({
+  files,
+  photographer_id,
+  price,
+  description,
+  album_id,
+}: UploadPhotoParams) => {
     setUploading(true);
     setError(null);
     setProgress(0);
 
     try {
-      if (typeof session_id !== "number" || Number.isNaN(session_id)) {
-        throw new Error("session_id debe ser un número válido.");
-      }
 
       // Paso 1: Solicitar URLs presigned
       console.log("📤 Solicitando URLs presigned...");
@@ -116,16 +113,16 @@ export function usePhotoUpload() {
       // Paso 3: Notificar al backend
       console.log("✅ Completando registro en base de datos...");
       const photosData: PhotoCompletionData[] = urlsData.map((urlData) => ({
-        object_name: urlData.object_name,
-        original_filename: urlData.original_filename,
-        description: description ?? undefined,
-        price,
-        photographer_id,
-        session_id,
-      }));
+          object_name: urlData.object_name,
+          original_filename: urlData.original_filename,
+          description: description ?? undefined,
+          price,
+          photographer_id,
+        }));
+
 
       console.log("photosData", photosData);
-      const createdPhotos = await completeUpload(photosData);
+      const createdPhotos = await completeUpload(photosData, album_id);
       setProgress(100);
 
       console.log("🎉 Upload completado exitosamente!", createdPhotos);

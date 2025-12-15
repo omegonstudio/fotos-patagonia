@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException, status
 from models.photo_session import PhotoSession, PhotoSessionCreateSchema, PhotoSessionUpdateSchema
 from services.base import BaseService
+from models.album import Album
 
 class SessionService(BaseService):
     def list_sessions(self) -> list[PhotoSession]:
@@ -22,18 +23,35 @@ class SessionService(BaseService):
 
     def create_session(self, session_in: PhotoSessionCreateSchema) -> PhotoSession:
         """Creates a new photo session."""
-        db_session = PhotoSession(**session_in.model_dump())
+        data = session_in.model_dump(exclude={"album_id"})
+        db_session = PhotoSession(**data)
+        if session_in.album_id is not None:
+            album = self.db.query(Album).filter(Album.id == session_in.album_id).first()
+            if not album:
+              raise HTTPException(status_code=404, detail="Album not found")
+            db_session.album = album
+
+        return self._save_and_refresh(db_session)
+    
+    def update_session(self, session_id: int, session_in: PhotoSessionUpdateSchema) -> PhotoSession:
+        db_session = self.get_session(session_id)
+        data = session_in.model_dump(exclude_unset=True)
+
+        for field in ["event_name", "description", "event_date", "location", "photographer_id"]:
+            if field in data:
+               setattr(db_session, field, data[field])
+
+        if "album_id" in data:
+            if data["album_id"] is None:
+                db_session.album = None
+            else:
+                album = self.db.query(Album).filter(Album.id == data["album_id"]).first()
+                if not album:
+                    raise HTTPException(status_code=404, detail="Album not found")
+                db_session.album = album
+
         return self._save_and_refresh(db_session)
 
-    def update_session(self, session_id: int, session_in: PhotoSessionUpdateSchema) -> PhotoSession:
-        """Updates an existing photo session."""
-        db_session = self.get_session(session_id)
-        
-        update_data = session_in.model_dump(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(db_session, field, value)
-            
-        return self._save_and_refresh(db_session)
 
     def delete_session(self, session_id: int):
         """Deletes a photo session."""

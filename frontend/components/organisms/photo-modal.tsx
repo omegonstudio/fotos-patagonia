@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/select";
 import { Camera, Upload, X, ImageIcon, Loader2 } from "lucide-react";
 import { usePhotoUpload } from "@/hooks/photos/usePhotoUpload";
-import { useSessions } from "@/hooks/sessions/useSessions";
 import { usePhotographers } from "@/hooks/photographers/usePhotographers";
 import { useToast } from "@/hooks/use-toast";
 import { useAlbums } from "@/hooks/albums/useAlbums";
@@ -39,7 +38,6 @@ interface PhotoModalProps {
 
 const DEFAULT_PRICE = "100";
 
-const DEFAULT_SESSION_ID = "0";
 
 export function PhotoModal({
   open,
@@ -50,8 +48,6 @@ export function PhotoModal({
 }: PhotoModalProps) {
   const isAddMode = mode === "add";
   const [selectedAlbum, setSelectedAlbum] = useState<string>("");
-  const [selectedSession, setSelectedSession] =
-    useState<string>(DEFAULT_SESSION_ID);
   const [selectedPhotographer, setSelectedPhotographer] = useState<string>("");
   const [price, setPrice] = useState<string>(DEFAULT_PRICE);
   const [description, setDescription] = useState<string>("");
@@ -61,7 +57,6 @@ export function PhotoModal({
   const [isDragging, setIsDragging] = useState(false);
 
   const { uploadPhotos, uploading, progress } = usePhotoUpload();
-  const { sessions } = useSessions();
   const { photographers, loading: photographersLoading } = usePhotographers();
   const { data: albumsData, loading: albumsLoading } = useAlbums();
   const { tags: availableTags, loading: tagsLoading } = useTags();
@@ -107,7 +102,6 @@ export function PhotoModal({
 
     if (isAddMode) {
       setSelectedAlbum("");
-      setSelectedSession(DEFAULT_SESSION_ID);
       setSelectedPhotographer("");
       setDescription("");
       setPrice(DEFAULT_PRICE);
@@ -118,12 +112,6 @@ export function PhotoModal({
     }
 
     if (photo) {
-      const sessionId = photo.session_id?.toString() ?? "";
-      setSelectedSession(sessionId);
-      const relatedSession = sessionId
-        ? sessions.find((session) => session.id.toString() === sessionId)
-        : undefined;
-      setSelectedAlbum(relatedSession?.album_id?.toString() ?? "");
       setSelectedPhotographer(photo.photographer_id?.toString() ?? "");
       setDescription(photo.description || "");
       setPrice(
@@ -131,7 +119,7 @@ export function PhotoModal({
       );
       setSelectedTagIds(photo.tags?.map((tag) => tag.id.toString()) ?? []);
     }
-  }, [open, photo, sessions, isAddMode]);
+  }, [open, photo, isAddMode]);
 
   const handleAlbumChange = useCallback((value: string) => {
     setSelectedAlbum(value);
@@ -218,6 +206,16 @@ export function PhotoModal({
     }
 
     if (isAddMode) {
+
+      if (!selectedAlbum) {
+        toast({
+          title: "Álbum requerido",
+          description: "Seleccioná un álbum antes de subir las fotos.",
+          variant: "destructive",
+        });
+        return;
+}
+
       if (!selectedPhotographer || uploadedFiles.length === 0) {
         toast({
           title: "Campos incompletos",
@@ -228,26 +226,15 @@ export function PhotoModal({
       }
 
       try {
-        const sessionId = parseInt(
-          selectedSession || DEFAULT_SESSION_ID,
-          10
-        );
-        if (Number.isNaN(sessionId)) {
-          toast({
-            title: "Sesión inválida",
-            description: "No se pudo asignar la sesión por defecto.",
-            variant: "destructive",
-          });
-          return;
-        }
-
+        
         const createdPhotos = await uploadPhotos({
           files: uploadedFiles,
           photographer_id: parseInt(selectedPhotographer),
-          session_id: sessionId,
           price: numericPrice,
           description: description || undefined,
+          album_id: Number(selectedAlbum),
         });
+
 
         if (selectedTagNames.length && Array.isArray(createdPhotos)) {
           const newPhotoIds = createdPhotos
