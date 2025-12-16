@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Search, Plus, Loader2 } from "lucide-react";
+import { Check, Search, Plus, Loader2, Trash } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 export default function FotosPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -108,6 +109,11 @@ export default function FotosPage() {
     );
   };
 
+  const handleCheckboxClick = (e: React.MouseEvent, id?: number) => {
+    e.stopPropagation();
+    if (id !== undefined) toggleSelect(id);
+  };
+
   const isSelected = (id: number) => selectedPhotoIds.includes(id);
 
   return (
@@ -123,9 +129,9 @@ export default function FotosPage() {
           {selectedPhotoIds.length > 0 && (
             <Button
               onClick={handleDeleteSelected}
-              className="rounded-xl bg-destructive font-semibold text-foreground hover:bg-destructive/90"
+              variant="outline"
+              className="rounded-xl border-destructive text-destructive font-semibold hover:bg-destructive/10"
               disabled={deleting}
-              variant="ghost"
             >
               Eliminar seleccionadas ({selectedPhotoIds.length})
             </Button>
@@ -168,89 +174,75 @@ export default function FotosPage() {
       {/* Photos Grid */}
       {!loading && (
         <>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {filteredPhotos.map((photo) => {
               const selected = isSelected(photo.id);
               return (
-                <Card
-                  key={photo.id}
-                  className={`overflow-hidden rounded-2xl border-gray-200 relative ${
-                    selected ? "ring-2 ring-primary/60" : ""
-                  }`}
-                >
-                  <div className="aspect-square bg-muted relative">
-                    {/* Checkbox en esquina superior izquierda */}
-                    <div className="absolute left-2 top-2 z-10">
-                 {/*      <Checkbox
-                        checked={selected}
-                        onCheckedChange={() => toggleSelect(photo.id)}
-                        disabled={deleting}
-                        aria-label={`Seleccionar foto ${photo.filename}`}
-                      /> */}
-                    </div>
+              <Card
+                key={photo.id}
+                className={cn(
+                  "group relative overflow-hidden rounded-2xl bg-muted transition-all hover:shadow-xl",
+                  selected && "ring-2 ring-destructive/70"
+                )}
+              >
+                {/* IMAGE */}
+                <div className="relative aspect-square overflow-hidden">
+                  <Image
+                    src={photo.watermark_url || photo.url}
+                    alt={photo.filename}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
 
-                    <Image
-                      src={photo.watermark_url || photo.url}
-                      alt={photo.filename}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    />
-                  </div>
-                  <CardContent className="pt-4">
-                    <div className="mb-3 flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold truncate">{photo.filename}</h3>
-                        {photo.description && (
-                          <p className="text-sm text-muted-foreground truncate">
-                            {photo.description}
-                          </p>
-                        )}
-                      </div>
-                      <Badge className="bg-primary/10 text-primary ml-2 flex-shrink-0">
-                        ${photo.price}
-                      </Badge>
-                    </div>
-                    <div className="space-y-1 text-sm text-muted-foreground">
-                      <p>
-                        Fotógrafo: {photo.photographer?.name || "Sin fotógrafo"}
-                      </p>
-                      {photo.tags && photo.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {photo.tags.map((tag) => (
-                            <Badge
-                              key={tag.id}
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              {tag.name}
-                            </Badge>
-                          ))}
-                        </div>
+                  {/* SELECCIÓN */}
+                  <div className="absolute right-3 top-3 z-20">
+                    <button
+                      onClick={(e) => handleCheckboxClick(e, photo.id)}
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all",
+                        selected
+                          ? "border-destructive bg-destructive text-white shadow-lg"
+                          : "border-white bg-white/20 backdrop-blur hover:bg-white/40"
                       )}
-                    </div>
+                    >
+                      {selected && <Check className="h-4 w-4" strokeWidth={3} />}
+                    </button>
+                  </div>
 
-                    {/* Botones en la misma fila */}
-                    <div className="mt-4 flex gap-2">
-                      <Button
-                        onClick={() => handleEditPhoto(photo)}
-                        variant="outline"
-                        className="flex-1 rounded-xl bg-transparent hover:bg-[#ffecce]"
-                        disabled={deleting}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        onClick={() => handleDeletePhoto(photo)}
-                        variant="outline"
-                        className="flex-1 rounded-xl"
-                        disabled={deleting}
-                      >
-                        Eliminar
-                      </Button>
+                  {/* ACCIONES (hover) */}
+                  <div className="absolute left-3 top-3 z-20 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => handleEditPhoto(photo)}
+                      className="h-8 w-8 rounded-full bg-white/20 backdrop-blur border-white hover:bg-white/40"
+                    >
+                      ✏️
+                    </Button>
+
+                    <Button
+                      size="icon"
+                      onClick={() => handleDeletePhoto(photo)}
+                      className="h-8 w-8 rounded-full bg-destructive text-white hover:bg-destructive/90"
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* OVERLAY */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+
+                  {/* INFO */}
+                  <div className="absolute bottom-0 left-0 right-0 z-10 p-3 text-white transition-transform group-hover:translate-y-0 translate-y-full">
+                    <p className="text-sm font-semibold truncate">{photo.filename}</p>
+                    <div className="mt-1 flex items-center justify-between text-xs opacity-90">
+                      <span>{photo.photographer?.name || "Sin fotógrafo"}</span>
+                      <span className="font-semibold">${photo.price}</span>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
+              </Card>
+
               );
             })}
           </div>

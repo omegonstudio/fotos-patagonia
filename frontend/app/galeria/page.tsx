@@ -177,6 +177,7 @@ export default function GaleriaPage() {
                       addItem(photo.id)
                     }
                     togglePrinter(photo.id)
+                    toggleFavorite(photo.id)
                   }}
                 />
               )
