@@ -37,6 +37,13 @@ function App() {
   const [simulatedOrders, setSimulatedOrders] = useState<any[]>([]); // State for simulated orders
   const [allPhotos, setAllPhotos] = useState<Photo[]>([]); // State for all photos for management
   const [selectedPhotos, setSelectedPhotos] = useState<number[]>([]); // State for bulk selection
+  const [newPhotographerData, setNewPhotographerData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    commission_percentage: 10.0,
+    contact_info: '',
+  });
 
   const handleLoginSuccess = (userData: any) => {
     setCurrentUser(userData);
@@ -204,6 +211,45 @@ function App() {
       // Refresh the list and clear selection
       setAllPhotos(prevPhotos => prevPhotos.filter(p => !selectedPhotos.includes(p.id)));
       setSelectedPhotos([]);
+
+    } catch (err: any) {
+      setError(err.message);
+      setStatusMessage('');
+    }
+  };
+
+  const handleCreatePhotographer = async () => {
+    setStatusMessage("Creando fotógrafo...");
+    setError(null);
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      setError('No estás autenticado.');
+      return;
+    }
+    try {
+      const response = await fetch('/api/photographers/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...newPhotographerData,
+          commission_percentage: Number(newPhotographerData.commission_percentage), // Ensure it's a number
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create photographer.');
+      }
+      
+      const newPhotographer = await response.json();
+      setStatusMessage(`Fotógrafo "${newPhotographer.name}" creado exitosamente.`);
+      // Optionally, clear the form
+      setNewPhotographerData({
+        name: '', email: '', password: '', commission_percentage: 10.0, contact_info: ''
+      });
 
     } catch (err: any) {
       setError(err.message);
@@ -646,6 +692,9 @@ function App() {
               {(hasPermission('delete_own_photo') || hasPermission('delete_any_photo')) && (
                 <button onClick={() => setActiveTab('manage-photos')} className={activeTab === 'manage-photos' ? 'active' : ''}>Gestionar Fotos</button>
               )}
+              {hasPermission('create_photographer') && (
+                <button onClick={() => setActiveTab('create-photographer')} className={activeTab === 'create-photographer' ? 'active' : ''}>Crear Fotógrafo</button>
+              )}
             </>
           )}
         </div>
@@ -853,6 +902,45 @@ function App() {
                 ) : (
                   <p>No hay fotos para mostrar o no se han cargado.</p>
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'create-photographer' && currentUser && (
+            <div className="create-photographer-controls">
+              <h2>Crear Nuevo Fotógrafo y Usuario</h2>
+              <div className="create-photographer-form">
+                <input
+                  type="text"
+                  placeholder="Nombre Completo"
+                  value={newPhotographerData.name}
+                  onChange={(e) => setNewPhotographerData({...newPhotographerData, name: e.target.value})}
+                />
+                <input
+                  type="email"
+                  placeholder="Email de Login"
+                  value={newPhotographerData.email}
+                  onChange={(e) => setNewPhotographerData({...newPhotographerData, email: e.target.value})}
+                />
+                <input
+                  type="password"
+                  placeholder="Contraseña"
+                  value={newPhotographerData.password}
+                  onChange={(e) => setNewPhotographerData({...newPhotographerData, password: e.target.value})}
+                />
+                <input
+                  type="number"
+                  placeholder="Porcentaje de Comisión"
+                  value={newPhotographerData.commission_percentage}
+                  onChange={(e) => setNewPhotographerData({...newPhotographerData, commission_percentage: parseFloat(e.target.value)})}
+                />
+                <input
+                  type="text"
+                  placeholder="Información de Contacto"
+                  value={newPhotographerData.contact_info}
+                  onChange={(e) => setNewPhotographerData({...newPhotographerData, contact_info: e.target.value})}
+                />
+                <button onClick={handleCreatePhotographer}>Crear Fotógrafo</button>
               </div>
             </div>
           )}
