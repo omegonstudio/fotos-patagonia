@@ -1,78 +1,149 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { ArrowLeft, Search, Plus, Loader2 } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { PhotoModal } from "@/components/organisms/photo-modal"
-import { usePhotos, type BackendPhoto } from "@/hooks/photos/usePhotos"
-import { useSessions } from "@/hooks/sessions/useSessions"
-import Image from "next/image"
+import { useState } from "react";
+import Link from "next/link";
+import { Check, Search, Plus, Loader2, Trash } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { PhotoModal } from "@/components/organisms/photo-modal";
+import { usePhotos, type BackendPhoto } from "@/hooks/photos/usePhotos";
+import { useSessions } from "@/hooks/sessions/useSessions";
+import Image from "next/image";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 export default function FotosPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [modalMode, setModalMode] = useState<"add" | "edit">("add")
-  const [selectedPhoto, setSelectedPhoto] = useState<BackendPhoto | undefined>(undefined)
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"add" | "edit">("add");
+  const [selectedPhoto, setSelectedPhoto] = useState<BackendPhoto | undefined>(
+    undefined
+  );
+
+  // Nueva selección múltiple
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<number[]>([]);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [deleteTargetIds, setDeleteTargetIds] = useState<number[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   // Obtener fotos y sesiones del backend
-  const { photos, loading, refetch } = usePhotos()
-  const { sessions } = useSessions()
+  const { photos, loading, refetch, deletePhoto } = usePhotos();
+  const { sessions } = useSessions();
 
   const filteredPhotos = photos.filter((photo) => {
-    const searchLower = searchTerm.toLowerCase()
+    const searchLower = searchTerm.toLowerCase();
     return (
       photo.filename?.toLowerCase().includes(searchLower) ||
       photo.description?.toLowerCase().includes(searchLower) ||
       photo.photographer?.name?.toLowerCase().includes(searchLower)
-    )
-  })
+    );
+  });
 
   const getSessionName = (sessionId?: number) => {
-    if (!sessionId) return "Sin sesión"
-    const session = sessions.find((s) => s.id === sessionId)
-    return session?.event_name || "Sin sesión"
-  }
+    if (!sessionId) return "Sin sesión";
+    const session = sessions.find((s) => s.id === sessionId);
+    return session?.event_name || "Sin sesión";
+  };
 
   const handleAddPhoto = () => {
-    setModalMode("add")
-    setSelectedPhoto(undefined)
-    setIsModalOpen(true)
-  }
+    setModalMode("add");
+    setSelectedPhoto(undefined);
+    setIsModalOpen(true);
+  };
 
   const handleEditPhoto = (photo: BackendPhoto) => {
-    setModalMode("edit")
-    setSelectedPhoto(photo)
-    setIsModalOpen(true)
-  }
+    setModalMode("edit");
+    setSelectedPhoto(photo);
+    setIsModalOpen(true);
+  };
+
+  // Preparar eliminación individual: reutiliza el modal de confirmación
+  const handleDeletePhoto = (photo: BackendPhoto) => {
+    setDeleteTargetIds([photo.id]);
+    setIsConfirmOpen(true);
+  };
+
+  // Preparar eliminación múltiple
+  const handleDeleteSelected = () => {
+    if (selectedPhotoIds.length === 0) return;
+    setDeleteTargetIds(selectedPhotoIds);
+    setIsConfirmOpen(true);
+  };
+
+  const performDelete = async () => {
+    if (deleteTargetIds.length === 0) return;
+    setDeleting(true);
+    try {
+      // Eliminar en paralelo
+      await Promise.all(deleteTargetIds.map((id) => deletePhoto(id)));
+      // Refrescar y limpiar selección
+      await refetch();
+      setSelectedPhotoIds((prev) =>
+        prev.filter((id) => !deleteTargetIds.includes(id))
+      );
+      setDeleteTargetIds([]);
+      setIsConfirmOpen(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handlePhotoSaved = () => {
     // Refrescar la lista de fotos después de guardar
-    refetch()
-  }
+    refetch();
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedPhotoIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleCheckboxClick = (e: React.MouseEvent, id?: number) => {
+    e.stopPropagation();
+    if (id !== undefined) toggleSelect(id);
+  };
+
+  const isSelected = (id: number) => selectedPhotoIds.includes(id);
 
   return (
     <div className="container mx-auto px-4 py-8">
-     {/*  <Link href="/admin" className="mb-6 inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Volver al panel
-      </Link> */}
-
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-4xl font-bold">Gestión de Fotos</h1>
-          <p className="text-muted-foreground">Administra el catálogo de fotos</p>
+          <p className="text-muted-foreground">
+            Administra el catálogo de fotos
+          </p>
         </div>
-        <Button
-          onClick={handleAddPhoto}
-          className="rounded-xl bg-primary font-semibold text-foreground hover:bg-primary-hover"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Agregar Foto
-        </Button>
+        <div className="flex items-center gap-3">
+          {selectedPhotoIds.length > 0 && (
+            <Button
+              onClick={handleDeleteSelected}
+              variant="outline"
+              className="rounded-xl border-destructive text-destructive font-semibold hover:bg-destructive/10"
+              disabled={deleting}
+            >
+              Eliminar seleccionadas ({selectedPhotoIds.length})
+            </Button>
+          )}
+          <Button
+            onClick={handleAddPhoto}
+            className="rounded-xl bg-primary font-semibold text-foreground hover:bg-primary-hover"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Agregar Foto
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -103,50 +174,77 @@ export default function FotosPage() {
       {/* Photos Grid */}
       {!loading && (
         <>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredPhotos.map((photo) => (
-              <Card key={photo.id} className="overflow-hidden rounded-2xl border-gray-200">
-                <div className="aspect-square bg-muted relative">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {filteredPhotos.map((photo) => {
+              const selected = isSelected(photo.id);
+              return (
+              <Card
+                key={photo.id}
+                className={cn(
+                  "group relative overflow-hidden rounded-2xl bg-muted transition-all hover:shadow-xl",
+                  selected && "ring-2 ring-destructive/70"
+                )}
+              >
+                {/* IMAGE */}
+                <div className="relative aspect-square overflow-hidden">
                   <Image
                     src={photo.watermark_url || photo.url}
                     alt={photo.filename}
                     fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
                   />
-                </div>
-                <CardContent className="pt-4">
-                  <div className="mb-3 flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold truncate">{photo.filename}</h3>
-                      {photo.description && (
-                        <p className="text-sm text-muted-foreground truncate">{photo.description}</p>
+
+                  {/* SELECCIÓN */}
+                  <div className="absolute right-3 top-3 z-20">
+                    <button
+                      onClick={(e) => handleCheckboxClick(e, photo.id)}
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all",
+                        selected
+                          ? "border-destructive bg-destructive text-white shadow-lg"
+                          : "border-white bg-white/20 backdrop-blur hover:bg-white/40"
                       )}
+                    >
+                      {selected && <Check className="h-4 w-4" strokeWidth={3} />}
+                    </button>
+                  </div>
+
+                  {/* ACCIONES (hover) */}
+                  <div className="absolute left-3 top-3 z-20 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => handleEditPhoto(photo)}
+                      className="h-8 w-8 rounded-full bg-white/20 backdrop-blur border-white hover:bg-white/40"
+                    >
+                      ✏️
+                    </Button>
+
+                    <Button
+                      size="icon"
+                      onClick={() => handleDeletePhoto(photo)}
+                      className="h-8 w-8 rounded-full bg-destructive text-white hover:bg-destructive/90"
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* OVERLAY */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+
+                  {/* INFO */}
+                  <div className="absolute bottom-0 left-0 right-0 z-10 p-3 text-white transition-transform group-hover:translate-y-0 translate-y-full">
+                    <p className="text-sm font-semibold truncate">{photo.filename}</p>
+                    <div className="mt-1 flex items-center justify-between text-xs opacity-90">
+                      <span>{photo.photographer?.name || "Sin fotógrafo"}</span>
+                      <span className="font-semibold">${photo.price}</span>
                     </div>
-                    <Badge className="bg-primary/10 text-primary ml-2 flex-shrink-0">${photo.price}</Badge>
                   </div>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <p>Fotógrafo: {photo.photographer?.name || "Sin fotógrafo"}</p>
-                    {photo.tags && photo.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {photo.tags.map((tag) => (
-                          <Badge key={tag.id} variant="outline" className="text-xs">
-                            {tag.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    onClick={() => handleEditPhoto(photo)}
-                    variant="outline"
-                    className="mt-4 w-full rounded-xl bg-transparent hover:bg-[#ffecce]"
-                  >
-                    Editar
-                  </Button>
-                </CardContent>
+                </div>
               </Card>
-            ))}
+
+              );
+            })}
           </div>
 
           {filteredPhotos.length === 0 && !loading && (
@@ -166,6 +264,52 @@ export default function FotosPage() {
         photo={selectedPhoto}
         onSave={handlePhotoSaved}
       />
+
+      {/* Modal de confirmación reutilizable para eliminar 1 o varias fotos */}
+      <Dialog
+        open={isConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setIsConfirmOpen(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {deleteTargetIds.length === 1
+                ? "Eliminar foto"
+                : `Eliminar ${deleteTargetIds.length} fotos`}
+            </DialogTitle>
+            <DialogDescription>
+              {deleteTargetIds.length === 1
+                ? "¿Estás seguro de que deseas eliminar esta foto? Esta acción no se puede deshacer."
+                : `¿Estás seguro de que deseas eliminar estas ${deleteTargetIds.length} fotos? Esta acción no se puede deshacer.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsConfirmOpen(false)}
+              disabled={deleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={performDelete}
+              disabled={deleting}
+              className="bg-destructive"
+            >
+              {deleting ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Eliminando...
+                </span>
+              ) : (
+                "Confirmar"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
 }

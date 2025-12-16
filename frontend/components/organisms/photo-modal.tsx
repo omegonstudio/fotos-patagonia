@@ -38,7 +38,6 @@ interface PhotoModalProps {
 
 const DEFAULT_PRICE = "100";
 
-
 export function PhotoModal({
   open,
   onOpenChange,
@@ -206,7 +205,6 @@ export function PhotoModal({
     }
 
     if (isAddMode) {
-
       if (!selectedAlbum) {
         toast({
           title: "Álbum requerido",
@@ -214,7 +212,7 @@ export function PhotoModal({
           variant: "destructive",
         });
         return;
-}
+      }
 
       if (!selectedPhotographer || uploadedFiles.length === 0) {
         toast({
@@ -226,7 +224,6 @@ export function PhotoModal({
       }
 
       try {
-        
         const createdPhotos = await uploadPhotos({
           files: uploadedFiles,
           photographer_id: parseInt(selectedPhotographer),
@@ -234,7 +231,6 @@ export function PhotoModal({
           description: description || undefined,
           album_id: Number(selectedAlbum),
         });
-
 
         if (selectedTagNames.length && Array.isArray(createdPhotos)) {
           const newPhotoIds = createdPhotos
@@ -276,6 +272,9 @@ export function PhotoModal({
           filename: photo.filename,
           description: description || "",
           price: numericPrice,
+          photographer_id: selectedPhotographer
+            ? parseInt(selectedPhotographer)
+            : undefined,
           url: photo.url,
           watermark_url: photo.watermark_url,
         }),
@@ -373,7 +372,7 @@ export function PhotoModal({
                       onClick={() =>
                         setSelectedPhotographer(photographer.id.toString())
                       }
-                      disabled={uploading || !isAddMode}
+                      disabled={uploading}
                       className={`flex items-center gap-3 rounded-xl border-2 p-4 transition-all hover:border-primary disabled:cursor-not-allowed disabled:opacity-50 ${
                         isSelected
                           ? "border-primary bg-[#ffecce]"
@@ -406,7 +405,7 @@ export function PhotoModal({
             </div>
             {!isAddMode && (
               <p className="text-xs text-muted-foreground">
-                El cambio de fotógrafo se realizará en una iteración futura.
+                Podés cambiar el fotógrafo desde esta lista.
               </p>
             )}
           </div>

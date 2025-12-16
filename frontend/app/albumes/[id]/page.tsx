@@ -264,12 +264,15 @@ export default function AlbumDetailPage() {
                         addItem(photo.id)
                       }
                       toggleFavorite(photo.id)
+
                     }}
                     onTogglePrinter={() => {
                       if (!cartItem) {
                         addItem(photo.id)
                       }
                       togglePrinter(photo.id)
+                      toggleFavorite(photo.id)
+
                     }}
                   />
                 )

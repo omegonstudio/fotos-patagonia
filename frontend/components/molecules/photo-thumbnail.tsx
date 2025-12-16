@@ -56,6 +56,7 @@ export function PhotoThumbnail({
   const handlePrinterClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     onTogglePrinter?.()
+
   }
 
   const imageUrl = mode === "local" ? photo.urls.local : photo.urls.web

@@ -57,6 +57,7 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev, mode = "web" 
   const handleTogglePrinter = () => {
     if (isInCart) {
       togglePrinter(photo.id)
+      
     } else {
       // Add to cart first, then mark for printer
       addItem(photo.id)
