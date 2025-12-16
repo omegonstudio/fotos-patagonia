@@ -31,7 +31,7 @@ def get_current_user(
         user_id = payload.get("sub")
         if user_id is None:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials",)
         token_data = TokenData(user_id=int(user_id))
 
