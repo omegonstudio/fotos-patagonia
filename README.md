@@ -26,3 +26,7 @@ Colocar esa configuracion en el back de la siguiente forma:
     En core/config.py 
     MERCADOPAGO_NOTIFICATION_URL: str = "https://{{ la url que nos dio ngrok }}/checkout/mercadopago/webhook"
 Tambien colocar esta URL en la configuracion del webhook en MP /developers
+
+# Usuarios
+admin@example.com - changeme
+photographer_1@example.com - password1

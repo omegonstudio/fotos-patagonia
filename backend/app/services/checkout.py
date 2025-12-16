@@ -137,7 +137,7 @@ class CheckoutService(BaseService):
                     order_service = OrderService(self.db)
                     order_service.mark_order_as_paid(
                         order_id=order_id,
-                        payment_method=PaymentMethod.MERCADOPAGO,
+                        payment_method=PaymentMethod.MP,
                         external_payment_id=str(payment_id)
                     )
                     print(f"   Order {order_id} successfully updated to 'paid'.")

@@ -15,7 +15,7 @@ from models.cart import Cart, CartItem
 from models.saved_cart import SavedCart
 from models.order import Order, OrderItem
 
-from routers import auth, users, roles, photographers, sessions, albums, photos, cart, discounts, checkout, orders, saved_carts, storage, testing, tags, combos, earnings
+from routers import auth, users, roles, photographers, sessions, albums, photos, cart, discounts, checkout, orders, saved_carts, storage, testing, tags, combos, earnings, admin
 
 # Create database tables
 # This will create tables for all models that inherit from Base and are imported.
@@ -51,6 +51,7 @@ app.include_router(testing.router)
 app.include_router(tags.router)
 app.include_router(combos.router)
 app.include_router(earnings.router)
+app.include_router(admin.router)
 
 @app.get("/")
 def read_root():

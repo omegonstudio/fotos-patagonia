@@ -7,16 +7,29 @@ from models.earning import Earning
 from models.user import User
 from core.permissions import Permissions
 from datetime import date, timedelta
-from typing import List # Added this import
+from typing import List
 from pydantic import BaseModel
+
+from models.order import OrderItem
+from models.photo import Photo
+from models.photo_session import PhotoSession
+
+class PhotoSaleDetailSchema(BaseModel):
+    photo_id: int
+    photo_url: str
+    album_name: str
+    times_sold: int
+    total_earnings: float
 
 class EarningsSummarySchema(BaseModel):
     total_earnings: float
     total_earned_photo_fraction: float
     total_orders_involved: int
+    total_photos_sold: int
     photographer_id: int
     start_date: date | None
     end_date: date | None
+    photo_sales_details: List[PhotoSaleDetailSchema]
 
 class PhotographerService(BaseService):
     def __init__(self, db: Session):
@@ -114,30 +127,66 @@ class PhotographerService(BaseService):
         end_date: date | None = None
     ) -> EarningsSummarySchema:
         """
-        Returns a summary of earnings for a photographer within a date range.
+        Returns a summary of earnings for a photographer within a date range,
+        including details for each photo sold.
         """
         self._check_earnings_permission(photographer_id, current_user)
 
-        query = self.db.query(
-            func.sum(Earning.amount).label("total_amount"),
-            func.sum(Earning.earned_photo_fraction).label("total_earned_photo_fraction"),
-            func.count(Earning.order_id.distinct()).label("total_orders_involved")
-        ).filter(Earning.photographer_id == photographer_id)
-
+        # Base query for date filtering
+        base_query = self.db.query(Earning).filter(Earning.photographer_id == photographer_id)
         if start_date:
-            query = query.filter(Earning.created_at >= start_date)
+            base_query = base_query.filter(Earning.created_at >= start_date)
         if end_date:
-            query = query.filter(Earning.created_at < end_date + timedelta(days=1))
+            base_query = base_query.filter(Earning.created_at < end_date + timedelta(days=1))
+        
+        # Subquery for date-filtered earnings
+        earnings_subquery = base_query.subquery()
 
-        summary = query.first()
+        # Query for overall summary totals
+        summary_query = self.db.query(
+            func.sum(earnings_subquery.c.amount).label("total_amount"),
+            func.sum(earnings_subquery.c.earned_photo_fraction).label("total_earned_photo_fraction"),
+            func.count(earnings_subquery.c.order_id.distinct()).label("total_orders_involved")
+        )
+        summary = summary_query.first()
+        
+        # Query for total photos sold (sum of quantities)
+        total_photos_sold_query = self.db.query(func.sum(OrderItem.quantity))\
+            .join(earnings_subquery, OrderItem.id == earnings_subquery.c.order_item_id)
+        total_photos_sold = total_photos_sold_query.scalar() or 0
+
+        # Query for detailed photo sales
+        photo_details_query = self.db.query(
+            Photo.id.label("photo_id"),
+            Photo.url.label("photo_url"),
+            PhotoSession.event_name.label("album_name"),
+            func.sum(OrderItem.quantity).label("times_sold"),
+            func.sum(earnings_subquery.c.amount).label("total_earnings")
+        ).join(earnings_subquery, OrderItem.id == earnings_subquery.c.order_item_id)\
+         .join(Photo, OrderItem.photo_id == Photo.id)\
+         .join(PhotoSession, Photo.session_id == PhotoSession.id)\
+         .group_by(Photo.id, Photo.url, PhotoSession.event_name)\
+         .order_by(func.sum(earnings_subquery.c.amount).desc())
+
+        photo_sales_details = photo_details_query.all()
 
         return EarningsSummarySchema(
             total_earnings=summary.total_amount or 0,
             total_earned_photo_fraction=summary.total_earned_photo_fraction or 0,
             total_orders_involved=summary.total_orders_involved or 0,
+            total_photos_sold=total_photos_sold,
             photographer_id=photographer_id,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            photo_sales_details=[
+                PhotoSaleDetailSchema(
+                    photo_id=item.photo_id,
+                    photo_url=item.photo_url,
+                    album_name=item.album_name,
+                    times_sold=item.times_sold,
+                    total_earnings=item.total_earnings
+                ) for item in photo_sales_details
+            ]
         )
 
     def get_all_earnings_summaries(self) -> List[dict]:

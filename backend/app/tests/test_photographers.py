@@ -49,7 +49,7 @@ def photographer_with_earnings(db_session: Session, user_factory) -> Photographe
         order = Order(
             user_id=customer_user.id,
             total=100.0,
-            payment_method=PaymentMethod.MERCADOPAGO,
+            payment_method=PaymentMethod.MP,
             payment_status=PaymentStatus.PAID,
             order_status=OrderStatus.COMPLETED,
         )

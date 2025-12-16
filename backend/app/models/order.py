@@ -11,9 +11,10 @@ from .photo import PhotoSchema
 from .discount import DiscountSchema
 
 class PaymentMethod(str, Enum):
-    MERCADOPAGO = "mercadopago"
-    CASH = "cash"
-    TRANSFER = "transfer"
+    MP = "mp"
+    EFECTIVO = "efectivo"
+    TRANSFERENCIA = "transferencia"
+    POSNET = "posnet"
 
 class PaymentStatus(str, Enum):
     PENDING = "pending"

@@ -35,6 +35,8 @@ function App() {
   const [selectedAlbumId, setSelectedAlbumId] = useState<number | null>(null); // State for album selection
   const [earningsData, setEarningsData] = useState<any | null>(null); // State for earnings
   const [simulatedOrders, setSimulatedOrders] = useState<any[]>([]); // State for simulated orders
+  const [allPhotos, setAllPhotos] = useState<Photo[]>([]); // State for all photos for management
+  const [selectedPhotos, setSelectedPhotos] = useState<number[]>([]); // State for bulk selection
 
   const handleLoginSuccess = (userData: any) => {
     setCurrentUser(userData);
@@ -94,6 +96,9 @@ function App() {
       if (activeTab === 'simulation') {
         handleFetchSimulatedOrders();
       }
+      if (activeTab === 'manage-photos') {
+        handleListAllPhotos();
+      }
     }
   }, [activeTab, currentUser]);
 
@@ -101,19 +106,122 @@ function App() {
     if (!currentUser || !currentUser.role || !currentUser.role.permissions) {
       return false;
     }
-    return currentUser.role.permissions.some((p: any) => p.name === permission || p.name === 'full_access');
+    // Admin role has a special permission that bypasses individual checks
+    if (currentUser.role.permissions.some((p: any) => p.name === 'full_access')) {
+      return true;
+    }
+    return currentUser.role.permissions.some((p: any) => p.name === permission);
   };
   
+  const handleListAllPhotos = async () => {
+    setStatusMessage("Cargando todas las fotos...");
+    setError(null);
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      setError("No estás autenticado.");
+      return;
+    }
+    try {
+      const response = await fetch('/api/photos/', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to list photos.');
+      }
+      const data = await response.json();
+      setAllPhotos(data);
+      setStatusMessage("Fotos cargadas.");
+    } catch (err: any) {
+      setError(err.message);
+      setStatusMessage('');
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: number) => {
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar la foto ID: ${photoId}?`)) return;
+    setStatusMessage(`Eliminando foto ID: ${photoId}...`);
+    setError(null);
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      setError('No estás autenticado.');
+      return;
+    }
+    try {
+      const response = await fetch(`/api/photos/${photoId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to delete photo.');
+      }
+      setStatusMessage('Foto eliminada exitosamente.');
+      // Refresh the list
+      setAllPhotos(prevPhotos => prevPhotos.filter(p => p.id !== photoId));
+    } catch (err: any) {
+      setError(err.message);
+      setStatusMessage('');
+    }
+  };
+
+  const handlePhotoSelection = (photoId: number) => {
+    setSelectedPhotos(prev => 
+      prev.includes(photoId) 
+        ? prev.filter(id => id !== photoId) 
+        : [...prev, photoId]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedPhotos.length === 0 || !window.confirm(`¿Estás seguro de que quieres eliminar ${selectedPhotos.length} foto(s) seleccionada(s)?`)) {
+      return;
+    }
+    setStatusMessage(`Eliminando ${selectedPhotos.length} foto(s)...`);
+    setError(null);
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      setError('No estás autenticado.');
+      return;
+    }
+    try {
+      const response = await fetch(`/api/photos/`, { // Note the trailing slash for the bulk endpoint
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ photo_ids: selectedPhotos }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to bulk delete photos.');
+      }
+      
+      const result = await response.json();
+      setStatusMessage(result.message || `${result.deleted_count} foto(s) eliminada(s) exitosamente.`);
+      
+      // Refresh the list and clear selection
+      setAllPhotos(prevPhotos => prevPhotos.filter(p => !selectedPhotos.includes(p.id)));
+      setSelectedPhotos([]);
+
+    } catch (err: any) {
+      setError(err.message);
+      setStatusMessage('');
+    }
+  };
+
   const handleFetchEarnings = async () => {
-    setStatusMessage("Consultando ganancias...");
+    setStatusMessage("Consultando resumen de ganancias...");
     setError(null);
     const token = localStorage.getItem('accessToken');
     if (!token || !currentUser) return;
   
     try {
       let url = '';
+      // Check for admin/supervisor permission first
       if (hasPermission('view_any_earnings')) {
-        url = '/api/earnings/summary-all';
+        url = '/api/admin/dashboard'; // Use the new admin dashboard endpoint
       } 
       else if (hasPermission('view_own_earnings') && currentUser.photographer?.id) {
         url = `/api/photographers/${currentUser.photographer.id}/earnings/summary`;
@@ -130,7 +238,7 @@ function App() {
   
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to fetch earnings.');
+        throw new Error(errorData.detail || 'Failed to fetch earnings summary.');
       }
       const data = await response.json();
       setEarningsData(data);
@@ -535,6 +643,9 @@ function App() {
               {(hasPermission('view_own_earnings') || hasPermission('view_any_earnings')) && (
                  <button onClick={() => setActiveTab('earnings')} className={activeTab === 'earnings' ? 'active' : ''}>Ganancias</button>
               )}
+              {(hasPermission('delete_own_photo') || hasPermission('delete_any_photo')) && (
+                <button onClick={() => setActiveTab('manage-photos')} className={activeTab === 'manage-photos' ? 'active' : ''}>Gestionar Fotos</button>
+              )}
             </>
           )}
         </div>
@@ -615,36 +726,134 @@ function App() {
           {activeTab === 'earnings' && currentUser && (
             <div className="earnings-controls">
               <h2>Resumen de Ganancias</h2>
+              <button onClick={handleFetchEarnings}>Recargar</button>
               {earningsData ? (
-                Array.isArray(earningsData) ? (
-                  // Admin/Supervisor view: Table of all photographers
-                  <table className="earnings-table">
-                    <thead>
-                      <tr>
-                        <th>Fotógrafo ID</th>
-                        <th>Nombre</th>
-                        <th>Ganancias Totales</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {earningsData.map(summary => (
-                        <tr key={summary.photographer_id}>
-                          <td>{summary.photographer_id}</td>
-                          <td>{summary.photographer_name}</td>
-                          <td>${summary.total_earnings.toFixed(2)}</td>
+                // Use a property unique to the admin dashboard to differentiate the view
+                'total_gross_revenue' in earningsData ? (
+                  // Admin Dashboard View
+                  <div className="admin-dashboard">
+                    <h3>Panel de Administrador</h3>
+                    <div className="global-stats">
+                      <p><strong>Ingresos Brutos Totales:</strong> ${earningsData.total_gross_revenue.toFixed(2)}</p>
+                      <p><strong>Comisiones Totales Pagadas:</strong> ${earningsData.total_commissions.toFixed(2)}</p>
+                      <p><strong>Órdenes Totales (pagadas):</strong> {earningsData.total_orders}</p>
+                      <p><strong>Fotos Vendidas Totales:</strong> {earningsData.total_photos_sold}</p>
+                    </div>
+                    <h4>Desglose por Fotógrafo</h4>
+                    <table className="earnings-table">
+                      <thead>
+                        <tr>
+                          <th>ID Fotógrafo</th>
+                          <th>Nombre</th>
+                          <th>Ventas Brutas</th>
+                          <th>Comisión</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {earningsData.commissions_by_photographer.map((summary: any) => (
+                          <tr key={summary.photographer_id}>
+                            <td>{summary.photographer_id}</td>
+                            <td>{summary.photographer_name}</td>
+                            <td>${summary.total_gross_sales.toFixed(2)}</td>
+                            <td>${summary.total_commission.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
-                  // Photographer view: Single summary
+                  // Photographer's own summary view
                   <div className="earnings-summary">
                     <h3>Ganancias Totales: ${earningsData.total_earnings.toFixed(2)}</h3>
+                    <p><strong>Total de fotos vendidas:</strong> {earningsData.total_photos_sold}</p>
+                    <p><strong>Total de órdenes en las que participaste:</strong> {earningsData.total_orders_involved}</p>
+                    
+                    {earningsData.photo_sales_details && earningsData.photo_sales_details.length > 0 && (
+                      <div className="photo-sales-details">
+                        <h4>Detalle de Fotos Vendidas</h4>
+                        <table className="earnings-table">
+                          <thead>
+                            <tr>
+                              <th>Foto</th>
+                              <th>Álbum</th>
+                              <th>Veces Vendida</th>
+                              <th>Ganancia Generada</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {earningsData.photo_sales_details.map((detail: any) => (
+                              <tr key={detail.photo_id}>
+                                <td>
+                                  <img src={detail.photo_url} alt={`Foto ${detail.photo_id}`} style={{ width: '100px', borderRadius: '4px' }} />
+                                </td>
+                                <td>{detail.album_name}</td>
+                                <td>{detail.times_sold}</td>
+                                <td>${detail.total_earnings.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )
               ) : (
                 <p>Cargando resumen de ganancias...</p>
               )}
+            </div>
+          )}
+          
+          {activeTab === 'manage-photos' && currentUser && (
+            <div className="manage-photos-controls">
+              <h2>Gestionar Fotos</h2>
+              <div className="bulk-actions">
+                <button onClick={handleListAllPhotos}>Recargar Lista de Fotos</button>
+                {selectedPhotos.length > 0 && (
+                  <button onClick={handleBulkDelete} className="delete-selected-btn">
+                    Eliminar {selectedPhotos.length} Foto(s) Seleccionada(s)
+                  </button>
+                )}
+              </div>
+              <div className="all-photos-list">
+                {allPhotos.length > 0 ? (
+                  <table className="photos-table">
+                    <thead>
+                      <tr>
+                        <th>Seleccionar</th>
+                        <th>ID</th>
+                        <th>Preview</th>
+                        <th>Filename</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allPhotos.map(photo => (
+                        <tr key={photo.id}>
+                          <td>
+                            <input 
+                              type="checkbox"
+                              checked={selectedPhotos.includes(photo.id)}
+                              onChange={() => handlePhotoSelection(photo.id)}
+                            />
+                          </td>
+                          <td>{photo.id}</td>
+                          <td>
+                            <img src={photo.url} alt={photo.filename} style={{ width: '100px', borderRadius: '4px' }} />
+                          </td>
+                          <td>{photo.filename}</td>
+                          <td>
+                            <button className="album-action-btn" onClick={() => handleDeletePhoto(photo.id)}>
+                              Eliminar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p>No hay fotos para mostrar o no se han cargado.</p>
+                )}
+              </div>
             </div>
           )}
 

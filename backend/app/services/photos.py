@@ -60,21 +60,96 @@ class PhotoService(BaseService):
         return self._save_and_refresh(db_photo)
 
     def delete_photo(self, photo_id: int, current_user: User):
-        """Deletes a photo record, checking for ownership."""
+        """
+        Deletes a photo record and its corresponding file from storage.
+        Permission checks are handled here to allow admins to delete any photo.
+        """
         db_photo = self.get_photo(photo_id)
         user_permissions = {p.name for p in current_user.role.permissions}
 
+        # First, check for the master 'full_access' permission
+        if Permissions.FULL_ACCESS.value in user_permissions:
+            pass # Admin with full access can do anything
+        else:
+            # Otherwise, check for specific delete permissions
+            can_delete_any = Permissions.DELETE_ANY_PHOTO.value in user_permissions
+            can_delete_own = Permissions.DELETE_OWN_PHOTO.value in user_permissions
+            is_owner = current_user.photographer and db_photo.photographer_id == current_user.photographer.id
+
+            if not can_delete_any and not (can_delete_own and is_owner):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have permission to delete this photo."
+                )
+        
+        # Extract object name from URL to delete from storage
+        try:
+            # Basic parsing, might need to be more robust depending on URL structure
+            object_name = db_photo.url.split(storage_service.bucket_name + '/')[-1].split('?')[0]
+            if object_name:
+                 storage_service.delete_file(object_name)
+        except Exception as e:
+            # Log the error but proceed to delete the DB record
+            print(f"Error deleting file from storage: {e}")
+            
+        return self._delete_and_refresh(db_photo)
+
+    def bulk_delete_photos(self, photo_ids: List[int], current_user: User):
+        """
+        Deletes multiple photos by their IDs, performing permission checks for each.
+        """
+        if not photo_ids:
+            return {"deleted_count": 0, "errors": []}
+
+        user_permissions = {p.name for p in current_user.role.permissions}
+        has_full_access = Permissions.FULL_ACCESS.value in user_permissions
         can_delete_any = Permissions.DELETE_ANY_PHOTO.value in user_permissions
         can_delete_own = Permissions.DELETE_OWN_PHOTO.value in user_permissions
 
-        if not can_delete_any:
-            if not can_delete_own or not current_user.photographer or db_photo.photographer_id != current_user.photographer.id:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to delete this photo.")
+        # Fetch all photos to be deleted in a single query
+        photos_to_delete = self.db.query(Photo).filter(Photo.id.in_(photo_ids)).all()
         
-        # TODO: Add logic to delete the file from the storage service
-        # storage_service.delete_file(db_photo.filename)
+        valid_photos_to_delete = []
+        errors = []
+        
+        photo_map = {photo.id: photo for photo in photos_to_delete}
 
-        return self._delete_and_refresh(db_photo)
+        for photo_id in photo_ids:
+            photo = photo_map.get(photo_id)
+            if not photo:
+                errors.append(f"Photo with ID {photo_id} not found.")
+                continue
+
+            if has_full_access or can_delete_any:
+                valid_photos_to_delete.append(photo)
+            else:
+                is_owner = current_user.photographer and photo.photographer_id == current_user.photographer.id
+                if can_delete_own and is_owner:
+                    valid_photos_to_delete.append(photo)
+                else:
+                    errors.append(f"Permission denied to delete photo with ID {photo_id}.")
+
+        if not valid_photos_to_delete:
+            if errors:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="; ".join(errors))
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No valid photos found to delete.")
+
+        # Delete from storage and collect DB IDs for bulk delete
+        db_ids_to_delete = []
+        for photo in valid_photos_to_delete:
+            try:
+                object_name = photo.url.split(storage_service.bucket_name + '/')[-1].split('?')[0]
+                if object_name:
+                    storage_service.delete_file(object_name)
+            except Exception as e:
+                print(f"Error deleting file for photo ID {photo.id} from storage: {e}")
+            db_ids_to_delete.append(photo.id)
+            
+        # Bulk delete from DB
+        self.db.query(Photo).filter(Photo.id.in_(db_ids_to_delete)).delete(synchronize_session=False)
+        self.db.commit()
+
+        return {"deleted_count": len(db_ids_to_delete), "errors": errors}
 
     def set_tags_for_photo(self, photo_id: int, tag_names: List[str], current_user: User) -> Photo:
         """
