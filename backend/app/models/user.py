@@ -3,6 +3,7 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from db.base import Base
 from models.role import RoleSchema
+from models.photographer import PhotographerSchema # Added import
 from typing import Optional
 
 # Pydantic models (Schemas)
@@ -26,7 +27,7 @@ class UserInDBBaseSchema(UserBaseSchema):
         from_attributes = True
 
 class UserSchema(UserInDBBaseSchema):
-    pass
+    photographer: Optional[PhotographerSchema] = None # Added photographer field
 
 class UserInDBSchema(UserInDBBaseSchema):
     hashed_password: str

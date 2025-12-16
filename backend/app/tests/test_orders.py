@@ -72,7 +72,7 @@ def test_order(db_session: Session, test_photo: Photo, user_factory) -> Order:
     order = Order(
         user_id=customer_user.id,
         total=15.0,
-        payment_method=PaymentMethod.MERCADOPAGO,
+        payment_method=PaymentMethod.MP,
         payment_status=PaymentStatus.PENDING,
         order_status=OrderStatus.PENDING,
     )
@@ -150,7 +150,7 @@ def test_list_my_orders_as_customer(client: TestClient, db_session: Session, use
     order = Order(
         user_id=customer_user.id,
         total=15.0,
-        payment_method=PaymentMethod.MERCADOPAGO,
+        payment_method=PaymentMethod.MP,
         payment_status=PaymentStatus.PENDING,
         order_status=OrderStatus.PENDING,
     )
@@ -181,7 +181,7 @@ def test_update_order_status_as_supervisor(supervisor_client: TestClient, test_o
     url = f"/orders/{test_order.id}/status"
     params = {
         "new_status": OrderStatus.COMPLETED.value,
-        "payment_method": PaymentMethod.CASH.value
+        "payment_method": PaymentMethod.EFECTIVO.value
     }
     response = supervisor_client.put(url, params=params)
     assert response.status_code == 200, response.text
@@ -210,7 +210,7 @@ def test_mark_order_as_paid_creates_earning(supervisor_client: TestClient, db_se
     params = {
         "new_status": OrderStatus.PAID.value,
         "payment_status": PaymentStatus.PAID.value,
-        "payment_method": PaymentMethod.CASH.value # Required when marking as paid
+        "payment_method": PaymentMethod.EFECTIVO.value # Required when marking as paid
     }
     response = supervisor_client.put(url, params=params)
     
@@ -219,7 +219,7 @@ def test_mark_order_as_paid_creates_earning(supervisor_client: TestClient, db_se
     updated_order = response.json()
     assert updated_order["payment_status"] == PaymentStatus.PAID.value
     assert updated_order["order_status"] == OrderStatus.PAID.value
-    assert updated_order["payment_method"] == PaymentMethod.CASH.value
+    assert updated_order["payment_method"] == PaymentMethod.EFECTIVO.value
 
     # Assert database state
     db_session.refresh(test_order)

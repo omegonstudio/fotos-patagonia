@@ -95,6 +95,25 @@ class StorageService:
                 detail="Could not generate view URL."
             )
 
+    def delete_file(self, object_name: str):
+        """
+        Deletes a file from the S3-compatible storage.
+        :param object_name: The key of the object to delete.
+        """
+        try:
+            self.s3_client.delete_object(
+                Bucket=self.bucket_name,
+                Key=object_name
+            )
+            logging.info(f"Successfully deleted {object_name} from bucket {self.bucket_name}")
+        except ClientError as e:
+            logging.error(f"Error deleting file {object_name} from S3: {e}")
+            # Re-raise as a generic HTTPException to avoid leaking too much detail
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Could not delete file from storage."
+            )
+
     def prepare_upload_urls(self, files_info: List[FileInfo]) -> List[PresignedURLData]:
         """
         Prepares a list of presigned PUT URLs for multiple files.

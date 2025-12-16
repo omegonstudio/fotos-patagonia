@@ -78,6 +78,35 @@ def delete_photo(
     return
 
 
+class BulkDeleteRequest(BaseModel):
+    photo_ids: List[int]
+
+@router.delete("/", status_code=status.HTTP_200_OK)
+def bulk_delete_photos(
+    request: BulkDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(PermissionChecker(
+        [Permissions.DELETE_OWN_PHOTO, Permissions.DELETE_ANY_PHOTO], require_all=False
+    ))
+):
+    """
+    Deletes a list of photos by their IDs.
+    The user must have permission to delete each of the photos.
+    """
+    result = PhotoService(db).bulk_delete_photos(photo_ids=request.photo_ids, current_user=current_user)
+    
+    # If there were partial permissions issues, it might be good to reflect that in the response
+    if result["errors"]:
+        # A 207 Multi-Status would be more accurate, but for simplicity, we can use 400 or 200 with details.
+        # Let's return a 200 OK but with a clear message about what happened.
+        return {
+            "message": "Partial success: Some photos were not deleted due to permission issues.",
+            "deleted_count": result["deleted_count"],
+            "errors": result["errors"]
+        }
+        
+    return {"message": f"Successfully deleted {result['deleted_count']} photos."}
+
 @router.post("/{photo_id}/tags", response_model=PhotoSchema)
 def set_photo_tags(
     photo_id: int,

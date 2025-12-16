@@ -117,10 +117,10 @@ class OrderService(BaseService):
         )
 
         if is_manual_payment_confirmation:
-            if not payment_method or payment_method not in [PaymentMethod.CASH, PaymentMethod.TRANSFER]:
+            if not payment_method or payment_method not in [PaymentMethod.EFECTIVO, PaymentMethod.TRANSFERENCIA, PaymentMethod.POSNET]:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"A payment method ('CASH' or 'TRANSFER') is required to mark this order as paid."
+                    detail=f"A payment method ('EFECTIVO', 'TRANSFERENCIA', or 'POSNET') is required to mark this order as paid."
                 )
             # Usar la lógica centralizada de pago
             return self.mark_order_as_paid(order_id=order.id, payment_method=payment_method)
