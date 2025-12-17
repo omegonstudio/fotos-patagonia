@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: fotopatagonia-backend
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    command: >
+      bash -c "
+      python /app/initial_data.py &&
+      uvicorn main:app --host 0.0.0.0 --port 8000
+      "
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - fotopatagonia_network
+
+  db:
+    image: postgres:13
+    container_name: fotopatagonia-db
+    env_file:
+      - ./backend/.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fotopatagonia_network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: fotopatagonia-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=https://api.tudominio.com
+      - INTERNAL_API_URL=http://backend:8000
+    networks:
+      - fotopatagonia_network
+
+networks:
+  fotopatagonia_network:
+    driver: bridge
+
+volumes:
+  postgres_data:

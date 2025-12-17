@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Search, Plus, Loader2, Trash } from "lucide-react";
+import { Check, Search, Plus, Loader2, Trash, Pencil } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { DeleteConfirmationModal } from "@/components/molecules/delete-confirmation-modal";
 
 export default function FotosPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -217,15 +218,17 @@ export default function FotosPage() {
                       onClick={() => handleEditPhoto(photo)}
                       className="h-8 w-8 rounded-full bg-white/20 backdrop-blur border-white hover:bg-white/40"
                     >
-                      ✏️
+                      <Pencil className="h-4 w-4 text-white" />
                     </Button>
 
                     <Button
                       size="icon"
+                      variant="outline"
                       onClick={() => handleDeletePhoto(photo)}
-                      className="h-8 w-8 rounded-full bg-destructive text-white hover:bg-destructive/90"
+                      className="h-8 w-8 rounded-full bg-white/20 backdrop-blur border-white hover:bg-white/40"
+
                     >
-                      <Trash className="h-4 w-4" />
+                      <Trash className="h-4 w-4 text-white" />
                     </Button>
                   </div>
 
@@ -266,50 +269,15 @@ export default function FotosPage() {
       />
 
       {/* Modal de confirmación reutilizable para eliminar 1 o varias fotos */}
-      <Dialog
-        open={isConfirmOpen}
-        onOpenChange={(open) => {
-          if (!open && !deleting) setIsConfirmOpen(false);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {deleteTargetIds.length === 1
-                ? "Eliminar foto"
-                : `Eliminar ${deleteTargetIds.length} fotos`}
-            </DialogTitle>
-            <DialogDescription>
-              {deleteTargetIds.length === 1
-                ? "¿Estás seguro de que deseas eliminar esta foto? Esta acción no se puede deshacer."
-                : `¿Estás seguro de que deseas eliminar estas ${deleteTargetIds.length} fotos? Esta acción no se puede deshacer.`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4 flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsConfirmOpen(false)}
-              disabled={deleting}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={performDelete}
-              disabled={deleting}
-              className="bg-destructive"
-            >
-              {deleting ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Eliminando...
-                </span>
-              ) : (
-                "Confirmar"
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+
+          <DeleteConfirmationModal
+            isOpen={isConfirmOpen}
+            title={`Eliminar ${deleteTargetIds.length} fotos`}
+            entityName={`estas ${deleteTargetIds.length} fotos`}
+            isLoading={deleting}
+            onConfirm={performDelete}
+            onCancel={() => setIsConfirmOpen(false)}
+          />
     </div>
   );
 }
