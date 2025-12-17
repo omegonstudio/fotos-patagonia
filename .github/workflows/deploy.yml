@@ -34,17 +34,17 @@ jobs:
 
       - name: Deploy PROD en Droplet
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes \
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes \
           ${{ secrets.SSH_USER }}@${{ secrets.DROPLET_IP }} "bash -s" <<'REMOTE'
             set -euo pipefail
 
             echo "=== DEPLOY FOTO-PATAGONIA PROD ==="
 
-            REPO="${REPO_URL}"
-            DIR="${DEPLOY_DIR}"
-            BRANCH="${BRANCH}"
-            COMPOSE="${COMPOSE_FILE}"
-            ROLLBACK="${{ github.event.inputs.rollback_commit || '' }}"
+            # Variables DEFINIDAS en el servidor
+            REPO="https://github.com/omegonstudio/fotos-patagonia.git"
+            DIR="/opt/apps/foto-patagonia"
+            BRANCH="main"
+            COMPOSE="docker-compose.prod.yml"
 
             mkdir -p "$DIR"
             cd "$DIR"
@@ -59,13 +59,8 @@ jobs:
 
             git fetch origin
 
-            if [ -n "$ROLLBACK" ]; then
-              echo "-> Rollback al commit $ROLLBACK"
-              git checkout --force "$ROLLBACK"
-            else
-              echo "-> Actualizando a origin/$BRANCH"
-              git reset --hard "origin/$BRANCH"
-            fi
+            echo "-> Actualizando a origin/$BRANCH"
+            git reset --hard "origin/$BRANCH"
 
             echo "-> Build y run con Docker Compose"
             docker compose -f "$COMPOSE" up -d --build
@@ -75,3 +70,4 @@ jobs:
 
             echo "=== DEPLOY PROD COMPLETADO ==="
           REMOTE
+
