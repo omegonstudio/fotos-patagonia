@@ -31,6 +31,10 @@ class EarningsSummarySchema(BaseModel):
     end_date: date | None
     photo_sales_details: List[PhotoSaleDetailSchema]
 
+from models.user import User, UserCreateSchema
+from services.users import UserService
+from models.role import Role
+
 class PhotographerService(BaseService):
     def __init__(self, db: Session):
         self.db = db
@@ -40,8 +44,40 @@ class PhotographerService(BaseService):
         return photographers
     ############################################################################
     def create_photographer(self, ph_in: PhotographerCreateSchema):
-        new_ph = Photographer(**ph_in.model_dump())
-        # user_id will be set if provided in ph_in
+        user_service = UserService(self.db)
+        
+        # 1. Check if user already exists
+        existing_user = user_service.get_user_by_email(ph_in.email)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A user with this email already exists."
+            )
+            
+        # 2. Get the "Photographer" role
+        photographer_role = self.db.query(Role).filter(Role.name == "Photographer").first()
+        if not photographer_role:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Photographer role not found. Please initialize database roles."
+            )
+            
+        # 3. Create the User
+        user_in = UserCreateSchema(
+            email=ph_in.email,
+            password=ph_in.password,
+            role_id=photographer_role.id,
+            is_active=True
+        )
+        new_user = user_service.create_user(user_in)
+        
+        # 4. Create the Photographer, excluding user-specific fields
+        photographer_data = ph_in.model_dump(exclude={"email", "password"})
+        new_ph = Photographer(
+            **photographer_data,
+            user_id=new_user.id
+        )
+        
         return self._save_and_refresh(new_ph)
     ############################################################################
     def get_photographer(self, ph_id: int):

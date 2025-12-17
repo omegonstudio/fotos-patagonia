@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from db.base import Base
@@ -11,7 +11,9 @@ class PhotographerBaseSchema(BaseModel):
     contact_info: str
 
 class PhotographerCreateSchema(PhotographerBaseSchema):
-    user_id: Optional[int] = None # Allow user_id to be passed during creation
+    email: EmailStr
+    password: str
+
 class PhotographerUpdateSchema(PhotographerBaseSchema):
     contact_info: Optional[str] = None
 
