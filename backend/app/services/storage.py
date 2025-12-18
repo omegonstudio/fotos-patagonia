@@ -63,9 +63,12 @@ class StorageService:
                 },
                 ExpiresIn=expiration
             )
-            # Replace internal docker URL with public-facing URL if configured
-            if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL:
-                return response.replace(settings.S3_ENDPOINT_URL, settings.S3_PUBLIC_URL)
+            # Boto3 with an endpoint_url generates a path-style URL: https://<endpoint>/<bucket-name>/<key>
+            # We want a virtual-hosted-style URL: https://<bucket-name>.<endpoint>/<key>
+            # The S3_PUBLIC_URL should be set to the virtual-hosted-style base URL.
+            if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL and self.bucket_name:
+                path_style_prefix = f"{settings.S3_ENDPOINT_URL}/{self.bucket_name}"
+                return response.replace(path_style_prefix, settings.S3_PUBLIC_URL)
             return response
         except ClientError as e:
             logging.error(f"Error generating presigned PUT URL: {e}")
@@ -84,9 +87,12 @@ class StorageService:
                 Params={'Bucket': self.bucket_name, 'Key': object_name},
                 ExpiresIn=expiration
             )
-            # Replace internal docker URL with public-facing URL if configured
-            if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL:
-                return response.replace(settings.S3_ENDPOINT_URL, settings.S3_PUBLIC_URL)
+            # Boto3 with an endpoint_url generates a path-style URL: https://<endpoint>/<bucket-name>/<key>
+            # We want a virtual-hosted-style URL: https://<bucket-name>.<endpoint>/<key>
+            # The S3_PUBLIC_URL should be set to the virtual-hosted-style base URL.
+            if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL and self.bucket_name:
+                path_style_prefix = f"{settings.S3_ENDPOINT_URL}/{self.bucket_name}"
+                return response.replace(path_style_prefix, settings.S3_PUBLIC_URL)
             return response
         except ClientError as e:
             logging.error(f"Error generating presigned GET URL: {e}")
