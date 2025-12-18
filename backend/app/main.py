@@ -17,6 +17,8 @@ from models.order import Order, OrderItem
 
 from routers import auth, users, roles, photographers, sessions, albums, photos, cart, discounts, checkout, orders, saved_carts, storage, testing, tags, combos, earnings, admin
 
+from core.config import settings
+
 # Create database tables
 # This will create tables for all models that inherit from Base and are imported.
 Base.metadata.create_all(bind=engine)
@@ -25,10 +27,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ],
+    allow_origins=settings.storage_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

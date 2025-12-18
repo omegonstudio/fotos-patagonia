@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     S3_SECRET_ACCESS_KEY: str | None = None
     S3_BUCKET_NAME: str | None = None
     S3_PUBLIC_URL: str | None = None
+    S3_REGION: str | None = None
     STORAGE_ALLOWED_ORIGINS: str | None = None
 
     FIRST_SUPERUSER_EMAIL: str = "admin@example.com" # Provide a default value
