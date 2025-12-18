@@ -55,16 +55,20 @@ export function usePhotoUpload() {
   /**
    * Paso 2: Subir archivo a S3/MinIO usando URL presigned
    */
-  const uploadToStorage = async (file: File, uploadUrl: string): Promise<void> => {
-    const response = await fetch(uploadUrl, {
-      method: "PUT",
-      body: file,
-    });
+ const uploadToStorage = async (file: File, uploadUrl: string): Promise<void> => {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type, // 🔴 CLAVE
+    },
+    body: file,
+  });
 
-    if (!response.ok) {
-      throw new Error(`Failed to upload ${file.name} to storage`);
-    }
-  };
+  if (!response.ok) {
+    throw new Error(`Failed to upload ${file.name} to storage`);
+  }
+};
+
 
   /**
    * Paso 3: Notificar al backend que los archivos fueron subidos
