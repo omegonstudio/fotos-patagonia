@@ -36,22 +36,21 @@ services:
     networks:
       - fotopatagonia_network
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod   # 👈 CLAVE
-    container_name: fotopatagonia-frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
-    environment:
-      # 👇 USAMOS IP DEL DROPLET
-      - NEXT_PUBLIC_API_URL=http://24.199.102.99:8000
-      - INTERNAL_API_URL=http://backend:8000
-    ports:
-      - "3000:3000"   # 👈 EXPONER FRONTEND
-    networks:
-      - fotopatagonia_network
+frontend:
+  build:
+    context: ./frontend
+    dockerfile: Dockerfile.prod
+  container_name: fotopatagonia-frontend
+  restart: unless-stopped
+  depends_on:
+    - backend
+  environment:
+    - NEXT_PUBLIC_API_URL=http://somosfotospatagonia.com/api
+    - INTERNAL_API_URL=http://backend:8000
+  ports:
+    - "3000:3000"
+  networks:
+    - fotopatagonia_network
 
 networks:
   fotopatagonia_network:
