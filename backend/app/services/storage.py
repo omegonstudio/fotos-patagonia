@@ -31,7 +31,8 @@ class StorageService:
             aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
             region_name=settings.S3_REGION,  # Use configurable region
             config=Config(
-                signature_version='s3v4'
+                signature_version='s3v4',
+                s3={'addressing_style': 'path'}
             )
         )
         self.bucket_name = settings.S3_BUCKET_NAME
@@ -63,12 +64,11 @@ class StorageService:
                 },
                 ExpiresIn=expiration
             )
-            # Boto3 with an endpoint_url generates a path-style URL: https://<endpoint>/<bucket-name>/<key>
-            # We want a virtual-hosted-style URL: https://<bucket-name>.<endpoint>/<key>
-            # The S3_PUBLIC_URL should be set to the virtual-hosted-style base URL.
-            if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL and self.bucket_name:
-                path_style_prefix = f"{settings.S3_ENDPOINT_URL}/{self.bucket_name}"
-                return response.replace(path_style_prefix, settings.S3_PUBLIC_URL)
+            # Replace the internal endpoint URL with the public one for browser access.
+            # e.g., http://localstack:4566 -> http://localhost:4566
+            if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL:
+                response = response.replace(settings.S3_ENDPOINT_URL, settings.S3_PUBLIC_URL)
+
             return response
         except ClientError as e:
             logging.error(f"Error generating presigned PUT URL: {e}")
@@ -87,12 +87,11 @@ class StorageService:
                 Params={'Bucket': self.bucket_name, 'Key': object_name},
                 ExpiresIn=expiration
             )
-            # Boto3 with an endpoint_url generates a path-style URL: https://<endpoint>/<bucket-name>/<key>
-            # We want a virtual-hosted-style URL: https://<bucket-name>.<endpoint>/<key>
-            # The S3_PUBLIC_URL should be set to the virtual-hosted-style base URL.
-            if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL and self.bucket_name:
-                path_style_prefix = f"{settings.S3_ENDPOINT_URL}/{self.bucket_name}"
-                return response.replace(path_style_prefix, settings.S3_PUBLIC_URL)
+            # Replace the internal endpoint URL with the public one for browser access.
+            # e.g., http://localstack:4566 -> http://localhost:4566
+            if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL:
+                response = response.replace(settings.S3_ENDPOINT_URL, settings.S3_PUBLIC_URL)
+            
             return response
         except ClientError as e:
             logging.error(f"Error generating presigned GET URL: {e}")
