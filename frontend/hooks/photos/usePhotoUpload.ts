@@ -47,10 +47,13 @@ export function usePhotoUpload() {
       contentType: file.type,
     }));
 
-    const response = await apiFetch("/request-upload-urls", {
-      method: "POST",
-      body: JSON.stringify({ files: filesInfo }),
-    });
+    const response = await apiFetch<{ urls: PresignedURLData[] }>(
+      "/request-upload-urls",
+      {
+        method: "POST",
+        body: JSON.stringify({ files: filesInfo }),
+      }
+    );
 
     return response.urls;
   };

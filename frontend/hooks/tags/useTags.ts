@@ -16,7 +16,7 @@ export function useTags() {
   const fetchTags = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/tags/");
+      const data = await apiFetch<BackendTag[]>("/tags/");
       setTags(data);
       setError(null);
     } catch (err: any) {
@@ -28,19 +28,19 @@ export function useTags() {
   }, []);
 
   const getTag = async (tagId: number): Promise<BackendTag> => {
-    const data = await apiFetch(`/tags/${tagId}`);
+    const data = await apiFetch<BackendTag>(`/tags/${tagId}`);
     return data;
   };
 
   const createTag = async (name: string): Promise<BackendTag> => {
     try {
       console.log("Creating tag with name:", name);
-      
-      const result = await apiFetch("/tags/", {
+
+      const result = await apiFetch<BackendTag>("/tags/", {
         method: "POST",
         body: JSON.stringify({ name }),
       });
-      
+
       console.log("Tag created:", result);
       return result;
     } catch (err: any) {
@@ -50,15 +50,18 @@ export function useTags() {
     }
   };
 
-  const updateTag = async (tagId: number, name: string): Promise<BackendTag> => {
+  const updateTag = async (
+    tagId: number,
+    name: string
+  ): Promise<BackendTag> => {
     try {
       console.log(`Updating tag ${tagId} with name:`, name);
-      
-      const result = await apiFetch(`/tags/${tagId}`, {
+
+      const result = await apiFetch<BackendTag>(`/tags/${tagId}`, {
         method: "PUT",
         body: JSON.stringify({ name }),
       });
-      
+
       console.log("Tag updated:", result);
       return result;
     } catch (err: any) {
@@ -71,11 +74,11 @@ export function useTags() {
   const deleteTag = async (tagId: number): Promise<void> => {
     try {
       console.log(`Deleting tag ${tagId}`);
-      
+
       await apiFetch(`/tags/${tagId}`, {
         method: "DELETE",
       });
-      
+
       console.log("Tag deleted successfully");
     } catch (err: any) {
       setError(err.message);
@@ -99,4 +102,3 @@ export function useTags() {
     deleteTag,
   };
 }
-

@@ -41,7 +41,7 @@ export function useUsers() {
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/users/");
+      const data = await apiFetch<BackendUser[]>("/users/");
       setUsers(data);
       setError(null);
     } catch (err: any) {
@@ -53,19 +53,21 @@ export function useUsers() {
   }, []);
 
   const getUser = async (userId: number): Promise<BackendUser> => {
-    const data = await apiFetch(`/users/${userId}`);
+    const data = await apiFetch<BackendUser>(`/users/${userId}`);
     return data;
   };
 
-  const createUser = async (userData: UserCreateInput): Promise<BackendUser> => {
+  const createUser = async (
+    userData: UserCreateInput
+  ): Promise<BackendUser> => {
     try {
       console.log("Creating user:", { ...userData, password: "***" });
-      
-      const result = await apiFetch("/users/", {
+
+      const result = await apiFetch<BackendUser>("/users/", {
         method: "POST",
         body: JSON.stringify(userData),
       });
-      
+
       console.log("User created:", result);
       return result;
     } catch (err: any) {
@@ -75,15 +77,21 @@ export function useUsers() {
     }
   };
 
-  const updateUser = async (userId: number, userData: UserUpdateInput): Promise<BackendUser> => {
+  const updateUser = async (
+    userId: number,
+    userData: UserUpdateInput
+  ): Promise<BackendUser> => {
     try {
-      console.log(`Updating user ${userId}:`, userData.password ? { ...userData, password: "***" } : userData);
-      
-      const result = await apiFetch(`/users/${userId}`, {
+      console.log(
+        `Updating user ${userId}:`,
+        userData.password ? { ...userData, password: "***" } : userData
+      );
+
+      const result = await apiFetch<BackendUser>(`/users/${userId}`, {
         method: "PUT",
         body: JSON.stringify(userData),
       });
-      
+
       console.log("User updated:", result);
       return result;
     } catch (err: any) {
@@ -96,11 +104,11 @@ export function useUsers() {
   const deleteUser = async (userId: number): Promise<void> => {
     try {
       console.log(`Deleting user ${userId}`);
-      
+
       await apiFetch(`/users/${userId}`, {
         method: "DELETE",
       });
-      
+
       console.log("User deleted successfully");
     } catch (err: any) {
       setError(err.message);

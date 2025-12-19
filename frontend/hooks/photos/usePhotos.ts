@@ -46,7 +46,7 @@ export function usePhotos() {
   const fetchPhotos = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/photos/");
+      const data = await apiFetch<BackendPhoto[]>("/photos/");
       setPhotos(data);
       setError(null);
     } catch (err: any) {
@@ -58,21 +58,26 @@ export function usePhotos() {
   }, []);
 
   const getPhoto = async (photoId: number): Promise<BackendPhoto> => {
-    const data = await apiFetch(`/photos/${photoId}`);
+    const data = await apiFetch<BackendPhoto>(`/photos/${photoId}`);
     return data;
   };
 
-  const updatePhoto = async (photoId: number, updates: Partial<BackendPhoto>) => {
-    const data = await apiFetch(`/photos/${photoId}`, {
+  const updatePhoto = async (
+    photoId: number,
+    updates: Partial<BackendPhoto>
+  ) => {
+    const data = await apiFetch<Partial<BackendPhoto>>(`/photos/${photoId}`, {
       method: "PUT",
       body: JSON.stringify(updates),
     });
-    
+
     // Actualizar en la lista local
     setPhotos((prev) =>
-      prev.map((photo) => (photo.id === photoId ? { ...photo, ...data } : photo))
+      prev.map((photo) =>
+        photo.id === photoId ? { ...photo, ...data } : photo
+      )
     );
-    
+
     return data;
   };
 
@@ -80,22 +85,22 @@ export function usePhotos() {
     await apiFetch(`/photos/${photoId}`, {
       method: "DELETE",
     });
-    
+
     // Eliminar de la lista local
     setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
   };
 
   const setPhotoTags = async (photoId: number, tagNames: string[]) => {
-    const data = await apiFetch(`/photos/${photoId}/tags`, {
+    const data = await apiFetch<BackendPhoto>(`/photos/${photoId}/tags`, {
       method: "POST",
       body: JSON.stringify({ tag_names: tagNames }),
     });
-    
+
     // Actualizar en la lista local
     setPhotos((prev) =>
       prev.map((photo) => (photo.id === photoId ? data : photo))
     );
-    
+
     return data;
   };
 
