@@ -28,6 +28,7 @@ interface UploadPhotoParams {
   price: number;
   description?: string;
   album_id?: number;
+  session_id?: number;
 }
 
 export function usePhotoUpload() {
@@ -38,7 +39,9 @@ export function usePhotoUpload() {
   /**
    * Paso 1: Solicitar URLs presigned para subir archivos
    */
-  const requestUploadUrls = async (files: File[]): Promise<PresignedURLData[]> => {
+  const requestUploadUrls = async (
+    files: File[]
+  ): Promise<PresignedURLData[]> => {
     const filesInfo: FileInfo[] = files.map((file) => ({
       filename: file.name,
       contentType: file.type,
@@ -55,50 +58,51 @@ export function usePhotoUpload() {
   /**
    * Paso 2: Subir archivo a S3/MinIO usando URL presigned
    */
- const uploadToStorage = async (file: File, uploadUrl: string): Promise<void> => {
-  const response = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": file.type, // 🔴 CLAVE
-    },
-    body: file,
-  });
+  const uploadToStorage = async (
+    file: File,
+    uploadUrl: string
+  ): Promise<void> => {
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type, // 🔴 CLAVE
+      },
+      body: file,
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to upload ${file.name} to storage`);
-  }
-};
-
+    if (!response.ok) {
+      throw new Error(`Failed to upload ${file.name} to storage`);
+    }
+  };
 
   /**
    * Paso 3: Notificar al backend que los archivos fueron subidos
    */
   const completeUpload = async (
-  photos: PhotoCompletionData[],
-  album_id?: number
-) => {
-  return apiFetch("/photos/complete-upload", {
-    method: "POST",
-    body: JSON.stringify({ photos, album_id }),
-  });
-};
+    photos: PhotoCompletionData[],
+    album_id?: number
+  ) => {
+    return apiFetch("/photos/complete-upload", {
+      method: "POST",
+      body: JSON.stringify({ photos, album_id }),
+    });
+  };
 
   /**
    * Función principal: Maneja todo el proceso de upload
    */
-const uploadPhotos = async ({
-  files,
-  photographer_id,
-  price,
-  description,
-  album_id,
-}: UploadPhotoParams) => {
+  const uploadPhotos = async ({
+    files,
+    photographer_id,
+    price,
+    description,
+    album_id,
+  }: UploadPhotoParams) => {
     setUploading(true);
     setError(null);
     setProgress(0);
 
     try {
-
       // Paso 1: Solicitar URLs presigned
       console.log("📤 Solicitando URLs presigned...");
       const urlsData = await requestUploadUrls(files);
@@ -117,13 +121,12 @@ const uploadPhotos = async ({
       // Paso 3: Notificar al backend
       console.log("✅ Completando registro en base de datos...");
       const photosData: PhotoCompletionData[] = urlsData.map((urlData) => ({
-          object_name: urlData.object_name,
-          original_filename: urlData.original_filename,
-          description: description ?? undefined,
-          price,
-          photographer_id,
-        }));
-
+        object_name: urlData.object_name,
+        original_filename: urlData.original_filename,
+        description: description ?? undefined,
+        price,
+        photographer_id,
+      }));
 
       console.log("photosData", photosData);
       const createdPhotos = await completeUpload(photosData, album_id);
@@ -147,4 +150,3 @@ const uploadPhotos = async ({
     error,
   };
 }
-
