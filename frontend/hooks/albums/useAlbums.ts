@@ -22,7 +22,7 @@ export function useAlbums(albumId?: string) {
       setLoading(true);
 
       const url = albumId ? `/albums/${albumId}` : `/albums/`;
-      const result = await apiFetch(url);
+      const result = await apiFetch<BackendAlbum | BackendAlbum[]>(url);
 
       setData(result);
       setError(null);
@@ -34,24 +34,25 @@ export function useAlbums(albumId?: string) {
     }
   }, [albumId]);
 
-  const createAlbum = async (albumData: Partial<Album>): Promise<BackendAlbum> => {
+  const createAlbum = async (
+    albumData: Partial<Album>
+  ): Promise<BackendAlbum> => {
     try {
       // Enviar solo los campos que el backend acepta
-     const backendData = {
-  name: albumData.name!,
-  description: albumData.description || null,
-  session_ids: albumData.sessionIds ?? [],
-  tag_ids: albumData.tagIds ?? [],
-}
+      const backendData = {
+        name: albumData.name!,
+        description: albumData.description || null,
+        session_ids: albumData.sessionIds ?? [],
+        tag_ids: albumData.tagIds ?? [],
+      };
 
-      
       console.log("Creating album with data:", backendData);
-      
-      const result = await apiFetch('/albums/', {
-        method: 'POST',
-        body: JSON.stringify(backendData)
+
+      const result = await apiFetch<BackendAlbum>("/albums/", {
+        method: "POST",
+        body: JSON.stringify(backendData),
       });
-      
+
       console.log("Album created:", result);
       return result;
     } catch (err: any) {
@@ -61,24 +62,26 @@ export function useAlbums(albumId?: string) {
     }
   };
 
-  const updateAlbum = async (id: number | string, albumData: Partial<Album>): Promise<BackendAlbum> => {
+  const updateAlbum = async (
+    id: number | string,
+    albumData: Partial<Album>
+  ): Promise<BackendAlbum> => {
     try {
       // Enviar solo los campos que el backend acepta
       const backendData = {
-  name: albumData.name!,
-  description: albumData.description || null,
-  session_ids: albumData.sessionIds,
-  tag_ids: albumData.tagIds,
-}
+        name: albumData.name!,
+        description: albumData.description || null,
+        session_ids: albumData.sessionIds,
+        tag_ids: albumData.tagIds,
+      };
 
-      
       console.log(`Updating album ${id} with data:`, backendData);
-      
-      const result = await apiFetch(`/albums/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(backendData)
+
+      const result = await apiFetch<BackendAlbum>(`/albums/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(backendData),
       });
-      
+
       console.log("Album updated:", result);
       return result;
     } catch (err: any) {
@@ -91,11 +94,11 @@ export function useAlbums(albumId?: string) {
   const deleteAlbum = async (id: number | string): Promise<void> => {
     try {
       console.log(`Deleting album ${id}`);
-      
+
       await apiFetch(`/albums/${id}`, {
-        method: 'DELETE'
+        method: "DELETE",
       });
-      
+
       console.log("Album deleted successfully");
     } catch (err: any) {
       setError(err.message);
@@ -120,7 +123,6 @@ export function useAlbums(albumId?: string) {
     refetch: fetchAlbums,
     createAlbum,
     updateAlbum,
-    deleteAlbum
+    deleteAlbum,
   };
 }
-
