@@ -29,11 +29,8 @@ class StorageService:
             endpoint_url=settings.S3_ENDPOINT_URL,
             aws_access_key_id=settings.S3_ACCESS_KEY_ID,
             aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
-            region_name=settings.S3_REGION,  # Use configurable region
-            config=Config(
-                signature_version='s3v4',
-                s3={'addressing_style': 'path'}
-            )
+            region_name=settings.S3_REGION,
+            config=Config(signature_version='s3v4')
         )
         self.bucket_name = settings.S3_BUCKET_NAME
 
@@ -66,8 +63,8 @@ class StorageService:
             )
             # Replace the internal endpoint URL with the public one for browser access.
             # e.g., http://localstack:4566 -> http://localhost:4566
-            if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL:
-                response = response.replace(settings.S3_ENDPOINT_URL, settings.S3_PUBLIC_URL)
+            # if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL:
+            #     response = response.replace(settings.S3_ENDPOINT_URL, settings.S3_PUBLIC_URL)
 
             return response
         except ClientError as e:
@@ -89,8 +86,8 @@ class StorageService:
             )
             # Replace the internal endpoint URL with the public one for browser access.
             # e.g., http://localstack:4566 -> http://localhost:4566
-            if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL:
-                response = response.replace(settings.S3_ENDPOINT_URL, settings.S3_PUBLIC_URL)
+            # if settings.S3_PUBLIC_URL and settings.S3_ENDPOINT_URL:
+            #     response = response.replace(settings.S3_ENDPOINT_URL, settings.S3_PUBLIC_URL)
             
             return response
         except ClientError as e:
