@@ -46,7 +46,7 @@ class Settings(BaseSettings):
         """
         default_origins = [
             "http://localhost:3001",
-            "http://127.0.0.1:3001",
+            "http://127.0.0.1:3000",
         ]
         if not self.STORAGE_ALLOWED_ORIGINS:
             return default_origins
