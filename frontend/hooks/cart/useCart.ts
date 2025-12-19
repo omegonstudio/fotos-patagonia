@@ -12,7 +12,7 @@ export function useCart() {
   async function fetchCart() {
     try {
       setLoading(true);
-      const result = await apiFetch('/cart/');
+      const result = await apiFetch<CartState>("/cart/");
       setCart(result);
       setError(null);
     } catch (err: any) {
@@ -24,9 +24,9 @@ export function useCart() {
 
   async function addToCart(item: CartItem) {
     try {
-      const result = await apiFetch('/cart/items', {
-        method: 'POST',
-        body: JSON.stringify(item)
+      const result = await apiFetch<CartState>("/cart/items", {
+        method: "POST",
+        body: JSON.stringify(item),
       });
       setCart(result);
       return result;
@@ -39,8 +39,8 @@ export function useCart() {
   async function removeFromCart(itemId: number) {
     try {
       // OpenAPI usa item_id, no photo_id
-      const result = await apiFetch(`/cart/items/${itemId}`, {
-        method: 'DELETE'
+      const result = await apiFetch<CartState>(`/cart/items/${itemId}`, {
+        method: "DELETE",
       });
       setCart(result);
       return result;
@@ -53,9 +53,9 @@ export function useCart() {
   async function updateCartItem(itemId: number, quantity: number) {
     try {
       // OpenAPI usa PUT (no PATCH) y solo acepta { quantity: number }
-      const result = await apiFetch(`/cart/items/${itemId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ quantity })
+      const result = await apiFetch<CartState>(`/cart/items/${itemId}`, {
+        method: "PUT",
+        body: JSON.stringify({ quantity }),
       });
       setCart(result);
       return result;
@@ -67,8 +67,8 @@ export function useCart() {
 
   async function clearCart() {
     try {
-      const result = await apiFetch('/cart/', {
-        method: 'DELETE'
+      const result = await apiFetch<CartState>("/cart/", {
+        method: "DELETE",
       });
       setCart(result);
       return result;
@@ -81,9 +81,9 @@ export function useCart() {
   async function applyDiscount(discountCode: string) {
     try {
       // OpenAPI: POST /discounts/apply-to-cart
-      const result = await apiFetch('/discounts/apply-to-cart', {
-        method: 'POST',
-        body: JSON.stringify({ code: discountCode })
+      const result = await apiFetch<CartState>("/discounts/apply-to-cart", {
+        method: "POST",
+        body: JSON.stringify({ code: discountCode }),
       });
       setCart(result);
       return result;
@@ -96,8 +96,8 @@ export function useCart() {
   async function removeDiscount() {
     try {
       // OpenAPI: DELETE /discounts/remove-from-cart
-      const result = await apiFetch('/discounts/remove-from-cart', {
-        method: 'DELETE'
+      const result = await apiFetch<CartState>("/discounts/remove-from-cart", {
+        method: "DELETE",
       });
       setCart(result);
       return result;
@@ -121,7 +121,6 @@ export function useCart() {
     updateCartItem,
     clearCart,
     applyDiscount,
-    removeDiscount
+    removeDiscount,
   };
 }
-

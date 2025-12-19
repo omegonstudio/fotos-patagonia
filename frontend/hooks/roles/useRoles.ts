@@ -22,7 +22,7 @@ export function useRoles() {
   const fetchRoles = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/roles/");
+      const data = await apiFetch<BackendRole[]>("/roles/");
       setRoles(data);
       setError(null);
     } catch (err: any) {
@@ -34,7 +34,7 @@ export function useRoles() {
   }, []);
 
   const getRole = async (roleId: number): Promise<BackendRole> => {
-    const data = await apiFetch(`/roles/${roleId}`);
+    const data = await apiFetch<BackendRole>(`/roles/${roleId}`);
     return data;
   };
 

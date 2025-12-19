@@ -307,6 +307,8 @@ const LOGOUT_MESSAGES: Record<LogoutReason, { title: string; description: string
 const DEFAULT_LOGIN_ROUTE = "/"
 let logoutInFlight = false
 let storageListenerRegistered = false
+
+// ✅ Tipo universal (Node + Browser)
 let expirationTimer: ReturnType<typeof setTimeout> | null = null
 
 const scheduleExpirationCheck = (
@@ -315,30 +317,36 @@ const scheduleExpirationCheck = (
   reason: LogoutReason = "expired",
 ) => {
   if (typeof window === "undefined") return
+
   if (expirationTimer) {
-    window.clearTimeout(expirationTimer)
+    clearTimeout(expirationTimer)
     expirationTimer = null
   }
+
   if (!expiresAt) return
 
   const remaining = expiresAt - Date.now()
+
   if (remaining <= 0) {
     logoutFn({ reason })
     return
   }
 
-  expirationTimer = window.setTimeout(() => {
+  expirationTimer = setTimeout(() => {
     logoutFn({ reason })
   }, remaining)
 }
 
 const clearExpirationTimer = () => {
   if (typeof window === "undefined") return
+
   if (expirationTimer) {
-    window.clearTimeout(expirationTimer)
+    clearTimeout(expirationTimer)
     expirationTimer = null
   }
 }
+
+
 
 const persistSnapshot = (snapshot: StoredAuthSnapshot | null) => {
   if (!snapshot || !snapshot.token) {

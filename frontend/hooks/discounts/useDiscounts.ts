@@ -7,14 +7,14 @@ export interface BackendDiscount {
   id: number;
   code: string;
   percentage: number;
-  expires_at?: string | null;  // ISO string
+  expires_at?: string | null; // ISO string
   is_active: boolean;
 }
 
 export interface DiscountCreateInput {
   code: string;
   percentage: number;
-  expires_at?: string | null;  // ISO string
+  expires_at?: string | null; // ISO string
   is_active?: boolean;
 }
 
@@ -33,7 +33,7 @@ export function useDiscounts() {
   const fetchDiscounts = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/discounts/");
+      const data = await apiFetch<BackendDiscount[]>("/discounts/");
       setDiscounts(data);
       setError(null);
     } catch (err: any) {
@@ -45,19 +45,21 @@ export function useDiscounts() {
   }, []);
 
   const getDiscount = async (discountId: number): Promise<BackendDiscount> => {
-    const data = await apiFetch(`/discounts/${discountId}`);
+    const data = await apiFetch<BackendDiscount>(`/discounts/${discountId}`);
     return data;
   };
 
-  const createDiscount = async (discountData: DiscountCreateInput): Promise<BackendDiscount> => {
+  const createDiscount = async (
+    discountData: DiscountCreateInput
+  ): Promise<BackendDiscount> => {
     try {
       console.log("Creating discount:", discountData);
-      
-      const result = await apiFetch("/discounts/", {
+
+      const result = await apiFetch<BackendDiscount>("/discounts/", {
         method: "POST",
         body: JSON.stringify(discountData),
       });
-      
+
       console.log("Discount created:", result);
       return result;
     } catch (err: any) {
@@ -67,15 +69,21 @@ export function useDiscounts() {
     }
   };
 
-  const updateDiscount = async (discountId: number, discountData: DiscountUpdateInput): Promise<BackendDiscount> => {
+  const updateDiscount = async (
+    discountId: number,
+    discountData: DiscountUpdateInput
+  ): Promise<BackendDiscount> => {
     try {
       console.log(`Updating discount ${discountId}:`, discountData);
-      
-      const result = await apiFetch(`/discounts/${discountId}`, {
-        method: "PUT",
-        body: JSON.stringify(discountData),
-      });
-      
+
+      const result = await apiFetch<BackendDiscount>(
+        `/discounts/${discountId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(discountData),
+        }
+      );
+
       console.log("Discount updated:", result);
       return result;
     } catch (err: any) {
@@ -88,11 +96,11 @@ export function useDiscounts() {
   const deleteDiscount = async (discountId: number): Promise<void> => {
     try {
       console.log(`Deleting discount ${discountId}`);
-      
+
       await apiFetch(`/discounts/${discountId}`, {
         method: "DELETE",
       });
-      
+
       console.log("Discount deleted successfully");
     } catch (err: any) {
       setError(err.message);
@@ -116,4 +124,3 @@ export function useDiscounts() {
     deleteDiscount,
   };
 }
-

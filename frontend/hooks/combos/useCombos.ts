@@ -39,7 +39,7 @@ export function useCombos() {
   const fetchCombos = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/combos/");
+      const data = await apiFetch<BackendCombo[]>("/combos/");
       setCombos(data);
       setError(null);
     } catch (err: any) {
@@ -51,19 +51,21 @@ export function useCombos() {
   }, []);
 
   const getCombo = async (comboId: number): Promise<BackendCombo> => {
-    const data = await apiFetch(`/combos/${comboId}`);
+    const data = await apiFetch<BackendCombo>(`/combos/${comboId}`);
     return data;
   };
 
-  const createCombo = async (comboData: ComboCreateInput): Promise<BackendCombo> => {
+  const createCombo = async (
+    comboData: ComboCreateInput
+  ): Promise<BackendCombo> => {
     try {
       console.log("Creating combo:", comboData);
-      
-      const result = await apiFetch("/combos/", {
+
+      const result = await apiFetch<BackendCombo>("/combos/", {
         method: "POST",
         body: JSON.stringify(comboData),
       });
-      
+
       console.log("Combo created:", result);
       return result;
     } catch (err: any) {
@@ -73,15 +75,18 @@ export function useCombos() {
     }
   };
 
-  const updateCombo = async (comboId: number, comboData: ComboUpdateInput): Promise<BackendCombo> => {
+  const updateCombo = async (
+    comboId: number,
+    comboData: ComboUpdateInput
+  ): Promise<BackendCombo> => {
     try {
       console.log(`Updating combo ${comboId}:`, comboData);
-      
-      const result = await apiFetch(`/combos/${comboId}`, {
+
+      const result = await apiFetch<BackendCombo>(`/combos/${comboId}`, {
         method: "PUT",
         body: JSON.stringify(comboData),
       });
-      
+
       console.log("Combo updated:", result);
       return result;
     } catch (err: any) {
@@ -94,11 +99,11 @@ export function useCombos() {
   const deleteCombo = async (comboId: number): Promise<void> => {
     try {
       console.log(`Deleting combo ${comboId}`);
-      
+
       await apiFetch(`/combos/${comboId}`, {
         method: "DELETE",
       });
-      
+
       console.log("Combo deleted successfully");
     } catch (err: any) {
       setError(err.message);
@@ -122,4 +127,3 @@ export function useCombos() {
     deleteCombo,
   };
 }
-

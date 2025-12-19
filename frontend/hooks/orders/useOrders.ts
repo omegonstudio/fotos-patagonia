@@ -14,7 +14,7 @@ export function useOrders(orderId?: string) {
       setLoading(true);
 
       const url = orderId ? `/orders/${orderId}` : `/orders/`;
-      const result = await apiFetch(url);
+      const result = await apiFetch<Order | Order[]>(url);
 
       setData(result);
       setError(null);
@@ -30,9 +30,9 @@ export function useOrders(orderId?: string) {
 
   async function updateOrder(id: string, orderData: Partial<Order>) {
     try {
-      return await apiFetch(`/orders/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(orderData)
+      return await apiFetch<Order>(`/orders/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(orderData),
       });
     } catch (err: any) {
       setError(err.message);
@@ -41,20 +41,20 @@ export function useOrders(orderId?: string) {
   }
 
   async function updateOrderStatus(
-    id: string, 
-    newStatus: string, 
+    id: string,
+    newStatus: string,
     paymentMethod?: string
   ) {
     try {
       // OpenAPI: PUT /orders/{order_id}/status?new_status=X&payment_method=Y
       const params = new URLSearchParams();
-      params.append('new_status', newStatus);
+      params.append("new_status", newStatus);
       if (paymentMethod) {
-        params.append('payment_method', paymentMethod);
+        params.append("payment_method", paymentMethod);
       }
 
       return await apiFetch(`/orders/${id}/status?${params.toString()}`, {
-        method: 'PUT'
+        method: "PUT",
       });
     } catch (err: any) {
       setError(err.message);
@@ -67,7 +67,7 @@ export function useOrders(orderId?: string) {
    */
   async function getMyOrders() {
     try {
-      return await apiFetch('/orders/my-orders');
+      return await apiFetch<Order[]>("/orders/my-orders");
     } catch (err: any) {
       setError(err.message);
       throw err;
@@ -80,7 +80,7 @@ export function useOrders(orderId?: string) {
   async function sendOrderEmail(id: string) {
     try {
       return await apiFetch(`/orders/${id}/send-email`, {
-        method: 'POST'
+        method: "POST",
       });
     } catch (err: any) {
       setError(err.message);
@@ -118,7 +118,6 @@ export function useOrders(orderId?: string) {
     updateOrderStatus,
     getMyOrders,
     sendOrderEmail,
-    generateQRCode
+    generateQRCode,
   };
 }
-
