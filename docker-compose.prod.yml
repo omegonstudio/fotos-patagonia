@@ -8,18 +8,21 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
-    command: >
-      bash -c "
-      python /app/initial_data.py &&
-      uvicorn main:app --host 0.0.0.0 --port 8000
-      "
-    ports:
-      - "8000:8000" # 👈 EXPONER BACKEND POR IP
+
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
     depends_on:
       db:
         condition: service_healthy
+
     networks:
       - fotopatagonia_network
+
+    # 🔐 Hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   db:
     image: postgres:13

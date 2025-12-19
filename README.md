@@ -30,3 +30,4 @@ Tambien colocar esta URL en la configuracion del webhook en MP /developers
 # Usuarios
 admin@example.com - changeme
 photographer_1@example.com - password1
+
