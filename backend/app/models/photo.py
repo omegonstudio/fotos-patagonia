@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from typing import List, Optional
@@ -11,15 +11,16 @@ class PhotoBaseSchema(BaseModel):
     filename: str
     description: Optional[str] = None
     price: float
-    url: str
-    watermark_url: str
+    object_name: str
 
 class PhotoCreateSchema(PhotoBaseSchema):
     photographer_id: int
     session_id: int
 
-class PhotoUpdateSchema(PhotoBaseSchema):
-    pass
+class PhotoUpdateSchema(BaseModel):
+    filename: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
 
 class PhotoInDBBaseSchema(PhotoBaseSchema):
     id: int
@@ -31,6 +32,8 @@ class PhotoInDBBaseSchema(PhotoBaseSchema):
         from_attributes = True
 
 class PhotoSchema(PhotoInDBBaseSchema):
+    url: Optional[str] = Field(None, description="A presigned URL for accessing the original photo.")
+    watermark_url: Optional[str] = Field(None, description="A presigned URL for the photo, intended for watermarked display.")
     pass
 
 # SQLAlchemy model
@@ -41,8 +44,7 @@ class Photo(Base):
     filename = Column(String(255), nullable=False)
     description = Column(String(255))
     price = Column(Float, nullable=False)
-    url = Column(Text, nullable=False)
-    watermark_url = Column(Text, nullable=False)
+    object_name = Column(Text, nullable=False)
     photographer_id = Column(Integer, ForeignKey("photographers.id"))
     session_id = Column(Integer, ForeignKey("photo_sessions.id"))
 

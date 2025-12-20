@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Download, AlertCircle, Calendar } from "lucide-react"
@@ -8,39 +8,39 @@ import { Header } from "@/components/organisms/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import type { Order, Photo } from "@/lib/types"
-import { usePhotos } from "@/hooks/photos/usePhotos"
+import type { Order, OrderItem } from "@/lib/types"
+import { apiFetch } from "@/lib/api"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
-import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
+
+// Define a type for the fetched order that includes photo details in items
+type OrderWithPhotoItems = Omit<Order, "items"> & {
+  items: OrderItem[]
+}
 
 export default function DescargarPage() {
   const params = useParams()
-  const orderId = params.orderId as string
-  const { photos } = usePhotos()
-  const [order, setOrder] = useState<Order | null>(null)
+  const publicId = params.orderId as string // The param is the public_id (UUID)
+  const [order, setOrder] = useState<OrderWithPhotoItems | null>(null)
   const [loading, setLoading] = useState(true)
-
-  const mappedPhotos = useMemo(() => photos.map((photo) => mapBackendPhotoToPhoto(photo)), [photos])
-
-  const photosMap = useMemo(() => {
-    const map = new Map<string, Photo>()
-    mappedPhotos.forEach((photo) => {
-      map.set(photo.id, photo)
-    })
-    return map
-  }, [mappedPhotos])
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (orderId) {
-      const existingOrders = localStorage.getItem("orders")
-      if (existingOrders) {
-        const orders: Order[] = JSON.parse(existingOrders)
-        const foundOrder = orders.find((o) => o.id === orderId)
-        setOrder(foundOrder || null)
+    if (publicId) {
+      const fetchOrder = async () => {
+        try {
+          setLoading(true)
+          const fetchedOrder = await apiFetch<OrderWithPhotoItems>(`/orders/public/${publicId}`)
+          setOrder(fetchedOrder)
+        } catch (err) {
+          setError("No pudimos encontrar un pedido con este código. Verifica el link o contacta con soporte.")
+          console.error("Failed to fetch order:", err)
+        } finally {
+          setLoading(false)
+        }
       }
-      setLoading(false)
+      fetchOrder()
     }
-  }, [orderId])
+  }, [publicId])
 
   if (loading) {
     return (
@@ -55,7 +55,7 @@ export default function DescargarPage() {
     )
   }
 
-  if (!order) {
+  if (error || !order) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -65,9 +65,7 @@ export default function DescargarPage() {
               <AlertCircle className="h-10 w-10 text-red-600 dark:text-red-400" />
             </div>
             <h1 className="mb-4 text-3xl font-bold">Pedido no encontrado</h1>
-            <p className="mb-8 text-muted-foreground">
-              No pudimos encontrar un pedido con este código. Verifica el link o contacta con soporte.
-            </p>
+            <p className="mb-8 text-muted-foreground">{error}</p>
             <Link href="/galeria">
               <Button className="rounded-xl bg-primary font-semibold text-foreground hover:bg-primary-hover">
                 Volver a la galería
@@ -79,23 +77,14 @@ export default function DescargarPage() {
     )
   }
 
-  const orderPhotos = order.photos
-    .map((photoId) => photosMap.get(photoId))
-    .filter((photo): photo is Photo => photo !== undefined)
+  const orderPhotos = order.items.map((item) => item.photo).filter(Boolean)
+  const canDownload = order.order_status === "PAID" || order.order_status === "COMPLETED"
 
-  const canDownload = order.status === "pagado" || order.status === "enviado"
-
-  const handleDownload = (photoId: string) => {
-    const photo = photosMap.get(photoId)
-    if (photo) {
-      // In a real app, this would download the high-quality image
-      // For now, we'll just open it in a new tab
-      window.open(photo.urls.original || photo.urls.web, "_blank")
-    }
+  const handleDownload = (photoUrl: string) => {
+    window.open(photoUrl, "_blank")
   }
 
   const handleDownloadAll = () => {
-    // In a real app, this would create a ZIP file with all photos
     alert("En una aplicación real, esto descargaría todas las fotos en un archivo ZIP")
   }
 
@@ -120,7 +109,7 @@ export default function DescargarPage() {
                 <div>
                   <CardTitle>Estado del Pedido</CardTitle>
                   <CardDescription className="mt-1">
-                    {new Date(order.createdAt).toLocaleDateString("es-AR", {
+                    {new Date(order.created_at).toLocaleDateString("es-AR", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
@@ -181,25 +170,23 @@ export default function DescargarPage() {
                   >
                     <div className="aspect-square relative">
                       <WatermarkedImage
-                        src={photo.urls.thumb || "/placeholder.svg"}
-                        alt={photo.place || "Foto"}
+                        src={photo.watermark_url || "/placeholder.svg"}
+                        alt={photo.description || "Foto"}
                         fill
                         objectFit="cover"
                       />
                     </div>
                     <div className="p-3">
-                      <p className="font-semibold">{photo.place}</p>
+                      <p className="font-semibold">{photo.description || "Foto"}</p>
                       <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        {photo.takenAt && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(photo.takenAt).toLocaleDateString("es-AR")}
-                          </span>
-                        )}
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {new Date(order.created_at).toLocaleDateString("es-AR")}
+                        </span>
                       </div>
                       {canDownload && (
                         <Button
-                          onClick={() => handleDownload(photo.id)}
+                          onClick={() => handleDownload(photo.url)}
                           size="sm"
                           className="mt-3 w-full rounded-lg bg-primary text-foreground hover:bg-primary-hover"
                         >

@@ -57,7 +57,7 @@ export function PhotoModal({
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
-  const { uploadPhotos, uploading, progress } = usePhotoUpload();
+  const { uploadPhotos, uploading, progress } = usePhotoUpload(onSave);
   const { photographers, loading: photographersLoading } = usePhotographers();
   const { data: albumsData, loading: albumsLoading } = useAlbums();
   const { tags: availableTags, loading: tagsLoading } = useTags();

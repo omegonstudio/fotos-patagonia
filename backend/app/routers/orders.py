@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from deps import get_db, get_current_user, PermissionChecker
 from services.orders import OrderService
 from models.user import User
-from models.order import OrderUpdateSchema, OrderStatus, PaymentMethod
+from models.order import OrderUpdateSchema, OrderStatus, PaymentMethod, OrderSchema
 from core.permissions import Permissions
 
 router = APIRouter(
@@ -31,6 +31,17 @@ def get_order_details(
 ):
     return OrderService(db).get_order_details(order_id)
 
+@router.get("/public/{public_id}", response_model=OrderSchema)
+def get_public_order_details(
+    public_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Public endpoint to get order details using the public ID (UUID).
+    This does not require authentication.
+    """
+    return OrderService(db).get_order_by_public_id(public_id)
+    
 @router.put("/{order_id}/status")
 def update_order_status(
     order_id: int,

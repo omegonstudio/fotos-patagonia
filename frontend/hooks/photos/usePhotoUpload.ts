@@ -3,24 +3,7 @@
 import { useState } from "react";
 import { apiFetch } from "@/lib/api";
 
-interface FileInfo {
-  filename: string;
-  contentType: string;
-}
-
-interface PresignedURLData {
-  upload_url: string;
-  object_name: string;
-  original_filename: string;
-}
-
-interface PhotoCompletionData {
-  object_name: string;
-  original_filename: string;
-  description?: string;
-  price: number;
-  photographer_id: number;
-}
+// ... (interfaces remain the same)
 
 interface UploadPhotoParams {
   files: File[];
@@ -28,14 +11,15 @@ interface UploadPhotoParams {
   price: number;
   description?: string;
   album_id?: number;
-  session_id?: number;
 }
 
-export function usePhotoUpload() {
+// Pass a function to refetch photos after upload
+export function usePhotoUpload(refetchPhotos?: () => void) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  // ... (requestUploadUrls and uploadToStorage remain the same)
   /**
    * Paso 1: Solicitar URLs presigned para subir archivos
    */
@@ -91,9 +75,6 @@ export function usePhotoUpload() {
     });
   };
 
-  /**
-   * Función principal: Maneja todo el proceso de upload
-   */
   const uploadPhotos = async ({
     files,
     photographer_id,
@@ -106,7 +87,7 @@ export function usePhotoUpload() {
     setProgress(0);
 
     try {
-      // Paso 1: Solicitar URLs presigned
+      // ... (steps 1 and 2 are the same)
       console.log("📤 Solicitando URLs presigned...");
       const urlsData = await requestUploadUrls(files);
       setProgress(20);
@@ -121,7 +102,7 @@ export function usePhotoUpload() {
       await Promise.all(uploadPromises);
       setProgress(70);
 
-      // Paso 3: Notificar al backend
+
       console.log("✅ Completando registro en base de datos...");
       const photosData: PhotoCompletionData[] = urlsData.map((urlData) => ({
         object_name: urlData.object_name,
@@ -131,11 +112,17 @@ export function usePhotoUpload() {
         photographer_id,
       }));
 
-      console.log("photosData", photosData);
       const createdPhotos = await completeUpload(photosData, album_id);
       setProgress(100);
 
       console.log("🎉 Upload completado exitosamente!", createdPhotos);
+
+      // Refetch photos if the function is provided
+      if (refetchPhotos) {
+        console.log("🔄 Refrescando la lista de fotos...");
+        refetchPhotos();
+      }
+
       return createdPhotos;
     } catch (err: any) {
       console.error("❌ Error en upload:", err);
@@ -153,3 +140,4 @@ export function usePhotoUpload() {
     error,
   };
 }
+

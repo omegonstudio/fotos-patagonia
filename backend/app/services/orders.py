@@ -65,6 +65,16 @@ class OrderService(BaseService):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
         return order
 
+    def get_order_by_public_id(self, public_id: str) -> Order:
+        order = self.db.query(Order).options(
+            joinedload(Order.user),
+            joinedload(Order.items).joinedload(OrderItem.photo),
+            joinedload(Order.discount)
+        ).filter(Order.public_id == public_id).first()
+        if not order:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+        return order
+        
     def process_earnings_for_order(self, order: Order):
         """
         Calculates and records earnings for all items in an order by calling
