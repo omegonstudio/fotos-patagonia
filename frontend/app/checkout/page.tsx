@@ -188,11 +188,11 @@ const orderPayload = {
 
       // Canal local: limpiar carrito y redirigir a página de éxito/confirmación
       clearCart();
-     /*  router.push(
+      router.push(
         `/checkout/success?orderId=${encodeURIComponent(
           String(createdOrder.id)
         )}`
-      ); */
+      );
     } catch (error: any) {
       console.error("Error procesando el checkout:", error);
       setSubmitError(

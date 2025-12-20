@@ -34,6 +34,7 @@ interface PhotoModalProps {
   mode: "add" | "edit";
   photo?: BackendPhoto;
   onSave?: () => void;
+  albumId?: number; // Nueva prop para el ID del álbum
 }
 
 const DEFAULT_PRICE = "100";
@@ -44,6 +45,7 @@ export function PhotoModal({
   mode,
   photo,
   onSave,
+  albumId, // Nueva prop
 }: PhotoModalProps) {
   const isAddMode = mode === "add";
   const [selectedAlbum, setSelectedAlbum] = useState<string>("");
@@ -100,7 +102,8 @@ export function PhotoModal({
     }
 
     if (isAddMode) {
-      setSelectedAlbum("");
+      // Si se pasa un albumId, lo usamos y bloqueamos la selección
+      setSelectedAlbum(albumId?.toString() ?? "");
       setSelectedPhotographer("");
       setDescription("");
       setPrice(DEFAULT_PRICE);
@@ -118,7 +121,7 @@ export function PhotoModal({
       );
       setSelectedTagIds(photo.tags?.map((tag) => tag.id.toString()) ?? []);
     }
-  }, [open, photo, isAddMode]);
+  }, [open, photo, isAddMode, albumId]);
 
   const handleAlbumChange = useCallback((value: string) => {
     setSelectedAlbum(value);
@@ -315,7 +318,7 @@ export function PhotoModal({
             <Select
               value={selectedAlbum}
               onValueChange={handleAlbumChange}
-              disabled={!isAddMode || uploading}
+              disabled={!isAddMode || uploading || !!albumId}
             >
               <SelectTrigger className="rounded-xl border-gray-200 bg-white">
                 <SelectValue

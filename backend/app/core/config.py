@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "root"
     POSTGRES_DB: str = "fotopatagonia"
     POSTGRES_HOST: str = "db"
+    ENVIRONMENT: str | None = None
     
     @property
     def DATABASE_URL(self) -> str:

@@ -6,20 +6,23 @@ import { Header } from "@/components/organisms/header"
 import { useAlbums } from "@/hooks/albums/useAlbums"
 import { PhotoThumbnail } from "@/components/molecules/photo-thumbnail"
 import { PhotoViewerModal } from "@/components/organisms/photo-viewer-modal"
-import { useCartStore, useLightboxStore, useGalleryStore } from "@/lib/store"
+import { useCartStore, useLightboxStore, useGalleryStore, useAuthStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Calendar, MapPin, Camera, User, ShoppingCart, X, Loader2 } from "lucide-react"
+import { ArrowLeft, Calendar, MapPin, Plus, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { FilterBar } from "@/components/molecules/filter-bar"
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 import type { BackendPhoto } from "@/hooks/photos/usePhotos"
 import type { Photo } from "@/lib/types"
+import { PhotoModal } from "@/components/organisms/photo-modal"
 
 export default function AlbumDetailPage() {
   const params = useParams()
   const id = params.id as string
   const { data: albumData, loading, error, refetch } = useAlbums(id)
   const [filters, setFilters] = useState<{ date?: string; place?: string; time?: string }>({})
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const { isAuthenticated } = useAuthStore()
 
   // Transform backend data
   const album = albumData && !Array.isArray(albumData) ? albumData : null
@@ -180,40 +183,38 @@ export default function AlbumDetailPage() {
         </Button>
 
         <div className="mb-8 rounded-2xl bg-card p-6 shadow-md md:p-8">
-          <h1 className="mb-4 text-3xl font-heading md:text-4xl">{album.name}</h1>
-
-          {album.description && <p className="mb-4 text-muted-foreground">{album.description}</p>}
-          {eventName && <p className="mb-4 text-lg text-muted-foreground">{eventName}</p>}
-
-          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-            {location && (
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                <span>{location}</span>
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between">
+            <div className="mb-4 md:mb-0">
+              <h1 className="mb-4 text-3xl font-heading md:text-4xl">{album.name}</h1>
+              {album.description && <p className="mb-4 text-muted-foreground">{album.description}</p>}
+              {eventName && <p className="mb-4 text-lg text-muted-foreground">{eventName}</p>}
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                {location && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    <span>{location}</span>
+                  </div>
+                )}
+                {eventDate && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <span>
+                      {new Date(eventDate).toLocaleDateString("es-AR", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </div>
+                )}
               </div>
+            </div>
+            {isAuthenticated && (
+              <Button onClick={() => setIsUploadModalOpen(true)} className="rounded-xl">
+                <Plus className="mr-2 h-4 w-4" />
+                Añadir Fotos
+              </Button>
             )}
-            {eventDate && (
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                <span>
-                  {new Date(eventDate).toLocaleDateString("es-AR", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </span>
-              </div>
-            )}
-            {/* <div className="flex items-center gap-2">
-              <Camera className="h-4 w-4" />
-              <span>{albumPhotos.length} fotos</span>
-            </div> */}
-           {/*  {albumPhotographers.length > 0 && (
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4" />
-                <span>{albumPhotographers.map((p: any) => p.name).join(", ")}</span>
-              </div>
-            )} */}
           </div>
         </div>
 
@@ -280,40 +281,23 @@ export default function AlbumDetailPage() {
             </div>
           </>
         )}
-
-        {selectedPhotos.length > 0 && (
-          <div className="fixed bottom-8 left-1/2 z-50 -translate-x-1/2 transform">
-            <div className="flex items-center gap-3 rounded-full bg-white px-6 py-4 shadow-2xl ring-1 ring-gray-200">
-              <span className="text-sm font-semibold">
-                {selectedPhotos.length}{" "}
-                {selectedPhotos.length === 1 ? "foto seleccionada" : "fotos seleccionadas"}
-              </span>
-              <Button
-                onClick={() => {
-                  selectedPhotos.forEach((photoId) => addItem(photoId))
-                  clearSelection()
-                }}
-                className="rounded-full bg-primary hover:bg-primary/90"
-              >
-                <ShoppingCart className="mr-2 h-4 w-4" />
-                Agregar al carrito
-              </Button>
-              <Button
-                onClick={clearSelection}
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-full hover:bg-gray-100"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
       </main>
 
       {isOpen && currentPhoto && (
         <PhotoViewerModal photo={currentPhoto} onClose={close} onNext={next} onPrev={prev} />
       )}
+
+      <PhotoModal
+        open={isUploadModalOpen}
+        onOpenChange={setIsUploadModalOpen}
+        mode="add"
+        albumId={album.id ? Number(album.id) : undefined}
+        onSave={() => {
+          setIsUploadModalOpen(false);
+          refetch();
+        }}
+      />
     </div>
   )
 }
+
