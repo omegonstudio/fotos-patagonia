@@ -105,9 +105,15 @@ export default function AlbumDetailPage() {
     return Array.from(photographers.values())
   }, [album])
 
-  const { addItem, items, toggleFavorite, togglePrinter } = useCartStore()
-  const { selectedPhotos, toggleSelection, clearSelection, setPhotos } = useGalleryStore()
+  const { addItem, items, toggleFavorite, togglePrinter, toggleSelected } = useCartStore()
+  const { setPhotos } = useGalleryStore()
   const { isOpen, currentPhotoId, open, close, next, prev } = useLightboxStore()
+
+  // Derivar selectedPhotos del cart store
+  const selectedPhotos = useMemo(() => 
+    items.filter((item) => item.selected).map((item) => item.photoId),
+    [items]
+  )
 
   useEffect(() => {
     setPhotos(albumPhotos)
@@ -256,25 +262,12 @@ export default function AlbumDetailPage() {
                     photo={photo}
                     onClick={() => handlePhotoClick(photo.id)}
                     onShiftClick={() => handleShiftClick(photo.id)}
-                    isSelected={selectedPhotos.includes(photo.id)}
-                    onToggleSelect={() => toggleSelection(photo.id)}
+                    isSelected={cartItem?.selected || false}
+                    onToggleSelect={() => toggleSelected(photo.id)}
                     isFavorite={cartItem?.favorite || false}
                     isPrinter={cartItem?.printer || false}
-                    onToggleFavorite={() => {
-                      if (!cartItem) {
-                        addItem(photo.id)
-                      }
-                      toggleFavorite(photo.id)
-
-                    }}
-                    onTogglePrinter={() => {
-                      if (!cartItem) {
-                        addItem(photo.id)
-                      }
-                      togglePrinter(photo.id)
-                      toggleFavorite(photo.id)
-
-                    }}
+                    onToggleFavorite={() => toggleFavorite(photo.id)}
+                    onTogglePrinter={() => togglePrinter(photo.id)}
                   />
                 )
               })}

@@ -23,11 +23,12 @@ import { usePhotos } from "@/hooks/photos/usePhotos";
 import { useAuthStore } from "@/lib/store";
 import { usePhotographers } from "@/hooks/photographers/usePhotographers";
 import { useEarningsSummaryAll } from "@/hooks/earnings/useEarningsSummaryAll";
+import { useOrders } from "@/hooks/orders/useOrders";
 
 export default function AdminDashboard() {
   const user = useAuthStore((state) => state.user);
   const { photos, loading: photosLoading } = usePhotos();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const { data: ordersData, loading: ordersLoading } = useOrders();
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,
@@ -35,33 +36,33 @@ export default function AdminDashboard() {
     totalPhotos: 0,
   });
 
+  // Convertir ordersData a array
+  const orders: Order[] = Array.isArray(ordersData) ? ordersData : ordersData ? [ordersData] : [];
+
   // Obtener información del rol
   const roleName = getUserRoleName(user)?.toLowerCase();
   const userIsAdmin = isAdmin(user);
 
   useEffect(() => {
-    const existingOrders = localStorage.getItem("orders");
-    if (existingOrders && !photosLoading) {
-      const parsedOrders: Order[] = JSON.parse(existingOrders);
-
+    if (!ordersLoading && !photosLoading) {
       // Filtrar pedidos según el rol del usuario
-      let filteredOrders = parsedOrders;
+      let filteredOrders = orders;
 
       if (!userIsAdmin && user?.photographer_id) {
         // Si no es admin y tiene photographer_id, filtrar solo sus fotos
         const ordersWithPhotographerItems: Order[] = [];
 
-        parsedOrders.forEach((order) => {
+        orders.forEach((order) => {
           // Filtrar items del pedido que sean fotos del fotógrafo
           const photographerItems = (order.items || []).filter((item) => {
-            const photo = photos.find((p) => String(p.id) === item.photoId);
+            const photo = photos.find((p) => p.id === item.photo?.id);
             return photo?.photographer_id === user.photographer_id;
           });
 
           // Si hay items del fotógrafo, calcular el total proporcional
           if (photographerItems.length > 0) {
             const photographerTotal = photographerItems.reduce(
-              (sum, item) => sum + item.priceAtPurchase,
+              (sum, item) => sum + (item.price || 0),
               0
             );
             ordersWithPhotographerItems.push({
@@ -75,15 +76,13 @@ export default function AdminDashboard() {
         filteredOrders = ordersWithPhotographerItems;
       }
 
-      setOrders(filteredOrders);
-
       // Calculate stats
       const totalRevenue = filteredOrders.reduce(
-        (sum, order) => sum + order.total,
+        (sum, order) => sum + (order.total || 0),
         0
       );
       const pendingOrders = filteredOrders.filter(
-        (o) => o.status === "en_espera" || o.status === "enviado"
+        (o) => o.order_status === "pending" || o.order_status === "paid"
       ).length;
 
       // Calcular total de fotos según el rol
@@ -99,9 +98,21 @@ export default function AdminDashboard() {
         totalPhotos,
       });
     }
-  }, [user, photos, photosLoading, userIsAdmin]);
+  }, [orders, photos, photosLoading, ordersLoading, userIsAdmin, user?.photographer_id]);
 
-  const recentOrders = orders.slice(-5).reverse();
+  // Obtener las últimas 5 órdenes (filtradas si es fotógrafo)
+  const getFilteredOrders = () => {
+    if (!userIsAdmin && user?.photographer_id) {
+      return orders.filter((order) =>
+        (order.items || []).some((item) => {
+          const photo = photos.find((p) => p.id === item.photo?.id);
+          return photo?.photographer_id === user.photographer_id;
+        })
+      );
+    }
+    return orders;
+  };
+  const recentOrders = getFilteredOrders().slice(-5).reverse();
 
   // Textos dinámicos según el rol
   const isPhotographer = !userIsAdmin && user?.photographer_id;
@@ -371,13 +382,13 @@ export default function AdminDashboard() {
                   <div className="flex-1">
                     <p className="font-semibold">Pedido #{order.id}</p>
                     <p className="text-sm text-muted-foreground">
-                      {order.email}
+                      {order.user?.email || "Sin email"}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">${order.total}</p>
                     <p className="text-sm capitalize text-muted-foreground">
-                      {order?.status?.replace("_", " ")}
+                      {order.order_status?.replace("_", " ") || "Sin estado"}
                     </p>
                   </div>
                 </div>

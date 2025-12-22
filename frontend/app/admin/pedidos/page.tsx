@@ -206,7 +206,7 @@ export default function PedidosPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Forma de Pago</TableHead>
                     <TableHead>Total</TableHead>
-                    <TableHead>Fecha</TableHead>
+                     <TableHead>Fecha</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -232,7 +232,7 @@ export default function PedidosPage() {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
-                        </TableCell>
+                        </TableCell> 
                         <TableCell className="text-right">
                           <Link href={`/admin/pedidos/${order.id}`}>
                             <Button variant="ghost" size="sm" className="gap-2">

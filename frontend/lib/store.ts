@@ -17,6 +17,7 @@ import type { CartState, LightboxState, GalleryState, Photo, Filters, User, Prin
 interface CartStore extends CartState {
   addItem: (photoId: string) => void
   removeItem: (photoId: string) => void
+  toggleSelected: (photoId: string) => void
   toggleFavorite: (photoId: string) => void
   togglePrinter: (photoId: string) => void
   setPrintFormat: (photoId: string, format: PrintFormat) => void
@@ -44,30 +45,92 @@ export const useCartStore = create<CartStore>()(
       addItem: (photoId: string) => {
         const { items } = get()
         if (items.some((item) => item.photoId === photoId)) return
-
-        set({ items: [...items, { photoId, favorite: false, printer: false }] })
+        // Agregar con selected: true para que permanezca en el carrito
+        set({ items: [...items, { photoId, selected: true, favorite: false, printer: false }] })
       },
 
       removeItem: (photoId: string) => {
         set({ items: get().items.filter((item) => item.photoId !== photoId) })
       },
 
+      // Helper: verifica si un item debe permanecer en carrito
+      // Item válido si: selected || favorite || printer
+
+      toggleSelected: (photoId: string) => {
+        const { items } = get()
+        const existingItem = items.find((item) => item.photoId === photoId)
+        
+        if (!existingItem) {
+          // Al marcar: agregar al carrito con selected: true
+          set({ items: [...items, { photoId, selected: true, favorite: false, printer: false }] })
+          return
+        }
+        
+        // Toggle selected
+        const newSelectedState = !existingItem.selected
+        const updatedItems = items
+          .map((item) => {
+            if (item.photoId !== photoId) return item
+            return { ...item, selected: newSelectedState }
+          })
+          .filter((item) => item.selected || item.favorite || item.printer)
+        set({ items: updatedItems })
+      },
+
       toggleFavorite: (photoId: string) => {
-        set({
-          items: get().items.map((item) => (item.photoId === photoId ? { ...item, favorite: !item.favorite } : item)),
-        })
+        const { items } = get()
+        const existingItem = items.find((item) => item.photoId === photoId)
+        
+        if (!existingItem) {
+          // Al marcar: agregar al carrito con favorite: true
+          set({ items: [...items, { photoId, selected: false, favorite: true, printer: false }] })
+          return
+        }
+        
+        const newFavoriteState = !existingItem.favorite
+        const updatedItems = items
+          .map((item) => {
+            if (item.photoId !== photoId) return item
+            if (!newFavoriteState) {
+              // Al desmarcar favorite: también apagar printer y limpiar printFormat
+              return { ...item, favorite: false, printer: false, printFormat: undefined }
+            }
+            return { ...item, favorite: true }
+          })
+          .filter((item) => item.selected || item.favorite || item.printer)
+        set({ items: updatedItems })
       },
 
       togglePrinter: (photoId: string) => {
-        set({
-          items: get().items.map((item) => (item.photoId === photoId ? { ...item, printer: !item.printer } : item)),
-        })
+        const { items } = get()
+        const existingItem = items.find((item) => item.photoId === photoId)
+        
+        if (!existingItem) {
+          // Al marcar: agregar al carrito con printer: true y favorite: true
+          set({ items: [...items, { photoId, selected: false, favorite: true, printer: true }] })
+          return
+        }
+        
+        const newPrinterState = !existingItem.printer
+        const updatedItems = items
+          .map((item) => {
+            if (item.photoId !== photoId) return item
+            if (newPrinterState) {
+              // Al marcar printer: también marcar favorite
+              return { ...item, printer: true, favorite: true }
+            }
+            // Al desmarcar printer: solo desmarcar printer y limpiar printFormat
+            return { ...item, printer: false, printFormat: undefined }
+          })
+          .filter((item) => item.selected || item.favorite || item.printer)
+        set({ items: updatedItems })
       },
 
       setPrintFormat: (photoId: string, format: PrintFormat) => {
         set({
           items: get().items.map((item) =>
-            item.photoId === photoId ? { ...item, printFormat: format, printer: true } : item
+            // Seleccionar formato implica printer: true y favorite: true
+            item.photoId === photoId ? { ...item, printFormat: format, printer: true, favorite: true } : item
           ),
         })
       },

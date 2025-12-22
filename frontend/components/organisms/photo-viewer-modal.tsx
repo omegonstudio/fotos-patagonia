@@ -18,10 +18,10 @@ interface PhotoViewerModalProps {
 }
 
 export function PhotoViewerModal({ photo, onClose, onNext, onPrev, mode = "web" }: PhotoViewerModalProps) {
-  const { items, addItem, removeItem, toggleFavorite, togglePrinter } = useCartStore()
+  const { items, removeItem, toggleSelected, toggleFavorite, togglePrinter } = useCartStore()
 
-  const isInCart = items.some((item) => item.photoId === photo.id)
   const cartItem = items.find((item) => item.photoId === photo.id)
+  const isInCart = !!cartItem
   const isFavorite = cartItem?.favorite || false
   const isPrinter = cartItem?.printer || false
 
@@ -40,29 +40,17 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev, mode = "web" 
     if (isInCart) {
       removeItem(photo.id)
     } else {
-      addItem(photo.id)
+      // Agregar al carrito con selected: true
+      toggleSelected(photo.id)
     }
   }
 
   const handleToggleFavorite = () => {
-    if (isInCart) {
-      toggleFavorite(photo.id)
-    } else {
-      // Add to cart first, then mark as favorite
-      addItem(photo.id)
-      setTimeout(() => toggleFavorite(photo.id), 100)
-    }
+    toggleFavorite(photo.id)
   }
 
   const handleTogglePrinter = () => {
-    if (isInCart) {
-      togglePrinter(photo.id)
-      
-    } else {
-      // Add to cart first, then mark for printer
-      addItem(photo.id)
-      setTimeout(() => togglePrinter(photo.id), 100)
-    }
+    togglePrinter(photo.id)
   }
 
   const imageUrl = mode === "local" ? photo.urls.local : photo.urls.web

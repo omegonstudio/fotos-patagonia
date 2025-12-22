@@ -39,6 +39,7 @@ export interface PrintFormat {
 
 export interface CartItem {
   photoId: string;
+  selected: boolean;  // checkbox selection
   favorite: boolean;
   printer: boolean;
   printFormat?: PrintFormat; // Formato seleccionado si es para imprimir
@@ -68,26 +69,58 @@ export interface SessionRow {
   createdAt: string;
 }
 
+// Foto anidada en OrderItem (de la API)
+export interface OrderItemPhoto {
+  id: number;
+  filename: string;
+  price: number;
+  photographer_id?: number;
+  session_id?: number;
+  description?: string | null;
+  object_name?: string;
+}
+
 export interface OrderItem {
-  photoId: string;
-  forPrint: boolean; // true si es para impresión, false si es solo descarga digital
-  printFormat?: PrintFormat; // Formato de impresión si forPrint es true
-  priceAtPurchase: number; // Precio al momento de la compra (no se modifica después)
+  // Campos de la API
+  id?: number;
+  order_id?: number;
+  photo_id?: number;
+  price?: number;
+  quantity?: number;
+  photo?: OrderItemPhoto;
+  // Campos legacy (localStorage)
+  photoId?: string;
+  forPrint?: boolean;
+  printFormat?: PrintFormat;
+  priceAtPurchase?: number;
 }
 
 export interface Order {
-  id: string;
-  channel: "web" | "local";
-  status: "enviado" | "rechazado" | "en_espera" | "pagado" | "entregado";
-  email: string;
+  id: string | number;
+  // Campos de la API
+  uuid?: string;
+  user_id?: number;
+  user?: User;
+  discount_id?: number | null;
+  discount?: DiscountCode | null;
+  order_status?: "pending" | "paid" | "completed" | "shipped" | "rejected";
+  payment_status?: "pending" | "paid" | "failed" | "refunded";
+  payment_method?: "efectivo" | "transferencia" | "posnet" | "mp";
+  external_payment_id?: string | null;
+  created_at?: string; // ISO date from API
+  // Campos legacy (localStorage)
+  channel?: "web" | "local";
+  status?: "enviado" | "rechazado" | "en_espera" | "pagado" | "entregado";
+  email?: string;
   localOrderNumber?: string | number;
   downloadUrl?: string;
   paymentMethod?: "efectivo" | "transferencia" | "posnet" | "mp";
+  createdAt?: string;
+  editableUntil?: string;
+  photos?: string[];
+  // Común
   total: number;
-  createdAt: string;
-  editableUntil: string; // +24h
-  photos: string[]; // photo ids (deprecated, mantener por compatibilidad)
-  items?: OrderItem[]; // nueva estructura con información de impresión
+  items?: OrderItem[];
 }
 
 export interface Permission {

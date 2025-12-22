@@ -38,14 +38,22 @@ export function usePhotoGallery() {
 
   const toggleFavorite = (photoId: string) => {
     setFavorites((prev) => {
-      if (prev.includes(photoId)) {
+      const isFavorite = prev.includes(photoId)
+  
+      if (isFavorite) {
+        // ❌ Se desmarca → sacar del carrito
+        setCart((cart) => cart.filter((item) => item.photoId !== photoId))
         return prev.filter((id) => id !== photoId)
       }
+  
+      // ✅ Se marca → agregar al carrito
+      setCart((cart) => {
+        if (cart.some((item) => item.photoId === photoId)) return cart
+        return [...cart, { photoId, favorite: true }]
+      })
+  
       return [...prev, photoId]
     })
-
-    // Update favorite status in cart if item exists
-    setCart((prev) => prev.map((item) => (item.photoId === photoId ? { ...item, favorite: !item.favorite } : item)))
   }
 
   const addToCart = (photoId: string) => {

@@ -1,8 +1,9 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from enum import Enum
+from datetime import datetime, timezone, timedelta
 import uuid
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Enum as SQLAlchemyEnum
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Enum as SQLAlchemyEnum, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from db.base import Base
@@ -68,6 +69,7 @@ class OrderUpdateSchema(OrderBaseSchema):
 class OrderSchema(OrderBaseSchema):
     id: int
     uuid: uuid.UUID
+    created_at: Optional[datetime] = None
     user: Optional[UserSchema] = None # User can be optional
     items: List[OrderItemSchema] = []
     discount: Optional[DiscountSchema] = None
@@ -88,7 +90,7 @@ class Order(Base):
     payment_status = Column(SQLAlchemyEnum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False)
     order_status = Column(SQLAlchemyEnum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
     external_payment_id = Column(String, nullable=True)
-
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone(timedelta(hours=-3))), nullable=True)
 
     user = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order")
