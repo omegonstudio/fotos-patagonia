@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 interface UploadPhotoParams {
   files: File[];
   photographer_id: number;
+  session_id: number   // AGREGAR
   price: number;
   description?: string;
   album_id?: number;
