@@ -52,5 +52,6 @@ class Photo(Base):
     order_items = relationship("OrderItem", back_populates="photo")
     tags = relationship("Tag", secondary="photo_tags", back_populates="photos")
 
+# Import schemas for forward references and rebuild
 from .photo_session import PhotoSessionSchema
 PhotoSchema.model_rebuild()

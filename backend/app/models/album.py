@@ -43,5 +43,6 @@ class Album(Base):
     sessions = relationship("PhotoSession", back_populates="album")
     tags = relationship("Tag", secondary="album_tags", back_populates="albums")
 
+# Import schemas for forward references and rebuild
 from .photo_session import PhotoSessionSchema
 AlbumSchema.model_rebuild()

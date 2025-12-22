@@ -9,8 +9,9 @@ from models.role import Role
 from models.photographer import Photographer
 from models.photo_session import PhotoSession
 from models.discount import Discount
-from models.album import Album
-from models.photo import Photo
+from models.album import Album, AlbumSchema, AlbumInSessionSchema
+from models.photo import Photo, PhotoSchema
+from models.photo_session import PhotoSession, PhotoSessionSchema
 from models.cart import Cart, CartItem
 from models.saved_cart import SavedCart
 from models.order import Order, OrderItem
@@ -18,6 +19,11 @@ from models.order import Order, OrderItem
 from routers import auth, users, roles, photographers, sessions, albums, photos, cart, discounts, checkout, orders, saved_carts, storage, testing, tags, combos, earnings, admin
 
 from core.config import settings
+
+# Rebuild Pydantic models to resolve forward references
+AlbumSchema.model_rebuild()
+PhotoSessionSchema.model_rebuild()
+PhotoSchema.model_rebuild()
 
 # Create database tables
 # This will create tables for all models that inherit from Base and are imported.

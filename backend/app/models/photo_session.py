@@ -50,6 +50,7 @@ class PhotoSession(Base):
     album = relationship("Album", back_populates="sessions")
     photos = relationship("Photo", back_populates="session")
 
+# Import schemas for forward references and rebuild
 from .album import AlbumInSessionSchema
 from .photo import PhotoSchema
 PhotoSessionSchema.model_rebuild()
