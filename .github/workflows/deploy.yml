@@ -62,6 +62,10 @@ jobs:
             echo "-> Actualizando a origin/$BRANCH"
             git reset --hard "origin/$BRANCH"
 
+            echo "->  Apply database migrations"
+          
+            docker compose -f "$COMPOSE" run --rm backend alembic upgrade head
+
             echo "-> Build y run con Docker Compose"
             docker compose -f "$COMPOSE" up -d --build
 
