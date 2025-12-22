@@ -1,5 +1,7 @@
+# backend/app/models/__init__.py
 from .album import Album
 from .cart import Cart, CartItem
+from .combo import Combo
 from .discount import Discount
 from .earning import Earning
 from .order import Order, OrderItem
@@ -10,5 +12,4 @@ from .photographer import Photographer
 from .role import Role
 from .saved_cart import SavedCart
 from .tag import Tag
-from .combo import Combo
 from .user import User
