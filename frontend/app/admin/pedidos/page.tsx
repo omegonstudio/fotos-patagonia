@@ -99,9 +99,9 @@ export default function PedidosPage() {
     if (!order) return
 
     const now = new Date()
-    const editableUntil = new Date(order.editableUntil)
+    const editableUntil = order.editableUntil ? new Date(order.editableUntil) : null
 
-    if (now > editableUntil) {
+    if (!editableUntil || now > editableUntil) {
       alert("No se puede editar este pedido. Han pasado más de 24 horas desde su creación.")
       return
     }
@@ -115,9 +115,9 @@ export default function PedidosPage() {
     if (!order) return
 
     const now = new Date()
-    const editableUntil = new Date(order.editableUntil)
+    const editableUntil = order.editableUntil ? new Date(order.editableUntil) : null
 
-    if (now > editableUntil) {
+    if (!editableUntil || now > editableUntil) {
       alert("No se puede editar este pedido. Han pasado más de 24 horas desde su creación.")
       return
     }
@@ -128,9 +128,24 @@ export default function PedidosPage() {
 
   const isEditable = (order: Order) => {
     const now = new Date()
-    const editableUntil = new Date(order.editableUntil)
-    return now <= editableUntil
+    const editableUntil = order.editableUntil ? new Date(order.editableUntil) : null
+    return editableUntil ? now <= editableUntil : false
   }
+
+  const formatOrderDate = (order: Order) => {
+    const dateValue = order.created_at ?? order.createdAt;
+    if (!dateValue) return "Sin fecha";
+
+    const parsed = new Date(dateValue);
+    return Number.isNaN(parsed.getTime())
+      ? "Fecha inválida"
+      : parsed.toLocaleDateString("es-AR", {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -226,12 +241,7 @@ export default function PedidosPage() {
                         </TableCell>
                         <TableCell className="font-semibold">${order.total}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {new Date(order.created_at).toLocaleDateString("es-AR", {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {formatOrderDate(order)}
                         </TableCell> 
                         <TableCell className="text-right">
                           <Link href={`/admin/pedidos/${order.id}`}>

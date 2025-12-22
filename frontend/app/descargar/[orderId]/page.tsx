@@ -77,10 +77,32 @@ export default function DescargarPage() {
     )
   }
 
-  const orderPhotos = order.items.map((item) => item.photo).filter(Boolean)
-  const canDownload = order.order_status === "PAID" || order.order_status === "COMPLETED"
+  const orderPhotos = (order.items ?? [])
+    .map((item) => item.photo)
+    .filter((photo): photo is NonNullable<OrderItem["photo"]> => Boolean(photo))
 
-  const handleDownload = (photoUrl: string) => {
+  const normalizedStatus = order.order_status?.toLowerCase() as Order["order_status"] | undefined
+  const canDownload = normalizedStatus === "paid" || normalizedStatus === "completed"
+
+  const formatOrderDate = () => {
+    const dateValue = order.created_at ?? order.createdAt;
+    if (!dateValue) return "Sin fecha";
+
+    const parsed = new Date(dateValue);
+    return Number.isNaN(parsed.getTime())
+      ? "Fecha inválida"
+      : parsed.toLocaleDateString("es-AR", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+  };
+
+  const handleDownload = (photoUrl?: string) => {
+    if (!photoUrl) {
+      alert("Link de descarga no disponible para esta foto.")
+      return
+    }
     window.open(photoUrl, "_blank")
   }
 
@@ -108,13 +130,7 @@ export default function DescargarPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Estado del Pedido</CardTitle>
-                  <CardDescription className="mt-1">
-                    {new Date(order.created_at).toLocaleDateString("es-AR", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </CardDescription>
+                  <CardDescription className="mt-1">{formatOrderDate()}</CardDescription>
                 </div>
                 <Badge
                   className={
@@ -181,7 +197,7 @@ export default function DescargarPage() {
                       <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {new Date(order.created_at).toLocaleDateString("es-AR")}
+                          {formatOrderDate()}
                         </span>
                       </div>
                       {canDownload && (

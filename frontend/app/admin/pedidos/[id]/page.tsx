@@ -136,7 +136,13 @@ export default function OrderDetailPage() {
   }
 
   const statusInfo = getStatusBadge(order.order_status);
-  const allOrderPhotos = (order.items || []).map(item => photosMap.get(item.photo_id.toString())).filter((p): p is Photo => !!p);
+  const allOrderPhotos = (order.items ?? [])
+  .flatMap((item) => {
+    const id = item.photo_id
+    if (id == null) return [] // item sin foto: lo ignoramos
+    const photo = photosMap.get(String(id))
+    return photo ? [photo] : []
+  })
 
 
   return (
@@ -170,13 +176,15 @@ export default function OrderDetailPage() {
               <div>
                 <Label className="text-sm text-muted-foreground">Fecha de Creación</Label>
                 <p className="font-medium">
-                  {new Date(order.created_at).toLocaleDateString("es-AR", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {order.created_at
+                    ? new Date(order.created_at).toLocaleDateString("es-AR", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Fecha no disponible"}
                 </p>
               </div>
               <div>

@@ -80,9 +80,25 @@ function ConfirmacionContent() {
     )
   }
 
-  const orderPhotos = order.photos
+  const orderPhotos = (order.photos ?? [])
     .map((photoId) => photosMap.get(photoId))
-    .filter((photo) => photo !== undefined)
+    .filter((photo): photo is Photo => photo !== undefined)
+
+  const formatOrderDate = () => {
+    const dateValue = order.created_at ?? order.createdAt;
+    if (!dateValue) return "Sin fecha";
+
+    const parsed = new Date(dateValue);
+    return Number.isNaN(parsed.getTime())
+      ? "Fecha inválida"
+      : parsed.toLocaleDateString("es-AR", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+  };
 
   const getStatusBadge = (status: Order["status"]) => {
     const statusConfig = {
@@ -100,7 +116,12 @@ function ConfirmacionContent() {
         label: "Entregado",
         className: "bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400",
       },
+    } as const
+
+    if (!status || !(status in statusConfig)) {
+      return { label: "Desconocido", className: "bg-gray-500/10 text-gray-600" }
     }
+
     return statusConfig[status]
   }
 
@@ -129,13 +150,7 @@ function ConfirmacionContent() {
               <div>
                 <CardTitle>Pedido #{order.id}</CardTitle>
                 <CardDescription className="mt-1">
-                  {new Date(order.createdAt).toLocaleDateString("es-AR", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {formatOrderDate()}
                 </CardDescription>
               </div>
               <Badge className={statusInfo.className}>{statusInfo.label}</Badge>

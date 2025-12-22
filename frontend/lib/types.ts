@@ -78,6 +78,9 @@ export interface OrderItemPhoto {
   session_id?: number;
   description?: string | null;
   object_name?: string;
+  // Campos adicionales devueltos por el backend para descarga/visualización
+  url?: string;
+  watermark_url?: string;
 }
 
 export interface OrderItem {

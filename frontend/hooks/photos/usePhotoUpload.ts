@@ -3,12 +3,29 @@
 import { useState } from "react";
 import { apiFetch } from "@/lib/api";
 
-// ... (interfaces remain the same)
+interface FileInfo {
+  filename: string;
+  contentType: string;
+}
+
+interface PresignedURLData {
+  upload_url: string;
+  object_name: string;
+  original_filename: string;
+}
+
+interface PhotoCompletionData {
+  object_name: string;
+  original_filename: string;
+  description?: string;
+  price: number;
+  photographer_id: number;
+}
 
 interface UploadPhotoParams {
   files: File[];
   photographer_id: number;
-  session_id: number   // AGREGAR
+  session_id?: number;  // opcional según flujo
   price: number;
   description?: string;
   album_id?: number;
