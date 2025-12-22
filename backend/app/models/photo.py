@@ -32,8 +32,6 @@ class PhotoInDBBaseSchema(PhotoBaseSchema):
         from_attributes = True
 
 class PhotoSchema(PhotoInDBBaseSchema):
-    url: Optional[str] = Field(None, description="A presigned URL for accessing the original photo.")
-    watermark_url: Optional[str] = Field(None, description="A presigned URL for the photo, intended for watermarked display.")
     pass
 
 # SQLAlchemy model
