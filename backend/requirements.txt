@@ -13,3 +13,5 @@ boto3
 pydantic-settings
 mercadopago
 pytest-asyncio
+alembic
+asyncpg
