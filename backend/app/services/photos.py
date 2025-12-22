@@ -22,14 +22,10 @@ class PhotoCompletionRequest(BaseModel):
 class PhotoService(BaseService):
     def _generate_presigned_urls(self, photo: Photo) -> PhotoSchema:
         """
-        Generates presigned URLs for a photo. Both url and watermark_url will
-        point to the same original photo, as watermarking is a front-end concern.
+        Validates a Photo object against the PhotoSchema. 
+        URL generation is now a front-end concern using the object_name.
         """
-        photo_schema = PhotoSchema.model_validate(photo)
-        original_url = storage_service.generate_presigned_get_url(photo.object_name)
-        photo_schema.url = original_url
-        photo_schema.watermark_url = original_url
-        return photo_schema
+        return PhotoSchema.model_validate(photo)
 
     def list_photos(self) -> List[PhotoSchema]:
         """Returns a list of all photos with presigned URLs."""
