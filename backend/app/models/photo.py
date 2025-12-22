@@ -32,8 +32,6 @@ class PhotoInDBBaseSchema(PhotoBaseSchema):
         from_attributes = True
 
 class PhotoSchema(PhotoInDBBaseSchema):
-    url: Optional[str] = Field(None, description="A presigned URL for accessing the original photo.")
-    watermark_url: Optional[str] = Field(None, description="A presigned URL for the photo, intended for watermarked display.")
     pass
 
 # SQLAlchemy model
@@ -54,5 +52,6 @@ class Photo(Base):
     order_items = relationship("OrderItem", back_populates="photo")
     tags = relationship("Tag", secondary="photo_tags", back_populates="photos")
 
+# Import schemas for forward references and rebuild
 from .photo_session import PhotoSessionSchema
 PhotoSchema.model_rebuild()

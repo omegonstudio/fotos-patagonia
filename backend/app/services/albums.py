@@ -18,20 +18,7 @@ class AlbumService(BaseService):
         """
         Populates presigned URLs for all photos within an album's sessions.
         """
-        # Helper to generate URL for a single photo
-        def _generate_urls_for_photo(photo: Photo):
-            original_url = storage_service.generate_presigned_get_url(photo.object_name)
-            # The frontend handles watermarking, so both URLs point to the original.
-            photo.url = original_url
-            photo.watermark_url = original_url
-            return photo
-
-        # Populate URLs for all photos in all sessions of the album
-        if album.sessions:
-            for session in album.sessions:
-                if session.photos:
-                    session.photos = [_generate_urls_for_photo(p) for p in session.photos]
-        
+        # This function is now a placeholder. The frontend will request URLs based on object_name.
         return album
 
     def list_albums(self) -> list[Album]:
