@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Header } from "@/components/organisms/header"
 import { FilterBar } from "@/components/molecules/filter-bar"
 import { PhotoThumbnail } from "@/components/molecules/photo-thumbnail"
@@ -15,10 +15,9 @@ import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 
 export default function GaleriaPage() {
   const { photos: backendPhotos, loading, error, refetch } = usePhotos()
-  const { addItem, items, toggleFavorite, togglePrinter } = useCartStore()
+  const { addItem, items, toggleFavorite, togglePrinter, toggleSelected } = useCartStore()
   const { isOpen, currentPhotoId, photos, open, close, next, prev } = useLightboxStore()
-  const { filters, mode, setFilters, setMode, setPhotos, selectedPhotos, toggleSelection, clearSelection } =
-    useGalleryStore()
+  const { filters, mode, setFilters, setMode, setPhotos } = useGalleryStore()
   const { user } = useAuthStore()
 
   const userIsAdmin = isAdmin(user)
@@ -44,6 +43,27 @@ export default function GaleriaPage() {
       return true
     })
   }, [galleryPhotos, filters])
+
+  // Derivar selectedPhotos del cart store (DEBE estar antes de cualquier return condicional)
+  const selectedPhotos = useMemo(() => 
+    items.filter((item) => item.selected).map((item) => item.photoId),
+    [items]
+  )
+
+  const currentPhoto = useMemo(() => 
+    currentPhotoId ? filteredPhotos.find((p) => p.id === currentPhotoId) : null,
+    [currentPhotoId, filteredPhotos]
+  )
+
+  // Estado para controlar visibilidad del popup de bulk actions
+  const [showBulkActions, setShowBulkActions] = useState(false)
+
+  // Mostrar popup automáticamente cuando hay fotos seleccionadas
+  useEffect(() => {
+    if (selectedPhotos.length > 0) {
+      setShowBulkActions(true)
+    }
+  }, [selectedPhotos.length])
 
   // Loading state
   if (loading) {
@@ -89,14 +109,22 @@ export default function GaleriaPage() {
     addItem(photoId)
   }
 
-  const handleBulkAddToCart = () => {
+  const clearSelection = () => {
+    // Desmarcar todos los selected (puede eliminar items si no tienen otros flags)
     selectedPhotos.forEach((photoId) => {
-      addItem(photoId)
+      const item = items.find((i) => i.photoId === photoId)
+      if (item?.selected) {
+        toggleSelected(photoId)
+      }
     })
-    clearSelection()
+    setShowBulkActions(false)
   }
 
-  const currentPhoto = currentPhotoId ? filteredPhotos.find((p) => p.id === currentPhotoId) : null
+  const handleBulkAddToCart = () => {
+    // Las fotos ya están en el carrito con selected: true
+    // Solo cerrar el popup, las fotos permanecen en el carrito
+    setShowBulkActions(false)
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -162,29 +190,19 @@ export default function GaleriaPage() {
                   onClick={() => handlePhotoClick(photo.id)}
                   onShiftClick={() => handleShiftClick(photo.id)}
                   mode={mode}
-                  isSelected={selectedPhotos.includes(photo.id)}
-                  onToggleSelect={() => toggleSelection(photo.id)}
+                  isSelected={cartItem?.selected || false}
+                  onToggleSelect={() => toggleSelected(photo.id)}
                   isFavorite={cartItem?.favorite || false}
                   isPrinter={cartItem?.printer || false}
-                  onToggleFavorite={() => {
-                    if (!cartItem) {
-                      addItem(photo.id)
-                    }
-                    toggleFavorite(photo.id)
-                  }}
-                  onTogglePrinter={() => {
-                    if (!cartItem) {
-                      addItem(photo.id)
-                    }
-                    togglePrinter(photo.id)
-                  }}
+                  onToggleFavorite={() => toggleFavorite(photo.id)}
+                  onTogglePrinter={() => togglePrinter(photo.id)}
                 />
               )
             })}
           </div>
         )}
 
-        {selectedPhotos.length > 0 && (
+        {showBulkActions && selectedPhotos.length > 0 && (
           <div className="fixed bottom-8 left-1/2 z-50 -translate-x-1/2 transform">
             <div className="flex items-center gap-3 rounded-full bg-white px-6 py-4 shadow-2xl ring-1 ring-gray-200">
               <span className="text-sm font-semibold">
