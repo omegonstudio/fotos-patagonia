@@ -11,6 +11,7 @@ import {
   Store,
   CheckCircle2,
   Printer,
+  ImageIcon,
 } from "lucide-react";
 import { Header } from "@/components/organisms/header";
 import { Button } from "@/components/ui/button";
@@ -30,11 +31,44 @@ import type { Order, OrderItem, Photo } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
 import { useCheckout } from "@/hooks/checkout/useCheckout";
+import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
 
 type MercadoPagoPreferenceResponse = {
   init_point?: string;
   preference_id?: string;
 };
+
+// Sub-componente para cargar la imagen de la foto del checkout
+function CheckoutPhotoThumbnail({ photo }: { photo: Photo }) {
+  const { url, loading, error } = usePresignedUrl(photo.objectName);
+
+  if (loading) {
+    return (
+      <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-muted flex items-center justify-center">
+        <ImageIcon className="h-6 w-6 text-gray-400 animate-pulse" />
+      </div>
+    );
+  }
+
+  if (error || !url) {
+    return (
+      <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-red-100 flex items-center justify-center text-red-500 text-xs text-center">
+        Error
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
+      <img
+        src={url}
+        alt={photo.place || "Foto"}
+        className="h-full w-full object-cover"
+      />
+    </div>
+  );
+}
+
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -386,26 +420,20 @@ const orderPayload = {
                       {printPhotos.length === 1 ? "foto" : "fotos"}
                     </span>
                   </div>
-                  {printPhotos.slice(0, 3).map((item) => (
+                  {printPhotos.slice(0, 3).map(({ photo, item }) => (
                     <div
-                      key={item.photo.id}
+                      key={photo.id}
                       className="flex items-center gap-3"
                     >
-                      <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-                        <img
-                          src={item.photo.urls.thumb || "/placeholder.svg"}
-                          alt={item.photo.place || "Foto"}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
+                      <CheckoutPhotoThumbnail photo={photo} />
                       <div className="flex-1">
                         <p className="text-sm font-medium">
-                          {item.photo.place}
+                          {photo.place}
                         </p>
-                        {item.item.printFormat ? (
+                        {item.printFormat ? (
                           <Badge variant="secondary" className="text-xs mt-1">
-                            {item.item.printFormat.name} (
-                            {item.item.printFormat.size})
+                            {item.printFormat.name} (
+                            {item.printFormat.size})
                           </Badge>
                         ) : (
                           <p className="text-xs text-destructive">
@@ -414,7 +442,7 @@ const orderPayload = {
                         )}
                       </div>
                       <p className="text-sm font-semibold">
-                        ${item.item.printFormat?.price || item.photo.price}
+                        ${item.printFormat?.price || photo.price}
                       </p>
                     </div>
                   ))}
@@ -438,31 +466,25 @@ const orderPayload = {
                       {digitalPhotos.length === 1 ? "foto" : "fotos"}
                     </span>
                   </div>
-                  {digitalPhotos.slice(0, 3).map((item) => (
+                  {digitalPhotos.slice(0, 3).map(({ photo }) => (
                     <div
-                      key={item.photo.id}
+                      key={photo.id}
                       className="flex items-center gap-3"
                     >
-                      <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-                        <img
-                          src={item.photo.urls.thumb || "/placeholder.svg"}
-                          alt={item.photo.place || "Foto"}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
+                      <CheckoutPhotoThumbnail photo={photo} />
                       <div className="flex-1">
                         <p className="text-sm font-medium">
-                          {item.photo.place}
+                          {photo.place}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {item.photo.takenAt &&
-                            new Date(item.photo.takenAt).toLocaleDateString(
+                          {photo.takenAt &&
+                            new Date(photo.takenAt).toLocaleDateString(
                               "es-AR"
                             )}
                         </p>
                       </div>
                       <p className="text-sm font-semibold">
-                        ${item.photo.price}
+                        ${photo.price}
                       </p>
                     </div>
                   ))}

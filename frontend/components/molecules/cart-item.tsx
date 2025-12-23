@@ -1,11 +1,12 @@
 "use client"
 
-import { Heart, Trash2, Printer } from "lucide-react"
+import { Heart, Trash2, Printer, ImageIcon } from "lucide-react"
 import type { Photo, PrintFormat } from "@/lib/types"
 import { IconButton } from "@/components/atoms/icon-button"
 import { cn } from "@/lib/utils"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
 import { Badge } from "@/components/ui/badge"
+import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
 
 interface CartItemProps {
   photo: Photo
@@ -26,18 +27,30 @@ export function CartItem({
   onTogglePrinter,
   onRemove,
 }: CartItemProps) {
+  const { url: imageUrl, loading: imageLoading, error: imageError } = usePresignedUrl(photo.objectName)
+
   return (
     <div className="overflow-hidden rounded-2xl bg-card shadow-sm">
       {/* Imagen */}
       <div className="relative w-full aspect-square">
-        <WatermarkedImage
-          src={photo.urls.thumb || "/placeholder.svg"}
-          alt={`Foto de ${photo.place || "Patagonia"}`}
-          fill
-          objectFit="cover"
-          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-          priority={false}
-        />
+        {imageLoading ? (
+          <div className="flex h-full w-full animate-pulse items-center justify-center bg-gray-200">
+            <ImageIcon className="h-10 w-10 text-gray-400" />
+          </div>
+        ) : imageError || !imageUrl ? (
+          <div className="flex h-full w-full items-center justify-center bg-red-100 text-red-500 text-xs p-2 text-center">
+            Error al cargar
+          </div>
+        ) : (
+          <WatermarkedImage
+            src={imageUrl}
+            alt={`Foto de ${photo.place || "Patagonia"}`}
+            fill
+            objectFit="cover"
+            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            priority={false}
+          />
+        )}
         
         {/* Badge de formato si está para imprimir */}
         {isPrinter && printFormat && (
