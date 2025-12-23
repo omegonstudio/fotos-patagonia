@@ -237,13 +237,7 @@ function ConfirmacionContent() {
             <div className="space-y-3">
               {orderPhotos.map((photo) => (
                 <div key={photo.id} className="flex items-center gap-4 rounded-xl border border-gray-200 p-3">
-                  <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-                    <img
-                      src={photo.urls.thumb || "/placeholder.svg"}
-                      alt={photo.place || "Foto"}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
+                  <ConfirmationPhotoThumbnail photo={photo} />
                   <div className="flex-1">
                     <p className="font-semibold">{photo.place}</p>
                     <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
