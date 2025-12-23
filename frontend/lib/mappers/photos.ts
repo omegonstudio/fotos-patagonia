@@ -28,12 +28,13 @@ export function mapBackendPhotoToPhoto(photo: BackendPhoto, options?: PhotoMappi
     price: photo.price,
     description: photo.description,
     tags: photo.tags?.map((tag) => tag.name) ?? [],
-    urls: {
-      thumb: photo.watermark_url || photo.url,
-      web: photo.watermark_url || photo.url,
-      local: photo.url,
-      original: photo.url,
-    },
+    objectName: photo.object_name,
+    // urls: {
+    //   thumb: photo.watermark_url || photo.url,
+    //   web: photo.watermark_url || photo.url,
+    //   local: photo.url,
+    //   original: photo.url,
+    // },
   }
 }
 

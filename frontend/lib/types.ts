@@ -11,12 +11,13 @@ export interface Photo {
   price?: number; // visible only where appropriate
   description?: string;
   tags?: string[]; // Added tags field for photo categorization
-  urls: {
-    thumb: string;
-    web: string; // with watermark (web)
-    local: string; // without watermark (local)
-    original?: string; // admin/order
-  };
+  objectName: string;
+  // urls: {
+  //   thumb: string;
+  //   web: string; // with watermark (web)
+  //   local: string; // without watermark (local)
+  //   original?: string; // admin/order
+  // };
 }
 
 // IDs válidos para formatos de impresión

@@ -31,3 +31,9 @@ Tambien colocar esta URL en la configuracion del webhook en MP /developers
 admin@example.com - changeme
 photographer_1@example.com - password1
 
+
+# Backend - Cambios en BBDD
+-Hago los cambios
+- docker compose -f docker-compose.dev.yml run --rm backend alembic revision --autogenerate -m "Un mensaje descriptivo de tus cambios"
+- docker compose -f docker-compose.dev.yml run --rm backend alembic upgrade head
+

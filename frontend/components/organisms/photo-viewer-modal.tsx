@@ -1,24 +1,26 @@
 "use client"
 
 import { useEffect } from "react"
-import { X, Heart, ShoppingCart, ChevronLeft, ChevronRight, MapPin, Calendar, Clock, Printer } from "lucide-react"
+import { X, Heart, ShoppingCart, ChevronLeft, ChevronRight, MapPin, Calendar, Clock, Printer, Image as ImageIcon } from "lucide-react"
 import type { Photo } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useCartStore } from "@/lib/store"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
+import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
 
 interface PhotoViewerModalProps {
   photo: Photo
   onClose: () => void
   onNext: () => void
   onPrev: () => void
-  mode?: "web" | "local"
 }
 
-export function PhotoViewerModal({ photo, onClose, onNext, onPrev, mode = "web" }: PhotoViewerModalProps) {
+export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewerModalProps) {
   const { items, removeItem, toggleSelected, toggleFavorite, togglePrinter } = useCartStore()
+  // NOTE: Assuming `photo` object now has an `objectName` property.
+  const { url: imageUrl, loading: imageLoading, error: imageError } = usePresignedUrl(photo.objectName)
 
   const cartItem = items.find((item) => item.photoId === photo.id)
   const isInCart = !!cartItem
@@ -40,7 +42,6 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev, mode = "web" 
     if (isInCart) {
       removeItem(photo.id)
     } else {
-      // Agregar al carrito con selected: true
       toggleSelected(photo.id)
     }
   }
@@ -52,8 +53,6 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev, mode = "web" 
   const handleTogglePrinter = () => {
     togglePrinter(photo.id)
   }
-
-  const imageUrl = mode === "local" ? photo.urls.local : photo.urls.web
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
@@ -86,14 +85,24 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev, mode = "web" 
       <div className="flex h-full w-full max-w-7xl flex-col gap-4 lg:flex-row">
         {/* Image Container */}
         <div className="relative flex-1 overflow-hidden rounded-2xl bg-black">
-          <WatermarkedImage
-            src={imageUrl || "/placeholder.svg"}
-            alt={`Foto de ${photo.place || "Patagonia"}`}
-            fill
-            objectFit="contain"
-            sizes="(max-width: 1024px) 100vw, 70vw"
-            priority
-          />
+          {imageLoading ? (
+            <div className="flex h-full w-full animate-pulse items-center justify-center bg-gray-800">
+              <ImageIcon className="h-24 w-24 text-gray-600" />
+            </div>
+          ) : imageError ? (
+            <div className="flex h-full w-full items-center justify-center bg-red-900 text-red-300">
+              Error al cargar la imagen
+            </div>
+          ) : (
+            <WatermarkedImage
+              src={imageUrl}
+              alt={`Foto de ${photo.place || "Patagonia"}`}
+              fill
+              objectFit="contain"
+              sizes="(max-width: 1024px) 100vw, 70vw"
+              priority
+            />
+          )}
         </div>
 
         <div className="flex w-full flex-col gap-4 rounded-2xl bg-card p-6 lg:w-96">

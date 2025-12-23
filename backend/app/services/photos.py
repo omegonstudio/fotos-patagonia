@@ -96,7 +96,8 @@ class PhotoService(BaseService):
         except Exception as e:
             print(f"Error deleting file from storage for photo ID {photo_id}: {e}")
             
-        self._delete(photo_to_delete)
+        self.db.delete(photo_to_delete)
+        self.db.commit()
 
     def bulk_delete_photos(self, photo_ids: List[int], current_user: User):
         if not photo_ids:
