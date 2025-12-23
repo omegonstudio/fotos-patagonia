@@ -37,6 +37,12 @@ interface UploadPhotoParams {
   album_id?: number;
 }
 
+export interface UploadListeners {
+  onProgress?: (progress: number) => void;
+  onComplete?: (photos: BackendPhoto[]) => void;
+  onError?: (error: Error) => void;
+}
+
 // Pass a function to refetch photos after upload
 export function usePhotoUpload(refetchPhotos?: () => void) {
   const [uploading, setUploading] = useState(false);
@@ -147,15 +153,20 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
     price,
     description,
     album_id,
-  }: UploadPhotoParams): Promise<BackendPhoto[]> => {
+  }: UploadPhotoParams, listeners?: UploadListeners): Promise<BackendPhoto[]> => {
     setUploading(true);
     setError(null);
     setProgress(0);
 
+    const pushProgress = (pct: number) => {
+      setProgress(pct);
+      listeners?.onProgress?.(pct);
+    };
+
     try {
       // 0) Preparar thumbnails locales para no usar la imagen original en previews.
       const originalPresigned = await requestUploadUrls(files);
-      setProgress(5);
+      pushProgress(5);
 
       const thumbnailFiles = await Promise.all(
         files.map(async (file) => {
@@ -219,7 +230,7 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
               99,
               Math.round((uploadedBytes / totalBytes) * 100)
             );
-            setProgress(pct);
+            pushProgress(pct);
           });
         };
       });
@@ -257,7 +268,7 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
       };
 
       await runQueue(uploadTasks);
-      setProgress(90);
+      pushProgress(90);
 
       // 3) Registrar solo las fotos originales en el backend.
       const photosData: PhotoCompletionData[] = originalPresigned.map(
@@ -271,17 +282,23 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
       );
 
       const createdPhotos = await completeUpload(photosData, album_id);
-      setProgress(100);
+      pushProgress(100);
 
       // Refetch photos if the function is provided
       if (refetchPhotos) {
         refetchPhotos();
       }
 
+      listeners?.onComplete?.(createdPhotos);
       return createdPhotos;
     } catch (err: any) {
       console.error("❌ Error en upload:", err);
       setError(err.message || "Error al subir fotos");
+      if (err instanceof Error) {
+        listeners?.onError?.(err);
+      } else {
+        listeners?.onError?.(new Error("Upload error"));
+      }
       throw err;
     } finally {
       setUploading(false);

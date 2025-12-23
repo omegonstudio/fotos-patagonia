@@ -28,6 +28,7 @@ import { useTags } from "@/hooks/tags/useTags";
 import { apiFetch } from "@/lib/api";
 import type { BackendPhoto } from "@/hooks/photos/usePhotos";
 import { generateThumbnailDataUrl } from "@/lib/photo-thumbnails";
+import { useUploadQueueStore } from "@/hooks/upload/useUploadQueue";
 
 interface PhotoModalProps {
   open: boolean;
@@ -59,6 +60,7 @@ export function PhotoModal({
   const [isDragging, setIsDragging] = useState(false);
 
   const { uploadPhotos, uploading, progress } = usePhotoUpload(onSave);
+  const uploadQueue = useUploadQueueStore();
   const { photographers, loading: photographersLoading } = usePhotographers();
   const { data: albumsData, loading: albumsLoading } = useAlbums();
   const { tags: availableTags, loading: tagsLoading } = useTags();
@@ -228,36 +230,52 @@ export function PhotoModal({
         return;
       }
 
-      try {
-        const createdPhotos = await uploadPhotos({
+      // Lanzar upload en background y cerrar de inmediato
+      const taskId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+      uploadQueue.enqueue({
+        id: taskId,
+        title: "Subiendo fotos",
+        filesCount: uploadedFiles.length,
+        status: "uploading",
+        progress: 0,
+      });
+
+      void uploadPhotos(
+        {
           files: uploadedFiles,
           photographer_id: parseInt(selectedPhotographer),
           price: numericPrice,
           description: description || undefined,
           album_id: Number(selectedAlbum),
-        });
-
-        if (selectedTagNames.length && Array.isArray(createdPhotos)) {
-          const newPhotoIds = createdPhotos
-            .map((createdPhoto: { id?: number }) => createdPhoto.id)
-            .filter((id): id is number => typeof id === "number");
-          await assignTagsToPhotos(newPhotoIds, selectedTagNames);
+        },
+        {
+          onProgress: (pct) => uploadQueue.updateProgress(taskId, pct),
+          onComplete: async (createdPhotos) => {
+            uploadQueue.markSuccess(taskId);
+            if (selectedTagNames.length && Array.isArray(createdPhotos)) {
+              const newPhotoIds = createdPhotos
+                .map((createdPhoto: { id?: number }) => createdPhoto.id)
+                .filter((id): id is number => typeof id === "number");
+              await assignTagsToPhotos(newPhotoIds, selectedTagNames);
+            }
+            toast({
+              title: "Fotos subidas",
+              description: `${uploadedFiles.length} foto(s) creada(s) correctamente.`,
+            });
+            onSave?.();
+          },
+          onError: (error) => {
+            uploadQueue.markError(taskId, error.message);
+            toast({
+              title: "Error al subir",
+              description: error?.message || "No se pudieron subir las fotos.",
+              variant: "destructive",
+            });
+          },
         }
+      );
 
-        toast({
-          title: "Fotos subidas",
-          description: `${uploadedFiles.length} foto(s) creada(s) correctamente.`,
-        });
-
-        onSave?.();
-        onOpenChange(false);
-      } catch (error: any) {
-        toast({
-          title: "Error al subir",
-          description: error?.message || "No se pudieron subir las fotos.",
-          variant: "destructive",
-        });
-      }
+      onOpenChange(false);
       return;
     }
 
