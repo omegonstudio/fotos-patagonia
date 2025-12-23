@@ -62,12 +62,18 @@ jobs:
             echo "-> Actualizando a origin/$BRANCH"
             git reset --hard "origin/$BRANCH"
 
-            echo "->  Apply database migrations"
-          
+            echo "-> Bajando stack previo"
+            docker compose -f "$COMPOSE" down --remove-orphans || true
+
+            echo "-> Build sin cache (todo)"
+            docker compose -f "$COMPOSE" build --no-cache
+
+            echo "-> Apply migrations"
             docker compose -f "$COMPOSE" run --rm backend alembic upgrade head
 
-            echo "-> Build y run con Docker Compose"
-            docker compose -f "$COMPOSE" up -d --build
+            echo "-> Up (sin rebuild extra)"
+            docker compose -f "$COMPOSE" up -d
+
 
             echo "-> Estado de contenedores"
             docker compose -f "$COMPOSE" ps
