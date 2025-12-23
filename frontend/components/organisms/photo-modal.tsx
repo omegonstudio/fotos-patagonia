@@ -27,6 +27,7 @@ import { useAlbums } from "@/hooks/albums/useAlbums";
 import { useTags } from "@/hooks/tags/useTags";
 import { apiFetch } from "@/lib/api";
 import type { BackendPhoto } from "@/hooks/photos/usePhotos";
+import { generateThumbnailDataUrl } from "@/lib/photo-thumbnails";
 
 interface PhotoModalProps {
   open: boolean;
@@ -137,6 +138,19 @@ export function PhotoModal({
     setIsDragging(false);
   }, []);
 
+  const handleFiles = useCallback(async (files: File[]) => {
+    if (!files.length) return;
+    setUploadedFiles((prev) => [...prev, ...files]);
+
+    const previews = await Promise.all(
+      files.map((file) => generateThumbnailDataUrl(file).catch(() => ""))
+    );
+    setPreviewUrls((prev) => [
+      ...prev,
+      ...previews.filter((url) => Boolean(url)),
+    ]);
+  }, []);
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -144,8 +158,8 @@ export function PhotoModal({
     const files = Array.from(e.dataTransfer.files).filter((file) =>
       file.type.startsWith("image/")
     );
-    handleFiles(files);
-  }, []);
+    void handleFiles(files);
+  }, [handleFiles]);
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,23 +167,11 @@ export function PhotoModal({
         const files = Array.from(e.target.files).filter((file) =>
           file.type.startsWith("image/")
         );
-        handleFiles(files);
+        void handleFiles(files);
       }
     },
-    []
+    [handleFiles]
   );
-
-  const handleFiles = (files: File[]) => {
-    setUploadedFiles((prev) => [...prev, ...files]);
-
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrls((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
-  };
 
   const removeFile = (index: number) => {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));

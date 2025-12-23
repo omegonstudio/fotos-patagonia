@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Check, Heart, Printer, Image as ImageIcon } from "lucide-react"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
+import { buildThumbObjectName } from "@/lib/photo-thumbnails"
 
 interface PhotoThumbnailProps {
   photo: Photo
@@ -34,7 +35,9 @@ export function PhotoThumbnail({
   const [isHovered, setIsHovered] = useState(false)
   // NOTE: Assuming `photo` object now has an `objectName` property.
   // The Photo type in `lib/types.ts` and the mapper must be updated accordingly.
-  const { url: imageUrl, loading: imageLoading, error: imageError } = usePresignedUrl(photo.objectName)
+  const previewObjectName =
+    photo.previewObjectName ?? buildThumbObjectName(photo.objectName)
+  const { url: imageUrl, loading: imageLoading, error: imageError } = usePresignedUrl(previewObjectName)
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey && onShiftClick) {

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
 import { Badge } from "@/components/ui/badge"
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
+import { buildThumbObjectName } from "@/lib/photo-thumbnails"
 
 interface CartItemProps {
   photo: Photo
@@ -27,7 +28,10 @@ export function CartItem({
   onTogglePrinter,
   onRemove,
 }: CartItemProps) {
-  const { url: imageUrl, loading: imageLoading, error: imageError } = usePresignedUrl(photo.objectName)
+  const previewObjectName =
+    photo.previewObjectName ?? buildThumbObjectName(photo.objectName)
+  const { url: imageUrl, loading: imageLoading, error: imageError } =
+    usePresignedUrl(previewObjectName)
 
   return (
     <div className="overflow-hidden rounded-2xl bg-card shadow-sm">

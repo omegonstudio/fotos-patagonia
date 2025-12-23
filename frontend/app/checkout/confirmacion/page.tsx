@@ -12,10 +12,13 @@ import type { Order, Photo } from "@/lib/types"
 import { usePhotos } from "@/hooks/photos/usePhotos"
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
+import { buildThumbObjectName } from "@/lib/photo-thumbnails"
 
 // Sub-componente para cargar la imagen de la foto en la confirmación
 function ConfirmationPhotoThumbnail({ photo }: { photo: Photo }) {
-  const { url, loading, error } = usePresignedUrl(photo.objectName);
+  const previewObjectName =
+    photo.previewObjectName ?? buildThumbObjectName(photo.objectName);
+  const { url, loading, error } = usePresignedUrl(previewObjectName);
 
   if (loading) {
     return (

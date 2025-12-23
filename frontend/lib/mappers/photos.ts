@@ -1,5 +1,6 @@
 import type { BackendPhoto, BackendPhotoSession } from "@/hooks/photos/usePhotos"
 import type { Photo } from "@/lib/types"
+import { buildThumbObjectName } from "@/lib/photo-thumbnails"
 
 interface PhotoMappingOptions {
   session?: BackendPhotoSession | null
@@ -16,6 +17,9 @@ export function mapBackendPhotoToPhoto(photo: BackendPhoto, options?: PhotoMappi
   const photographerName =
     photo.photographer?.name ?? session?.photographer?.name ?? undefined
 
+  const thumbnailObjectName =
+    photo.thumbnail_object_name ?? buildThumbObjectName(photo.object_name)
+
   return {
     id: String(photo.id),
     albumId: albumIdValue !== null && albumIdValue !== undefined ? String(albumIdValue) : undefined,
@@ -29,6 +33,8 @@ export function mapBackendPhotoToPhoto(photo: BackendPhoto, options?: PhotoMappi
     description: photo.description,
     tags: photo.tags?.map((tag) => tag.name) ?? [],
     objectName: photo.object_name,
+    thumbnailObjectName,
+    previewObjectName: thumbnailObjectName ?? undefined,
     // urls: {
     //   thumb: photo.watermark_url || photo.url,
     //   web: photo.watermark_url || photo.url,

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { useCartStore } from "@/lib/store"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
+import { buildThumbObjectName } from "@/lib/photo-thumbnails"
 
 interface PhotoViewerModalProps {
   photo: Photo
@@ -20,7 +21,9 @@ interface PhotoViewerModalProps {
 export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewerModalProps) {
   const { items, removeItem, toggleSelected, toggleFavorite, togglePrinter } = useCartStore()
   // NOTE: Assuming `photo` object now has an `objectName` property.
-  const { url: imageUrl, loading: imageLoading, error: imageError } = usePresignedUrl(photo.objectName)
+  const previewObjectName =
+    photo.previewObjectName ?? buildThumbObjectName(photo.objectName)
+  const { url: imageUrl, loading: imageLoading, error: imageError } = usePresignedUrl(previewObjectName)
 
   const cartItem = items.find((item) => item.photoId === photo.id)
   const isInCart = !!cartItem

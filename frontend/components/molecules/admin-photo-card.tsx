@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
+import { buildThumbObjectName } from "@/lib/photo-thumbnails";
 import type { BackendPhoto } from "@/hooks/photos/usePhotos"; // Ajusta la ruta si es necesario
 
 interface AdminPhotoCardProps {
@@ -24,7 +25,10 @@ export function AdminPhotoCard({
   onEdit,
   onDelete,
 }: AdminPhotoCardProps) {
-  const { url: imageUrl, loading: imageLoading } = usePresignedUrl(photo.object_name);
+  const previewObjectName =
+    photo.thumbnail_object_name ?? buildThumbObjectName(photo.object_name);
+  const { url: imageUrl, loading: imageLoading } =
+    usePresignedUrl(previewObjectName);
 
   return (
     <Card

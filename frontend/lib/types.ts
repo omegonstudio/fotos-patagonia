@@ -12,6 +12,10 @@ export interface Photo {
   description?: string;
   tags?: string[]; // Added tags field for photo categorization
   objectName: string;
+  // Thumbnail generado en frontend y subido a storage con prefijo `thumb_`
+  thumbnailObjectName?: string;
+  // Objeto a usar para previsualizaciones ligeras (thumb)
+  previewObjectName?: string;
   // urls: {
   //   thumb: string;
   //   web: string; // with watermark (web)

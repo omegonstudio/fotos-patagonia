@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
 import { useCheckout } from "@/hooks/checkout/useCheckout";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
+import { buildThumbObjectName } from "@/lib/photo-thumbnails";
 
 type MercadoPagoPreferenceResponse = {
   init_point?: string;
@@ -40,7 +41,9 @@ type MercadoPagoPreferenceResponse = {
 
 // Sub-componente para cargar la imagen de la foto del checkout
 function CheckoutPhotoThumbnail({ photo }: { photo: Photo }) {
-  const { url, loading, error } = usePresignedUrl(photo.objectName);
+  const previewObjectName =
+    photo.previewObjectName ?? buildThumbObjectName(photo.objectName);
+  const { url, loading, error } = usePresignedUrl(previewObjectName);
 
   if (loading) {
     return (

@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Camera, MapPin, Calendar } from "lucide-react";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
+import { buildThumbObjectName } from "@/lib/photo-thumbnails";
 
 // Mantenemos la misma definición de tipo que en la página
 interface AlbumWithDetails {
@@ -21,7 +22,10 @@ interface AlbumWithDetails {
 }
 
 export function AlbumCard({ album }: { album: AlbumWithDetails }) {
-  const { url: coverPhotoUrl, loading: isLoading } = usePresignedUrl(album.coverPhotoObjectName);
+  const thumbObjectName = buildThumbObjectName(album.coverPhotoObjectName);
+  const { url: coverPhotoUrl, loading: isLoading } = usePresignedUrl(
+    thumbObjectName
+  );
 
   return (
     <Link href={`/albumes/${album.id}`} className="group">
