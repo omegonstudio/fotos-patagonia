@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import type { ReactElement } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Download, Send, Printer } from "lucide-react";
+import { ArrowLeft, Download, Send, Printer, ImageIcon } from "lucide-react";
 import { useQRCode } from "next-qrcode";
 
 import { Button } from "@/components/ui/button";
@@ -12,29 +12,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import type { Order, Photo, PrintFormat, OrderItem as OrderItemType } from "@/lib/types";
+import type { Order, Photo } from "@/lib/types";
 import { usePhotos } from "@/hooks/photos/usePhotos";
-import { PRINT_FORMATS } from "@/lib/print-formats";
 import { useToast } from "@/hooks/use-toast";
 import WatermarkedImage from "@/components/organisms/WatermarkedImage";
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
 import { useOrders } from "@/hooks/orders/useOrders";
+import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
 
 const QR_CANVAS_ID = "order-download-qr-canvas";
-
-// Helper functions (assuming they are defined elsewhere or here)
-const getPhotoDownloadUrl = (photo?: Photo | null) => {
-  if (!photo) return "";
-  return photo.urls.original || photo.urls.web || photo.urls.thumb || "";
-};
 
 const buildPhotoFilename = (photo: Photo) => {
   const sanitizedPlace = photo.place?.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || `foto-${photo.id}`;
@@ -52,6 +38,50 @@ const triggerFileDownload = (url: string, filename: string) => {
     anchor.click();
     document.body.removeChild(anchor);
 };
+
+// Sub-componente para manejar la lógica de la URL presignada
+function PhotoGridItem({ photo }: { photo: Photo }) {
+  const { url, loading, error } = usePresignedUrl(photo.objectName);
+
+  if (loading) {
+    return (
+      <div className="group relative aspect-square overflow-hidden rounded-xl bg-muted flex items-center justify-center">
+        <ImageIcon className="h-10 w-10 text-gray-400 animate-pulse" />
+      </div>
+    );
+  }
+
+  if (error || !url) {
+    return (
+      <div className="group relative aspect-square overflow-hidden rounded-xl bg-red-100 flex items-center justify-center text-red-500 text-xs text-center p-2">
+        Error al cargar imagen
+      </div>
+    );
+  }
+
+  return (
+    <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-xl bg-muted">
+      <WatermarkedImage
+        src={url}
+        alt={photo.place || "Foto"}
+        fill
+        opacity={0.5}
+        objectFit="cover"
+        className="transition-transform group-hover:scale-105"
+      />
+      <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+        <Button
+          size="sm"
+          onClick={() => triggerFileDownload(url, buildPhotoFilename(photo))}
+          className="gap-2 rounded-lg bg-primary text-foreground"
+        >
+          <Download className="h-4 w-4" />
+          Descargar
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 
 export default function OrderDetailPage() {
@@ -221,26 +251,7 @@ export default function OrderDetailPage() {
               <CardContent>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                   {allOrderPhotos.map((photo) => (
-                    <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-xl bg-muted">
-                      <WatermarkedImage
-                        src={photo.urls.thumb || "/placeholder.svg"}
-                        alt={photo.place || "Foto"}
-                        fill
-                        opacity={0.5}
-                        objectFit="cover"
-                        className="transition-transform group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                        <Button
-                          size="sm"
-                          onClick={() => triggerFileDownload(getPhotoDownloadUrl(photo), buildPhotoFilename(photo))}
-                          className="gap-2 rounded-lg bg-primary text-foreground"
-                        >
-                          <Download className="h-4 w-4" />
-                          Descargar
-                        </Button>
-                      </div>
-                    </div>
+                    <PhotoGridItem key={photo.id} photo={photo} />
                   ))}
                 </div>
               </CardContent>

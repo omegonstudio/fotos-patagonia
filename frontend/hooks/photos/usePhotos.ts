@@ -21,8 +21,9 @@ export interface BackendPhoto {
   filename: string;
   description?: string;
   price: number;
-  url: string;
-  watermark_url?: string;
+  // url: string;
+  // watermark_url?: string;
+  object_name: string;
   photographer_id: number;
   session_id: number;
   photographer?: {

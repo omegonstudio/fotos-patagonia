@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from typing import List, Optional
@@ -31,6 +31,14 @@ class AlbumInSessionSchema(AlbumInDBBaseSchema):
 class AlbumSchema(AlbumInDBBaseSchema):
     sessions: list['PhotoSessionSchema'] = []
     tags: List[TagSchema] = []
+
+    @field_validator('sessions', mode='before')
+    @classmethod
+    def filter_sessions_with_photos(cls, v):
+        if not v:
+            return []
+        # Filtra la lista de sesiones, manteniendo solo aquellas que tienen fotos.
+        return [session for session in v if session.photos]
 
 # SQLAlchemy model
 class Album(Base):

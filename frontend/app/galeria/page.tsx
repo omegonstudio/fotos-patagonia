@@ -17,7 +17,7 @@ export default function GaleriaPage() {
   const { photos: backendPhotos, loading, error, refetch } = usePhotos()
   const { addItem, items, toggleFavorite, togglePrinter, toggleSelected } = useCartStore()
   const { isOpen, currentPhotoId, photos, open, close, next, prev } = useLightboxStore()
-  const { filters, mode, setFilters, setMode, setPhotos } = useGalleryStore()
+  const { filters, setFilters, setPhotos } = useGalleryStore()
   const { user } = useAuthStore()
 
   const userIsAdmin = isAdmin(user)
@@ -30,10 +30,6 @@ export default function GaleriaPage() {
   useEffect(() => {
     setPhotos(galleryPhotos)
   }, [galleryPhotos, setPhotos])
-
-  useEffect(() => {
-    setMode(userIsAdmin ? "local" : "web")
-  }, [setMode, userIsAdmin])
 
   const filteredPhotos = useMemo(() => {
     return galleryPhotos.filter((photo) => {
@@ -189,7 +185,6 @@ export default function GaleriaPage() {
                   photo={photo}
                   onClick={() => handlePhotoClick(photo.id)}
                   onShiftClick={() => handleShiftClick(photo.id)}
-                  mode={mode}
                   isSelected={cartItem?.selected || false}
                   onToggleSelect={() => toggleSelected(photo.id)}
                   isFavorite={cartItem?.favorite || false}
@@ -225,7 +220,7 @@ export default function GaleriaPage() {
         )}
 
         {isOpen && currentPhoto && (
-          <PhotoViewerModal photo={currentPhoto} onClose={close} onNext={next} onPrev={prev} mode={mode} />
+          <PhotoViewerModal photo={currentPhoto} onClose={close} onNext={next} onPrev={prev} />
         )}
       </div>
     </div>

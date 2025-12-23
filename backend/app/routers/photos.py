@@ -21,6 +21,14 @@ class BulkPhotoCompletionRequest(BaseModel):
 class TagRequest(BaseModel):
     tag_names: List[str]
 
+class PresignedUrlResponse(BaseModel):
+    url: str
+
+@router.get("/presigned-url/", response_model=PresignedUrlResponse)
+def get_presigned_url(object_name: str):
+    url = storage_service.generate_presigned_get_url(object_name)
+    return {"url": url}
+
 @router.post("/complete-upload", response_model=List[PhotoSchema], status_code=status.HTTP_201_CREATED)
 def complete_upload(
     request: BulkPhotoCompletionRequest,

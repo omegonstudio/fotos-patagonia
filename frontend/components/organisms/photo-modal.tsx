@@ -278,8 +278,6 @@ export function PhotoModal({
           photographer_id: selectedPhotographer
             ? parseInt(selectedPhotographer)
             : undefined,
-          url: photo.url,
-          watermark_url: photo.watermark_url,
         }),
       });
 

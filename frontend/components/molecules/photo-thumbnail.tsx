@@ -4,14 +4,14 @@ import type React from "react"
 import { useState } from "react"
 import type { Photo } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import { Check, Heart, Printer } from "lucide-react"
+import { Check, Heart, Printer, Image as ImageIcon } from "lucide-react"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
+import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
 
 interface PhotoThumbnailProps {
   photo: Photo
   onClick?: () => void
   onShiftClick?: () => void
-  mode?: "web" | "local"
   isSelected?: boolean
   onToggleSelect?: () => void
   isFavorite?: boolean
@@ -24,7 +24,6 @@ export function PhotoThumbnail({
   photo,
   onClick,
   onShiftClick,
-  mode = "web",
   isSelected = false,
   onToggleSelect,
   isFavorite = false,
@@ -33,6 +32,9 @@ export function PhotoThumbnail({
   onTogglePrinter,
 }: PhotoThumbnailProps) {
   const [isHovered, setIsHovered] = useState(false)
+  // NOTE: Assuming `photo` object now has an `objectName` property.
+  // The Photo type in `lib/types.ts` and the mapper must be updated accordingly.
+  const { url: imageUrl, loading: imageLoading, error: imageError } = usePresignedUrl(photo.objectName)
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey && onShiftClick) {
@@ -56,10 +58,7 @@ export function PhotoThumbnail({
   const handlePrinterClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     onTogglePrinter?.()
-
   }
-
-  const imageUrl = mode === "local" ? photo.urls.local : photo.urls.web
 
   return (
     <div
@@ -68,14 +67,24 @@ export function PhotoThumbnail({
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleClick}
     >
-      <WatermarkedImage
-        src={photo.urls.thumb || "/placeholder.svg"}
-        alt={`Foto de ${photo.place || "Patagonia"}`}
-        fill
-        objectFit="cover"
-        className="transition-transform group-hover:scale-105"
-        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-      />
+      {imageLoading ? (
+        <div className="flex h-full w-full animate-pulse items-center justify-center bg-gray-200">
+          <ImageIcon className="h-12 w-12 text-gray-400" />
+        </div>
+      ) : imageError ? (
+        <div className="flex h-full w-full items-center justify-center bg-red-100 text-red-500">
+          Error
+        </div>
+      ) : (
+        <WatermarkedImage
+          src={imageUrl}
+          alt={`Foto de ${photo.place || "Patagonia"}`}
+          fill
+          objectFit="cover"
+          className="transition-transform group-hover:scale-105"
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+        />
+      )}
 
       <div className="absolute right-3 top-3 z-10 flex gap-2">
         <div

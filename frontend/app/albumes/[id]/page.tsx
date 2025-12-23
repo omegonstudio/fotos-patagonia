@@ -35,13 +35,15 @@ export default function AlbumDetailPage() {
     album.sessions.forEach((session: any) => {
       if (session.photos && Array.isArray(session.photos)) {
         session.photos.forEach((photo: any) => {
-          const normalizedPhoto: BackendPhoto = {
+          // Directamente mapeamos la foto del backend, asumiendo que ya tiene la estructura correcta
+          // y que el mapper se encargará de la transformación.
+          // El `object_name` debe venir en el objeto `photo` del backend.
+          const backendPhoto: BackendPhoto = {
             id: photo.id,
             filename: photo.filename || `photo-${photo.id}`,
             description: photo.description,
             price: photo.price,
-            url: photo.url,
-            watermark_url: photo.watermark_url || photo.watermarked_url || photo.url,
+            object_name: photo.object_name, // <- Cambio clave
             photographer_id: photo.photographer_id ?? session.photographer_id ?? 0,
             session_id: session.id,
             photographer: photo.photographer ?? session.photographer,
@@ -55,11 +57,11 @@ export default function AlbumDetailPage() {
               photographer: session.photographer,
             },
             tags: photo.tags,
-          }
+          };
 
           photos.push(
-            mapBackendPhotoToPhoto(normalizedPhoto, {
-              session: normalizedPhoto.session,
+            mapBackendPhotoToPhoto(backendPhoto, {
+              session: backendPhoto.session,
               albumName: album.name,
             }),
           )

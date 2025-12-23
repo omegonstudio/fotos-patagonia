@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { CheckCircle2, Download, Mail, ArrowRight, Calendar, MapPin, QrCode } from "lucide-react"
+import { CheckCircle2, Download, Mail, ArrowRight, Calendar, MapPin, QrCode, ImageIcon } from "lucide-react"
 import QRCodeLib from "qrcode"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +11,39 @@ import { Badge } from "@/components/ui/badge"
 import type { Order, Photo } from "@/lib/types"
 import { usePhotos } from "@/hooks/photos/usePhotos"
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
+import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
+
+// Sub-componente para cargar la imagen de la foto en la confirmación
+function ConfirmationPhotoThumbnail({ photo }: { photo: Photo }) {
+  const { url, loading, error } = usePresignedUrl(photo.objectName);
+
+  if (loading) {
+    return (
+      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-muted flex items-center justify-center">
+        <ImageIcon className="h-8 w-8 text-gray-400 animate-pulse" />
+      </div>
+    );
+  }
+
+  if (error || !url) {
+    return (
+      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-red-100 flex items-center justify-center text-red-500 text-xs text-center p-1">
+        Error
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
+      <img
+        src={url}
+        alt={photo.place || "Foto"}
+        className="h-full w-full object-cover"
+      />
+    </div>
+  );
+}
+
 
 function ConfirmacionContent() {
   const searchParams = useSearchParams()
@@ -237,13 +270,7 @@ function ConfirmacionContent() {
             <div className="space-y-3">
               {orderPhotos.map((photo) => (
                 <div key={photo.id} className="flex items-center gap-4 rounded-xl border border-gray-200 p-3">
-                  <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-                    <img
-                      src={photo.urls.thumb || "/placeholder.svg"}
-                      alt={photo.place || "Foto"}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
+                  <ConfirmationPhotoThumbnail photo={photo} />
                   <div className="flex-1">
                     <p className="font-semibold">{photo.place}</p>
                     <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">

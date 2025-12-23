@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationModal } from "@/components/molecules/delete-confirmation-modal";
+import { AdminPhotoCard } from "@/components/molecules/admin-photo-card"; // <- Importación correcta
 
 export default function FotosPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -179,73 +180,14 @@ export default function FotosPage() {
             {filteredPhotos.map((photo) => {
               const selected = isSelected(photo.id);
               return (
-              <Card
-                key={photo.id}
-                className={cn(
-                  "group relative overflow-hidden rounded-2xl bg-muted transition-all hover:shadow-xl",
-                  selected && "ring-2 ring-destructive/70"
-                )}
-              >
-                {/* IMAGE */}
-                <div className="relative aspect-square overflow-hidden">
-                  <Image
-                    src={photo.watermark_url || photo.url}
-                    alt={photo.filename}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-
-                  {/* SELECCIÓN */}
-                  <div className="absolute right-3 top-3 z-20">
-                    <button
-                      onClick={(e) => handleCheckboxClick(e, photo.id)}
-                      className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all",
-                        selected
-                          ? "border-destructive bg-destructive text-white shadow-lg"
-                          : "border-white bg-white/20 backdrop-blur hover:bg-white/40"
-                      )}
-                    >
-                      {selected && <Check className="h-4 w-4" strokeWidth={3} />}
-                    </button>
-                  </div>
-
-                  {/* ACCIONES (hover) */}
-                  <div className="absolute left-3 top-3 z-20 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => handleEditPhoto(photo)}
-                      className="h-8 w-8 rounded-full bg-white/20 backdrop-blur border-white hover:bg-white/40"
-                    >
-                      <Pencil className="h-4 w-4 text-white" />
-                    </Button>
-
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => handleDeletePhoto(photo)}
-                      className="h-8 w-8 rounded-full bg-white/20 backdrop-blur border-white hover:bg-white/40"
-
-                    >
-                      <Trash className="h-4 w-4 text-white" />
-                    </Button>
-                  </div>
-
-                  {/* OVERLAY */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-
-                  {/* INFO */}
-                  <div className="absolute bottom-0 left-0 right-0 z-10 p-3 text-white transition-transform group-hover:translate-y-0 translate-y-full">
-                    <p className="text-sm font-semibold truncate">{photo.filename}</p>
-                    <div className="mt-1 flex items-center justify-between text-xs opacity-90">
-                      <span>{photo.photographer?.name || "Sin fotógrafo"}</span>
-                      <span className="font-semibold">${photo.price}</span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
+                <AdminPhotoCard
+                  key={photo.id}
+                  photo={photo}
+                  isSelected={selected}
+                  onCheckboxClick={(e) => handleCheckboxClick(e, photo.id)}
+                  onEdit={() => handleEditPhoto(photo)}
+                  onDelete={() => handleDeletePhoto(photo)}
+                />
               );
             })}
           </div>

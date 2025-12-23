@@ -10,38 +10,39 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 
+import { AlbumCard } from "@/components/molecules/album-card";
+
 interface AlbumWithDetails {
-  id: number
-  name: string
-  description?: string | null
-  sessions: any[]
-  photoCount: number
-  coverPhoto?: string
-  location?: string
-  event?: string
-  photographerName?: string
-  photographerId?: number
-  createdAt?: string
+  id: number;
+  name: string;
+  description?: string | null;
+  sessions: any[];
+  photoCount: number;
+  coverPhotoObjectName?: string; // <-- Cambio de nombre
+  location?: string;
+  event?: string;
+  photographerName?: string;
+  photographerId?: number;
+  createdAt?: string;
 }
 
 export default function AlbumesPage({ main }: { main?: boolean }) {
-  const { data: albumsData, loading: albumsLoading, error: albumsError, refetch: refetchAlbums } = useAlbums()
-  const { photographers, loading: photographersLoading } = usePhotographers()
+  const { data: albumsData, loading: albumsLoading, error: albumsError, refetch: refetchAlbums } = useAlbums();
+  const { photographers, loading: photographersLoading } = usePhotographers();
   
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedPhotographer, setSelectedPhotographer] = useState<string>("all")
-  const [sortBy, setSortBy] = useState<"recent" | "oldest" | "name">("recent")
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPhotographer, setSelectedPhotographer] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"recent" | "oldest" | "name">("recent");
 
   // Transform backend albums to include details from sessions
   const albums = useMemo(() => {
-    if (!Array.isArray(albumsData)) return []
+    if (!Array.isArray(albumsData)) return [];
     
     return albumsData.map((album): AlbumWithDetails => {
-      // Get session details (use the first session for display data)
-      const firstSession = album.sessions?.[0]
+      const firstSession = album.sessions?.[0];
       const photoCount = album.sessions?.reduce((total: number, session: any) => 
         total + (session.photos?.length || 0), 0
-      ) || 0
+      ) || 0;
       
       return {
         id: album.id,
@@ -49,15 +50,15 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
         description: album.description,
         sessions: album.sessions || [],
         photoCount,
-        coverPhoto: firstSession?.photos?.[0]?.url || undefined,
+        coverPhotoObjectName: firstSession?.photos?.[0]?.object_name || undefined, // <-- Cambio clave
         location: firstSession?.location,
         event: firstSession?.event_name,
         photographerName: firstSession?.photographer?.name,
         photographerId: firstSession?.photographer_id,
         createdAt: firstSession?.event_date || new Date().toISOString(),
-      }
-    })
-  }, [albumsData])
+      };
+    });
+  }, [albumsData]);
 
   // Filter and sort albums
   const filteredAlbums = useMemo(() => {
@@ -222,62 +223,4 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
   )
 }
 
-function AlbumCard({ album }: { album: AlbumWithDetails }) {
-  return (
-    <Link href={`/albumes/${album.id}`} className="group">
-      <div className="overflow-hidden rounded-2xl bg-card shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-        {/* Cover Image */}
-        <div className="relative aspect-square overflow-hidden bg-secondary">
-          {album.coverPhoto ? (
-            <img
-              src={album.coverPhoto}
-              alt={album.name}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-muted">
-              <Camera className="h-16 w-16 text-muted-foreground" />
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
-          {/* Photo Count Badge */}
-          <div className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-black/70 px-3 py-1 text-sm text-white backdrop-blur-sm">
-            <Camera className="h-3 w-3" />
-            <span>{album.photoCount}</span>
-          </div>
-        </div>
-
-        {/* Album Info */}
-        <div className="p-4">
-          <h3 className="mb-2 text-lg font-heading line-clamp-1 group-hover:text-primary transition-colors">
-            {album.name}
-          </h3>
-
-          {album.event && <p className="mb-2 text-sm text-muted-foreground line-clamp-1">{album.event}</p>}
-
-          <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {album.location && (
-              <div className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                <span className="line-clamp-1">{album.location}</span>
-              </div>
-            )}
-          {/*   {album.createdAt && (
-              <div className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                <span>{new Date(album.createdAt).toLocaleDateString("es-AR")}</span>
-              </div>
-            )} */}
-          </div>
-
-          {album.photographerName && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Por {album.photographerName}
-            </p>
-          )}
-        </div>
-      </div>
-    </Link>
-  )
-}
