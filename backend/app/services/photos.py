@@ -6,11 +6,13 @@ from services.base import BaseService
 from services.storage import storage_service
 from pydantic import BaseModel
 from typing import List
+from sqlalchemy import select
 from models.user import User
 from core.permissions import Permissions
 from datetime import datetime
 from services.sessions import SessionService
 from models.photo_session import PhotoSessionCreateSchema as SessionCreateSchema
+from sqlalchemy.exc import NoResultFound
 
 class PhotoCompletionRequest(BaseModel):
     object_name: str
@@ -26,6 +28,59 @@ class PhotoService(BaseService):
         URL generation is now a front-end concern using the object_name.
         """
         return PhotoSchema.model_validate(photo)
+
+    def _is_thumbnail_object(self, object_name: str) -> bool:
+        return object_name.startswith("photos/thumb_")
+
+    def _resolve_original_from_thumb(self, thumb_object_name: str) -> str:
+        # photos/thumb_<uuid>.ext -> photos/<uuid>.ext
+        base = thumb_object_name[len("photos/") :]
+        if not base.startswith("thumb_"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid thumbnail name."
+            )
+        return f"photos/{base[len('thumb_'):]}"
+
+    def ensure_object_belongs_to_photo(self, object_name: str) -> Photo:
+        """
+        Validates that the requested object belongs to a known photo.
+        Thumbnails must map to an existing original photo; originals must exist in DB.
+        """
+        if self._is_thumbnail_object(object_name):
+            original_object_name = self._resolve_original_from_thumb(object_name)
+            photo = (
+                self.db.query(Photo)
+                .filter(Photo.object_name == original_object_name)
+                .first()
+            )
+            if not photo:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Thumbnail not associated to any photo."
+                )
+            return photo
+
+        photo = (
+            self.db.query(Photo)
+            .filter(Photo.object_name == object_name)
+            .first()
+        )
+        if not photo:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Photo not found."
+            )
+        return photo
+
+    def generate_presigned_view_url(self, object_name: str) -> str:
+        """
+        Allows GET presigned URLs only for:
+        - thumbnails that belong to a known photo (preview use-case)
+        - originals that belong to a known photo (download flow)
+        """
+        self.ensure_object_belongs_to_photo(object_name)
+        return storage_service.generate_presigned_get_url(object_name)
 
     def list_photos(self) -> List[PhotoSchema]:
         """Returns a list of all photos with presigned URLs."""

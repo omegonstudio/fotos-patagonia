@@ -5,8 +5,12 @@ export const buildThumbObjectName = (
   objectName?: string | null
 ): string | undefined => {
   if (!objectName) return undefined;
-  // Mantener la ruta original pero con prefijo para que quede en la misma carpeta.
-  return `thumb_${objectName}`;
+  // Mantener la carpeta original y solo prefijar el nombre del archivo.
+  // Ej: photos/abc.png -> photos/thumb_abc.png
+  const lastSlash = objectName.lastIndexOf("/");
+  const dir = lastSlash >= 0 ? objectName.slice(0, lastSlash + 1) : "";
+  const base = lastSlash >= 0 ? objectName.slice(lastSlash + 1) : objectName;
+  return `${dir}thumb_${base}`;
 };
 
 /**

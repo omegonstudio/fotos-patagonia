@@ -13,6 +13,8 @@ from pydantic import BaseModel
 class FileInfo(BaseModel):
     filename: str
     contentType: str
+    # Opcional: cuando el cliente necesita un nombre exacto (ej: thumbnails derivados).
+    objectName: str | None = None
 
 class PresignedURLData(BaseModel):
     upload_url: str
@@ -116,6 +118,19 @@ class StorageService:
                 detail=f"Could not delete file from storage."
             )
 
+    def _sanitize_object_name(self, object_name: str) -> str:
+        if ".." in object_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid object name."
+            )
+        if not object_name.startswith("photos/"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Object name must start with 'photos/'."
+            )
+        return object_name
+
     def prepare_upload_urls(self, files_info: List[FileInfo]) -> List[PresignedURLData]:
         """
         Prepares a list of presigned PUT URLs for multiple files.
@@ -130,9 +145,13 @@ class StorageService:
 
         for file_info in files_info:
             try:
-                file_extension = file_info.filename.split('.')[-1] if '.' in file_info.filename else ''
-                unique_id = uuid.uuid4()
-                object_name = f"photos/{unique_id}.{file_extension}" if file_extension else f"photos/{unique_id}"
+                # Si el cliente provee un objectName (ej: thumbnails), lo respetamos tras sanitizar.
+                if file_info.objectName:
+                    object_name = self._sanitize_object_name(file_info.objectName)
+                else:
+                    file_extension = file_info.filename.split('.')[-1] if '.' in file_info.filename else ''
+                    unique_id = uuid.uuid4()
+                    object_name = f"photos/{unique_id}.{file_extension}" if file_extension else f"photos/{unique_id}"
 
                 upload_url = self.generate_presigned_put_url(
                     object_name=object_name,

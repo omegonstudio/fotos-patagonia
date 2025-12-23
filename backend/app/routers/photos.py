@@ -25,8 +25,13 @@ class PresignedUrlResponse(BaseModel):
     url: str
 
 @router.get("/presigned-url/", response_model=PresignedUrlResponse)
-def get_presigned_url(object_name: str):
-    url = storage_service.generate_presigned_get_url(object_name)
+def get_presigned_url(object_name: str, db: Session = Depends(get_db)):
+    """
+    Generates a presigned GET URL only if the object (original or thumbnail)
+    belongs to a known photo. Thumbnails are considered derived and safe for previews.
+    """
+    photo_service = PhotoService(db)
+    url = photo_service.generate_presigned_view_url(object_name)
     return {"url": url}
 
 @router.post("/complete-upload", response_model=List[PhotoSchema], status_code=status.HTTP_201_CREATED)

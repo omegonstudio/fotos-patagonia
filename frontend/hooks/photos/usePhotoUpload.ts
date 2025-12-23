@@ -11,6 +11,7 @@ import type { BackendPhoto } from "@/hooks/photos/usePhotos";
 interface FileInfo {
   filename: string;
   contentType: string;
+  objectName?: string;
 }
 
 interface PresignedURLData {
@@ -41,6 +42,20 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  // Normaliza el nombre de archivo de thumbnail para evitar carpetas duplicadas.
+  const getThumbFilename = (
+    originalObjectName?: string,
+    fallbackName?: string
+  ): string => {
+    const base =
+      originalObjectName?.split("/").pop() ??
+      fallbackName?.split("/").pop() ??
+      "thumbnail.jpg";
+    // Garantiza no duplicar el prefijo si ya viene con thumb_
+    const sanitized = base.startsWith("thumb_") ? base.slice(6) : base;
+    return `thumb_${sanitized}`;
+  };
 
   // ... (requestUploadUrls and uploadToStorage remain the same)
   /**
@@ -158,10 +173,16 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
           method: "POST",
           body: JSON.stringify({
             files: thumbnailFiles.map((thumbFile, index) => ({
-              filename:
-                buildThumbObjectName(originalPresigned[index]?.object_name) ??
-                thumbFile.name,
+              // Usamos solo el nombre de archivo (sin carpeta) para evitar rutas duplicadas
+              // cuando el backend ya antepone su propia carpeta (ej: photos/).
+              filename: getThumbFilename(
+                originalPresigned[index]?.object_name,
+                thumbFile.name
+              ),
               contentType: thumbFile.type,
+              objectName: buildThumbObjectName(
+                originalPresigned[index]?.object_name
+              ),
             })),
           }),
         }
