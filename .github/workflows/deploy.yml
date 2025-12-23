@@ -6,19 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       rollback_commit:
-        description: "Commit hash opcional para rollback (vacío = último main)"
+        description: "Commit hash opcional para rollback"
         required: false
         default: ""
 
 concurrency:
   group: foto-patagonia-prod
   cancel-in-progress: true
-
-env:
-  REPO_URL: https://github.com/${{ github.repository }}.git
-  DEPLOY_DIR: /opt/apps/foto-patagonia
-  COMPOSE_FILE: docker-compose.prod.yml
-  BRANCH: main
 
 jobs:
   deploy-prod:
@@ -32,7 +26,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.DROPLET_IP }} >> ~/.ssh/known_hosts
 
-      - name: Deploy PROD en Droplet
+      - name: Deploy en Droplet
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes \
           ${{ secrets.SSH_USER }}@${{ secrets.DROPLET_IP }} "bash -s" <<'REMOTE'
@@ -40,7 +34,6 @@ jobs:
 
             echo "=== DEPLOY FOTO-PATAGONIA PROD ==="
 
-            # Variables DEFINIDAS en el servidor
             REPO="https://github.com/omegonstudio/fotos-patagonia.git"
             DIR="/opt/apps/foto-patagonia"
             BRANCH="main"
@@ -57,27 +50,27 @@ jobs:
             echo "-> Guardando commit previo"
             git rev-parse --short HEAD > .last_deploy_commit || true
 
+            echo "-> Fetch + reset"
             git fetch origin
-
-            echo "-> Actualizando a origin/$BRANCH"
             git reset --hard "origin/$BRANCH"
 
             echo "-> Bajando stack previo"
             docker compose -f "$COMPOSE" down --remove-orphans || true
 
-            echo "-> Build sin cache (todo)"
+            echo "-> Build sin cache"
             docker compose -f "$COMPOSE" build --no-cache
 
-            echo "-> Apply migrations"
-            docker compose -f "$COMPOSE" run --rm backend alembic upgrade head
-
-            echo "-> Up (sin rebuild extra)"
-            docker compose -f "$COMPOSE" up -d
-
+            echo "-> Levantando stack"
+            docker compose -f "$COMPOSE" up -d --remove-orphans
 
             echo "-> Estado de contenedores"
             docker compose -f "$COMPOSE" ps
 
-            echo "=== DEPLOY PROD COMPLETADO ==="
-          REMOTE
+            echo "-> Logs backend (últimas 120 líneas)"
+            docker logs fotopatagonia-backend --tail=120 || true
 
+            echo "-> Logs frontend (últimas 120 líneas)"
+            docker logs fotopatagonia-frontend --tail=120 || true
+
+            echo "=== DEPLOY COMPLETADO ==="
+          REMOTE

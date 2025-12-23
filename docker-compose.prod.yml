@@ -9,11 +9,17 @@ services:
       - ./backend/.env
     restart: unless-stopped
 
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-    
+    # Migrations + app (fail fast)
+    command: >
+      sh -c "
+      alembic upgrade head &&
+      exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+      "
+
+    # 🔒 Backend SOLO accesible desde el droplet
     ports:
-      - "127.0.0.1:8000:8000"   # 👈 CLAVE
-      
+      - "127.0.0.1:8000:8000"
+
     depends_on:
       db:
         condition: service_healthy
@@ -21,10 +27,14 @@ services:
     networks:
       - fotopatagonia_network
 
+    # 🔐 HARDENING
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
 
   db:
     image: postgres:13
@@ -33,11 +43,13 @@ services:
       - ./backend/.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
+
     networks:
       - fotopatagonia_network
 
@@ -47,15 +59,20 @@ services:
       dockerfile: Dockerfile.prod
       args:
         - NEXT_PUBLIC_API_URL=https://somosfotospatagonia.com/api
+
     container_name: fotopatagonia-frontend
     restart: unless-stopped
+
     depends_on:
       - backend
+
     environment:
       - NEXT_PUBLIC_API_URL=https://somosfotospatagonia.com/api
       - INTERNAL_API_URL=http://backend:8000
+
     ports:
       - "3000:3000"
+
     networks:
       - fotopatagonia_network
 
