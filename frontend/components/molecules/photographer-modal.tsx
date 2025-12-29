@@ -1,19 +1,25 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import type { Photographer } from "@/lib/types"
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { Photographer } from "@/lib/types";
 
 interface PhotographerModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSave: (data: Photographer) => void
-  photographer?: Photographer | null
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: Photographer) => void;
+  photographer?: Photographer | null;
 }
 
 const basePhotographer: Photographer = {
@@ -21,46 +27,101 @@ const basePhotographer: Photographer = {
   name: "",
   contact_info: "",
   commission_percentage: 0,
-}
+  email: "",
+  password: "",
+};
 
-export default function PhotographerModal({ isOpen, onClose, onSave, photographer }: PhotographerModalProps) {
-  const [formData, setFormData] = useState<Photographer>(() => ({ ...basePhotographer }))
-
-  // Lógica antigua de password (comentada temporalmente según requerimiento)
-  // const [password, setPassword] = useState("")
+export default function PhotographerModal({
+  isOpen,
+  onClose,
+  onSave,
+  photographer,
+}: PhotographerModalProps) {
+  const [formData, setFormData] = useState<Photographer>(() => ({
+    ...basePhotographer,
+  }));
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     if (photographer) {
-      setFormData({ ...photographer })
-      // setPassword("")
+      setFormData({ ...photographer });
+      setSuccessMessage("");
+      setErrorMessage("");
     } else {
-      setFormData({ ...basePhotographer })
-      // setPassword("")
+      setFormData({ ...basePhotographer });
+      setSuccessMessage("");
+      setErrorMessage("");
     }
-  }, [photographer, isOpen])
+  }, [photographer, isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "commission_percentage" ? Number.parseFloat(value) || 0 : value,
-    }))
-  }
+      [name]:
+        name === "commission_percentage"
+          ? Number.parseFloat(value) || 0
+          : value,
+    }));
+  };
 
   const handleSave = () => {
-    if (!formData.name || !formData.contact_info) {
-      alert("Por favor completa todos los campos requeridos")
-      return
+    const creating = !photographer || formData.id === 0;
+
+    if (
+      !formData.name ||
+      !formData.contact_info ||
+      !formData.email ||
+      (creating && !formData.password)
+    ) {
+      setErrorMessage("Por favor completa todos los campos requeridos");
+      setSuccessMessage("");
+      return;
     }
 
-    const dataToSave: Photographer = {
+    const dataToSave: any = {
       ...formData,
       id: formData.id || Date.now(),
+      email: formData.email,
+    };
+
+    // Only include password if provided (so edits don't overwrite it with empty)
+    if (formData.password && formData.password.length > 0) {
+      dataToSave.password = formData.password;
     }
 
-    onSave(dataToSave)
-    onClose()
-  }
+    // Call onSave and handle success/error messages
+    Promise.resolve(onSave(dataToSave))
+      .then(() => {
+        setErrorMessage("");
+        setSuccessMessage("Fotógrafo guardado correctamente.");
+        // allow user to see the message briefly before closing
+        setTimeout(() => {
+          setSuccessMessage("");
+          onClose();
+        }, 900);
+      })
+      .catch((err) => {
+        const text = String(err && (err.message || err || ""));
+        const status =
+          err &&
+          (err.status ||
+            err.statusCode ||
+            (err.response && err.response.status));
+
+        if (
+          status === 422 ||
+          /Field required/i.test(text) ||
+          /required/i.test(text)
+        ) {
+          setErrorMessage("Faltan campos requeridos (email y/o contraseña).");
+        } else {
+          setErrorMessage("No se pudo guardar el fotógrafo.");
+        }
+        setSuccessMessage("");
+      });
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -100,8 +161,23 @@ export default function PhotographerModal({ isOpen, onClose, onSave, photographe
             />
           </div>
 
-          {/* Bloque password en pausa */}
-          {/*
+          {/* Email */}
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-sm font-semibold">
+              Email
+            </Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              value={(formData as any).email || ""}
+              onChange={handleChange}
+              placeholder="fotografo@example.com"
+              className="rounded-lg border-gray-200"
+            />
+          </div>
+
+          {/* Password (required on create, optional on edit) */}
           <div className="space-y-2">
             <Label htmlFor="password" className="text-sm font-semibold">
               Contraseña {photographer ? "(opcional)" : "(requerida)"}
@@ -111,16 +187,17 @@ export default function PhotographerModal({ isOpen, onClose, onSave, photographe
               name="password"
               type="password"
               placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required={!photographer}
+              value={(formData as any).password || ""}
+              onChange={handleChange}
               className="rounded-lg border-gray-200"
             />
           </div>
-          */}
 
           <div className="space-y-2">
-            <Label htmlFor="commission_percentage" className="text-sm font-semibold">
+            <Label
+              htmlFor="commission_percentage"
+              className="text-sm font-semibold"
+            >
               Comisión
             </Label>
             <div className="relative">
@@ -142,8 +219,29 @@ export default function PhotographerModal({ isOpen, onClose, onSave, photographe
           </div>
         </div>
 
+        {/* Mensajes de estado */}
+        {successMessage ? (
+          <div className="mt-4 rounded-md bg-green-50 p-2">
+            <p className="text-sm font-medium text-green-700">
+              {successMessage}
+            </p>
+          </div>
+        ) : null}
+
+        {errorMessage ? (
+          <div className="mt-4 rounded-md bg-red-50 p-2">
+            <p className="text-sm font-medium text-destructive">
+              {errorMessage}
+            </p>
+          </div>
+        ) : null}
+
         <DialogFooter className="mt-6 gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose} className="rounded-lg border-gray-200 bg-transparent">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="rounded-lg border-gray-200 bg-transparent"
+          >
             Cancelar
           </Button>
           <Button
@@ -155,5 +253,5 @@ export default function PhotographerModal({ isOpen, onClose, onSave, photographe
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

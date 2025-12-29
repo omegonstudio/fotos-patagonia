@@ -50,12 +50,36 @@ export function UploadManager() {
                     </p>
                   </div>
                   {job.status === "success" && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                  {job.status === "partial" && <AlertCircle className="h-4 w-4 text-amber-500" />}
                   {job.status === "error" && <AlertCircle className="h-4 w-4 text-destructive" />}
                 </div>
                 <div className="mt-2">
                   <Progress value={job.progress} className="h-2" />
                 </div>
                 {job.error && <p className="mt-1 text-xs text-destructive">{job.error}</p>}
+                {job.failedFiles && job.failedFiles.length > 0 && (
+                  <div className="mt-2 space-y-1 rounded-md bg-amber-50 p-2">
+                    <p className="text-xs font-semibold text-amber-700">
+                      {job.status === "partial"
+                        ? "Subida parcial. Archivos pendientes:"
+                        : "Archivos fallidos:"}
+                    </p>
+                    <ul className="space-y-1">
+                      {job.failedFiles.slice(0, 3).map((file, idx) => (
+                        <li key={`${file.name}-${idx}`} className="text-xs text-amber-800">
+                          • {file.name}
+                          {file.attempts ? ` (intentos: ${file.attempts})` : ""}
+                          {file.reason ? ` - ${file.reason}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                    {job.failedFiles.length > 3 && (
+                      <p className="text-[11px] text-amber-700">
+                        +{job.failedFiles.length - 3} más
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

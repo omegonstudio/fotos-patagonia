@@ -238,6 +238,7 @@ export function PhotoModal({
         filesCount: uploadedFiles.length,
         status: "uploading",
         progress: 0,
+        totalFiles: uploadedFiles.length,
       });
 
       void uploadPhotos(
@@ -250,8 +251,40 @@ export function PhotoModal({
         },
         {
           onProgress: (pct) => uploadQueue.updateProgress(taskId, pct),
-          onComplete: async (createdPhotos) => {
-            uploadQueue.markSuccess(taskId);
+          onComplete: async (createdPhotos, batchResult) => {
+            const status = batchResult?.status ?? "success";
+            const failedFiles = batchResult?.failedFiles?.map((f) => ({
+              name: f.name,
+              reason: f.reason,
+              attempts: f.attempts,
+              kind: f.kind,
+              statusCode: f.statusCode,
+              retryable: f.retryable,
+            }));
+            const successCount =
+              batchResult?.originals.filter((o) => o.status === "success").length ??
+              createdPhotos.length;
+            const failedCount =
+              batchResult?.failedFiles?.length ?? 0;
+
+            if (status === "partial") {
+              uploadQueue.markPartial(taskId, {
+                totalFiles: batchResult?.originals.length ?? uploadedFiles.length,
+                successCount,
+                failedCount,
+                failedFiles,
+                error: failedCount > 0 ? "Subida parcial: algunos archivos fallaron" : undefined,
+              });
+            } else {
+              uploadQueue.setResult(taskId, {
+                status: "success",
+                progress: 100,
+                totalFiles: batchResult?.originals.length ?? uploadedFiles.length,
+                successCount,
+                failedCount,
+                failedFiles,
+              });
+            }
             if (selectedTagNames.length && Array.isArray(createdPhotos)) {
               const newPhotoIds = createdPhotos
                 .map((createdPhoto: { id?: number }) => createdPhoto.id)
@@ -259,13 +292,31 @@ export function PhotoModal({
               await assignTagsToPhotos(newPhotoIds, selectedTagNames);
             }
             toast({
-              title: "Fotos subidas",
-              description: `${uploadedFiles.length} foto(s) creada(s) correctamente.`,
+              title: status === "partial" ? "Subida parcial" : "Fotos subidas",
+              description:
+                status === "partial"
+                  ? `Se crearon ${successCount} foto(s). ${failedCount} pendiente(s).`
+                  : `${uploadedFiles.length} foto(s) creada(s) correctamente.`,
             });
             onSave?.();
           },
-          onError: (error) => {
+          onError: (error, batchResult) => {
             uploadQueue.markError(taskId, error.message);
+            if (batchResult?.failedFiles?.length) {
+              uploadQueue.setResult(taskId, {
+                failedFiles: batchResult.failedFiles.map((f) => ({
+                  name: f.name,
+                  reason: f.reason,
+                  attempts: f.attempts,
+                  kind: f.kind,
+                  statusCode: f.statusCode,
+                  retryable: f.retryable,
+                })),
+                failedCount: batchResult.failedFiles.length,
+                totalFiles: batchResult?.originals.length ?? uploadedFiles.length,
+                successCount: 0,
+              });
+            }
             toast({
               title: "Error al subir",
               description: error?.message || "No se pudieron subir las fotos.",
