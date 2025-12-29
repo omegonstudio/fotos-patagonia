@@ -84,49 +84,107 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 bg-card py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid gap-8 md:grid-cols-3">
-            <div>
-              <h4 className="mb-4 font-heading text-lg">Fotos Patagonia</h4>
-              <p className="text-sm text-muted-foreground">
+      <footer className="border-t border-gray-200 bg-card">
+        <div className="container mx-auto px-4 py-12">
+          <div className="grid gap-10 md:grid-cols-3">
+            {/* Brand */}
+            <div className="space-y-3">
+              <div className="relative flex items-center gap-2">
+              <img
+                  src="/Logo-Fotos-Patagonia.png"
+                  alt="Fotos Patagonia"
+                  className="w-15 h-12 object-cover"
+                />
+                <h4 className="font-heading text-lg">Fotos Patagonia</h4>
+              </div>
+        
+              <p className="text-sm text-muted-foreground max-w-sm">
                 Capturando los mejores momentos de la Patagonia desde 2020.
               </p>
             </div>
+
+            {/* Links */}
             <div>
               <h4 className="mb-4 font-heading text-lg">Enlaces</h4>
               <ul className="space-y-2 text-sm">
                 <li>
-                  <Link href="/galeria" className="text-muted-foreground hover:text-foreground">
+                  <Link
+                    href="/galeria"
+                    className="text-muted-foreground transition-colors hover:text-foreground"
+                  >
                     Galería
                   </Link>
                 </li>
                 <li>
-                  <Link href="/albums" className="text-muted-foreground hover:text-foreground">
+                  <Link
+                    href="/albums"
+                    className="text-muted-foreground transition-colors hover:text-foreground"
+                  >
                     Álbumes
                   </Link>
                 </li>
                 <li>
-                  <Link href="/contacto" className="text-muted-foreground hover:text-foreground">
+                  <Link
+                    href="/contacto"
+                    className="text-muted-foreground transition-colors hover:text-foreground"
+                  >
                     Contacto
                   </Link>
                 </li>
               </ul>
             </div>
+
+            {/* Contact */}
             <div>
               <h4 className="mb-4 font-heading text-lg">Contacto</h4>
-              <p className="text-sm text-muted-foreground">
-                Email: info@fotospatagonia.com
+              <p className="text-sm text-muted-foreground leading-6">
+                Email:{" "}
+                <a
+                  href="mailto:info@fotospatagonia.com"
+                  className="transition-colors hover:text-foreground"
+                >
+                  info@fotospatagonia.com
+                </a>
                 <br />
-                Tel: +54 9 294 123-4567
+                Tel:{" "}
+                <a
+                  href="tel:+5492941234567"
+                  className="transition-colors hover:text-foreground"
+                >
+                  +54 9 294 123-4567
+                </a>
               </p>
             </div>
           </div>
-          <div className="mt-8 border-t border-gray-200 pt-8 text-center text-sm text-muted-foreground">
-            © 2025 Fotos Patagonia. Todos los derechos reservados.
+
+          {/* Bottom bar */}
+          <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-gray-200 pt-8 text-sm text-muted-foreground md:flex-row">
+            <p>© 2025 Fotos Patagonia. Todos los derechos reservados.</p>
+
+            <a
+              href="https://omegon.com.ar"
+              target="_blank"
+              rel="noreferrer"
+              className="group inline-flex items-center gap-2 transition-colors hover:text-foreground"
+              aria-label="Made by Omegon"
+            >
+              {/* Logo Omegon */}
+              <span className="relative h-10 w-10 overflow-hidden rounded-sm">
+                <img
+                  src="/omegon.png"
+                  alt="Omegon"
+                  className="h-full w-full object-contain opacity-80 transition-opacity group-hover:opacity-100"
+                />
+              </span>
+
+              <span className="leading-none">
+                Made by <span className="font-medium text-foreground/90 group-hover:text-foreground">Omegon</span>
+              </span>
+            </a>
           </div>
         </div>
       </footer>
+
     </div>
   )
 }

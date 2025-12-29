@@ -86,7 +86,7 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
       </button>
 
       <div className="flex h-full w-full max-w-7xl flex-col gap-4 lg:flex-row">
-        <div className="relative flex-1 overflow-hidden rounded-2xl bg-black aspect-[4/3] md:aspect-[3/2] max-h-[80vh]">
+        <div className="relative flex-1 overflow-hidden rounded-2xl bg-black aspect-[3/4] md:aspect-[3/2] m-10 max-h-[90vh]">
           {imageLoading ? (
             <div className="flex h-full w-full animate-pulse items-center justify-center bg-gray-800">
               <ImageIcon className="h-24 w-24 text-gray-600" />
@@ -111,8 +111,8 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
         <div className="flex w-full flex-col gap-4 rounded-2xl bg-card p-6 lg:w-96">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-2xl font-heading text-white">
-                {photo.place || "Patagonia"}
+              <h2 className="text-2xl font-heading">
+              <span className="text-white">{photo.place || "Patagonia"}</span>
               </h2>
               {photo.price && (
                 <Badge className="mt-2 bg-primary text-foreground">

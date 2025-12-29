@@ -39,7 +39,7 @@ interface PhotoModalProps {
   albumId?: number; // Nueva prop para el ID del álbum
 }
 
-const DEFAULT_PRICE = "100";
+const DEFAULT_PRICE = "5000";
 
 export function PhotoModal({
   open,
@@ -540,6 +540,36 @@ export function PhotoModal({
                 </label>
               </div>
 
+              <div className="flex justify-end gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={uploading}
+              className="rounded-xl bg-transparent hover:bg-[#ffecce]"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSave}
+              className="rounded-xl bg-primary font-semibold text-foreground hover:bg-primary/90"
+              /* disabled={
+                uploading ||
+                !price ||
+                (isAddMode && (!selectedPhotographer || uploadedFiles.length === 0))
+              } */
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Subiendo...
+                </>
+              ) : (
+                "Guardar"
+              )}
+            </Button>
+          </div>
               {previewUrls.length > 0 && (
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
                   {previewUrls.map((url, index) => (
@@ -581,36 +611,7 @@ export function PhotoModal({
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={uploading}
-              className="rounded-xl bg-transparent hover:bg-[#ffecce]"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSave}
-              className="rounded-xl bg-primary font-semibold text-foreground hover:bg-primary/90"
-              /* disabled={
-                uploading ||
-                !price ||
-                (isAddMode && (!selectedPhotographer || uploadedFiles.length === 0))
-              } */
-            >
-              {uploading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Subiendo...
-                </>
-              ) : (
-                "Guardar"
-              )}
-            </Button>
-          </div>
+         
         </div>
       </DialogContent>
     </Dialog>

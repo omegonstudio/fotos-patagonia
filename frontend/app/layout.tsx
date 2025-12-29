@@ -11,7 +11,6 @@ const UploadManager = dynamic(
 export const metadata: Metadata = {
   title: "Fotos Patagonia - Fotografía de Eventos y Paisajes",
   description: "Encuentra y compra tus fotos de eventos en la Patagonia",
-    generator: 'v0.app'
 }
 
 export default function RootLayout({

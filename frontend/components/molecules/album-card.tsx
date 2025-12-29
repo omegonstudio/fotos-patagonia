@@ -64,15 +64,15 @@ export function AlbumCard({ album }: { album: AlbumWithDetails }) {
             {album.name}
           </h3>
 
-          {album.event && <p className="mb-2 text-sm text-muted-foreground line-clamp-1">{album.event}</p>}
-
+{/*           {album.event && <p className="mb-2 text-sm text-muted-foreground line-clamp-1">{album.event}</p>}
+ */}
           <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {album.location && (
+           {/*  {album.location && (
               <div className="flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
                 <span className="line-clamp-1">{album.location}</span>
               </div>
-            )}
+            )} */}
             {album.createdAt && (
               <div className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
@@ -81,11 +81,11 @@ export function AlbumCard({ album }: { album: AlbumWithDetails }) {
             )}
           </div>
 
-          {album.photographerName && (
+         {/*  {album.photographerName && (
             <p className="mt-2 text-xs text-muted-foreground">
               Por {album.photographerName}
             </p>
-          )}
+          )} */}
         </div>
       </div>
     </Link>

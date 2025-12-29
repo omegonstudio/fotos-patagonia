@@ -5,14 +5,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, X } from "lucide-react"
+import { X } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import type { Album, Tag } from "@/lib/types"
 import { useSessions } from "@/hooks/sessions/useSessions"
 import { useTags } from "@/hooks/tags/useTags"
@@ -37,6 +39,8 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
   // ⬇ MULTIPLE SELECTION
   const [selectedSessionIds, setSelectedSessionIds] = useState<number[]>([])
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([])
+  const [sessionPopoverOpen, setSessionPopoverOpen] = useState(false)
+  const [tagPopoverOpen, setTagPopoverOpen] = useState(false)
 
   const { sessions, loading: sessionsLoading } = useSessions()
   const { tags, loading: tagsLoading } = useTags()
@@ -73,6 +77,18 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
     onClose()
   }
 
+  const handleSelectSession = (value: string) => {
+    const id = Number(value)
+    setSelectedSessionIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+    setSessionPopoverOpen(false)
+  }
+
+  const handleSelectTag = (value: string) => {
+    const id = Number(value)
+    setSelectedTagIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+    setTagPopoverOpen(false)
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md rounded-2xl bg-[#f2f2e4]">
@@ -106,25 +122,32 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
           <div>
             <Label>Agregar Sesión</Label>
 
-            <Select
-              onValueChange={(value) =>
-                setSelectedSessionIds((prev) =>
-                  prev.includes(Number(value)) ? prev : [...prev, Number(value)]
-                )
-              }
-              disabled={sessionsLoading}
-            >
-              <SelectTrigger className="mt-1 rounded-lg border-gray-200">
-                <SelectValue placeholder="Selecciona sesión" />
-              </SelectTrigger>
-              <SelectContent>
-                {sessions.map((s) => (
-                  <SelectItem key={s.id} value={String(s.id)}>
-                    {s.event_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={sessionPopoverOpen} onOpenChange={setSessionPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={sessionsLoading}
+                  className="mt-1 w-full justify-between rounded-lg border-gray-200"
+                >
+                  Selecciona sesión
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar sesión..." />
+                  <CommandEmpty>No hay sesiones</CommandEmpty>
+                  <CommandList>
+                    <CommandGroup>
+                      {sessions.map((s) => (
+                        <CommandItem key={s.id} onSelect={() => handleSelectSession(String(s.id))}>
+                          {s.event_name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
 
             {/* Chips de sesiones */}
             <div className="flex flex-wrap gap-2 mt-2">
@@ -152,25 +175,32 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
           <div>
             <Label>Agregar Tag</Label>
 
-            <Select
-              onValueChange={(value) =>
-                setSelectedTagIds((prev) =>
-                  prev.includes(Number(value)) ? prev : [...prev, Number(value)]
-                )
-              }
-              disabled={tagsLoading}
-            >
-              <SelectTrigger className="mt-1 rounded-lg border-gray-200">
-                <SelectValue placeholder="Selecciona tag" />
-              </SelectTrigger>
-              <SelectContent>
-                {tags.map((tag) => (
-                  <SelectItem key={tag.id} value={String(tag.id)}>
-                    {tag.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={tagPopoverOpen} onOpenChange={setTagPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={tagsLoading}
+                  className="mt-1 w-full justify-between rounded-lg border-gray-200"
+                >
+                  Selecciona tag
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                <Command>
+                  <CommandInput placeholder="Buscar tag..." />
+                  <CommandEmpty>No hay tags</CommandEmpty>
+                  <CommandList>
+                    <CommandGroup>
+                      {tags.map((tag) => (
+                        <CommandItem key={tag.id} onSelect={() => handleSelectTag(String(tag.id))}>
+                          {tag.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
 
             {/* Chips de tags */}
             <div className="flex flex-wrap gap-2 mt-2">
