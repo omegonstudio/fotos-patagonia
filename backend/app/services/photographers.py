@@ -121,17 +121,22 @@ class PhotographerService(BaseService):
 
     def _check_earnings_permission(self, photographer_id: int, current_user: User):
         """Helper to check if a user can view earnings for a specific photographer."""
-        user_permissions = {p.name for p in current_user.role.permissions}
-        
+        # Normalizar permisos (pueden venir vacíos si el rol no tiene relaciones cargadas)
+        user_permissions = {p.name for p in (current_user.role.permissions or [])}
+
+        # El permiso FULL_ACCESS habilita ver cualquier earning
+        has_full_access = Permissions.FULL_ACCESS.value in user_permissions
         can_view_any = Permissions.VIEW_ANY_EARNINGS.value in user_permissions
         can_view_own = Permissions.VIEW_OWN_EARNINGS.value in user_permissions
 
-        if not can_view_any:
-            if not can_view_own or not current_user.photographer or photographer_id != current_user.photographer.id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You do not have permission to view these earnings."
-                )
+        if has_full_access or can_view_any:
+            return
+
+        if not can_view_own or not current_user.photographer or photographer_id != current_user.photographer.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view these earnings."
+            )
 
     def get_photographer_earnings(
         self,
@@ -194,14 +199,14 @@ class PhotographerService(BaseService):
         # Query for detailed photo sales
         photo_details_query = self.db.query(
             Photo.id.label("photo_id"),
-            Photo.url.label("photo_url"),
+            Photo.object_name.label("photo_object_name"),
             PhotoSession.event_name.label("album_name"),
             func.sum(OrderItem.quantity).label("times_sold"),
             func.sum(earnings_subquery.c.amount).label("total_earnings")
         ).join(earnings_subquery, OrderItem.id == earnings_subquery.c.order_item_id)\
          .join(Photo, OrderItem.photo_id == Photo.id)\
          .join(PhotoSession, Photo.session_id == PhotoSession.id)\
-         .group_by(Photo.id, Photo.url, PhotoSession.event_name)\
+         .group_by(Photo.id, Photo.object_name, PhotoSession.event_name)\
          .order_by(func.sum(earnings_subquery.c.amount).desc())
 
         photo_sales_details = photo_details_query.all()
@@ -217,7 +222,7 @@ class PhotographerService(BaseService):
             photo_sales_details=[
                 PhotoSaleDetailSchema(
                     photo_id=item.photo_id,
-                    photo_url=item.photo_url,
+                    photo_url=item.photo_object_name,
                     album_name=item.album_name,
                     times_sold=item.times_sold,
                     total_earnings=item.total_earnings
@@ -225,16 +230,26 @@ class PhotographerService(BaseService):
             ]
         )
 
-    def get_all_earnings_summaries(self) -> List[dict]:
+    def get_all_earnings_summaries(
+        self,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> List[dict]:
         """
-        Returns a summary of total earnings for every photographer.
+        Returns a summary of total earnings for every photographer, optionally filtered by date.
         """
-        summaries = self.db.query(
+        query = self.db.query(
             Photographer.id,
             Photographer.name,
             func.sum(Earning.amount).label("total_earnings")
-        ).join(Earning, Earning.photographer_id == Photographer.id)\
-         .group_by(Photographer.id, Photographer.name)\
+        ).join(Earning, Earning.photographer_id == Photographer.id)
+
+        if start_date:
+            query = query.filter(Earning.created_at >= start_date)
+        if end_date:
+            query = query.filter(Earning.created_at < end_date + timedelta(days=1))
+
+        summaries = query.group_by(Photographer.id, Photographer.name)\
          .order_by(Photographer.name)\
          .all()
         

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Package,
@@ -29,93 +29,72 @@ export default function AdminDashboard() {
   const user = useAuthStore((state) => state.user);
   const { photos, loading: photosLoading } = usePhotos();
   const { data: ordersData, loading: ordersLoading } = useOrders();
-  const [stats, setStats] = useState({
-    totalOrders: 0,
-    totalRevenue: 0,
-    pendingOrders: 0,
-    totalPhotos: 0,
-  });
-
-  // Convertir ordersData a array
-  const orders: Order[] = Array.isArray(ordersData) ? ordersData : ordersData ? [ordersData] : [];
+  const photographerId = useMemo(
+    () => user?.photographer?.id ?? user?.photographer_id ?? null,
+    [user]
+  );
+  // Normalizar pedidos a array con referencia estable
+  const orders: Order[] = useMemo(
+    () => (Array.isArray(ordersData) ? ordersData : ordersData ? [ordersData] : []),
+    [ordersData]
+  );
 
   // Obtener información del rol
   const roleName = getUserRoleName(user)?.toLowerCase();
   const userIsAdmin = isAdmin(user);
 
-  useEffect(() => {
-    if (!ordersLoading && !photosLoading) {
-      // Filtrar pedidos según el rol del usuario
-      let filteredOrders = orders;
+  const filteredOrders = useMemo(() => {
+    if (ordersLoading || photosLoading) return [];
 
-      if (!userIsAdmin && user?.photographer_id) {
-        // Si no es admin y tiene photographer_id, filtrar solo sus fotos
-        const ordersWithPhotographerItems: Order[] = [];
+    if (userIsAdmin || !photographerId) return orders;
 
-        orders.forEach((order) => {
-          // Filtrar items del pedido que sean fotos del fotógrafo
-          const photographerItems = (order.items || []).filter((item) => {
-            const photo = photos.find((p) => p.id === item.photo?.id);
-            return photo?.photographer_id === user.photographer_id;
-          });
+    const ordersWithPhotographerItems: Order[] = [];
 
-          // Si hay items del fotógrafo, calcular el total proporcional
-          if (photographerItems.length > 0) {
-            const photographerTotal = photographerItems.reduce(
-              (sum, item) => sum + (item.price || 0),
-              0
-            );
-            ordersWithPhotographerItems.push({
-              ...order,
-              items: photographerItems,
-              total: photographerTotal,
-            });
-          }
-        });
-
-        filteredOrders = ordersWithPhotographerItems;
-      }
-
-      // Calculate stats
-      const totalRevenue = filteredOrders.reduce(
-        (sum, order) => sum + (order.total || 0),
-        0
-      );
-      const pendingOrders = filteredOrders.filter(
-        (o) => o.order_status === "pending" || o.order_status === "paid"
-      ).length;
-
-      // Calcular total de fotos según el rol
-      const totalPhotos = userIsAdmin
-        ? photos.length
-        : photos.filter((p) => p.photographer_id === user?.photographer_id)
-            .length;
-
-      setStats({
-        totalOrders: filteredOrders.length,
-        totalRevenue,
-        pendingOrders,
-        totalPhotos,
+    orders.forEach((order) => {
+      const photographerItems = (order.items || []).filter((item) => {
+        const photo = photos.find((p) => p.id === item.photo?.id);
+        return photo?.photographer_id === photographerId;
       });
-    }
-  }, [orders, photos, photosLoading, ordersLoading, userIsAdmin, user?.photographer_id]);
 
-  // Obtener las últimas 5 órdenes (filtradas si es fotógrafo)
-  const getFilteredOrders = () => {
-    if (!userIsAdmin && user?.photographer_id) {
-      return orders.filter((order) =>
-        (order.items || []).some((item) => {
-          const photo = photos.find((p) => p.id === item.photo?.id);
-          return photo?.photographer_id === user.photographer_id;
-        })
-      );
-    }
-    return orders;
-  };
-  const recentOrders = getFilteredOrders().slice(-5).reverse();
+      if (photographerItems.length > 0) {
+        const photographerTotal = photographerItems.reduce(
+          (sum, item) => sum + (item.price || 0),
+          0
+        );
+        ordersWithPhotographerItems.push({
+          ...order,
+          items: photographerItems,
+          total: photographerTotal,
+        });
+      }
+    });
+
+    return ordersWithPhotographerItems;
+  }, [orders, photos, photosLoading, ordersLoading, userIsAdmin, photographerId]);
+
+  const stats = useMemo(() => {
+    if (ordersLoading || photosLoading)
+      return { totalOrders: 0, pendingOrders: 0, totalPhotos: 0 };
+
+    const pendingOrders = filteredOrders.filter(
+      (o) => o.order_status === "pending" || o.order_status === "paid"
+    ).length;
+
+    const totalPhotos = userIsAdmin
+      ? photos.length
+      : photos.filter((p) => p.photographer_id === photographerId).length;
+
+    return {
+      totalOrders: filteredOrders.length,
+      pendingOrders,
+      totalPhotos,
+    };
+  }, [filteredOrders, photos, photosLoading, ordersLoading, userIsAdmin, photographerId]);
+
+  const recentOrders = useMemo(() => filteredOrders.slice(-5).reverse(), [filteredOrders]);
 
   // Textos dinámicos según el rol
-  const isPhotographer = !userIsAdmin && user?.photographer_id;
+  const isPhotographer = !userIsAdmin && !!photographerId;
   const texts = {
     title: isPhotographer ? "Mi Panel" : "Panel de Administración",
     subtitle: isPhotographer
@@ -142,15 +121,22 @@ export default function AdminDashboard() {
   /*  */
 
   // === NUEVO === Fecha seleccionada por el admin
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  const [startDateInput, setStartDateInput] = useState<string>("");
+  const [endDateInput, setEndDateInput] = useState<string>("");
+  const [appliedStartDate, setAppliedStartDate] = useState<string | undefined>(
+    undefined
+  );
+  const [appliedEndDate, setAppliedEndDate] = useState<string | undefined>(
+    undefined
+  );
 
   // === NUEVO === Resumen global de ingresos (solo admins)
   const {
     data: earningsAll,
     loading: earningsLoading,
-    refetch: refetchEarningsAll,
-  } = useEarningsSummaryAll(startDate || undefined, endDate || undefined);
+  } = useEarningsSummaryAll(appliedStartDate, appliedEndDate, {
+    enabled: userIsAdmin,
+  });
 
   // === NUEVO === Resumen individual (para fotógrafos)
   const { getPhotographerEarningsSummary } = usePhotographers();
@@ -158,36 +144,30 @@ export default function AdminDashboard() {
   const [mySummary, setMySummary] = useState<number>(0);
 
   const handleApplyDateFilter = async () => {
-    if (userIsAdmin) {
-      // Refetch para admins
-      await refetchEarningsAll();
-    } else if (user?.photographer_id) {
-      // Refetch para fotógrafos
-      const summary = await getPhotographerEarningsSummary(
-        user.photographer_id,
-        {
-          startDate,
-          endDate,
-        }
-      );
-      setMySummary(summary.total_earnings);
-    }
+    const newStart = startDateInput || undefined;
+    const newEnd = endDateInput || undefined;
+    setAppliedStartDate(newStart);
+    setAppliedEndDate(newEnd);
+    // Admins refetcharán vía hook al cambiar dependencias; fotógrafos vía useEffect
   };
 
   useEffect(() => {
-    if (!userIsAdmin && user?.photographer_id) {
+    if (!userIsAdmin && photographerId) {
       (async () => {
-        const summary = await getPhotographerEarningsSummary(
-          user.photographer_id!,
-          {
-            startDate,
-            endDate,
-          }
-        );
+        const summary = await getPhotographerEarningsSummary(photographerId, {
+          startDate: appliedStartDate,
+          endDate: appliedEndDate,
+        });
         setMySummary(summary.total_earnings);
       })();
     }
-  }, [userIsAdmin, user?.photographer_id, startDate, endDate]);
+  }, [
+    userIsAdmin,
+    photographerId,
+    appliedStartDate,
+    appliedEndDate,
+    getPhotographerEarningsSummary,
+  ]);
 
   /*    */
 
@@ -197,8 +177,8 @@ export default function AdminDashboard() {
         <h1 className="mb-2 text-4xl font-bold">{texts.title}</h1>
         <p className="text-muted-foreground">{texts.subtitle}</p>
       </div>
-      {/* Filtro de fecha para ingresos */}
-      {userIsAdmin && (
+      {/* Filtro de fecha para ingresos (admin y fotógrafos) */}
+      {(userIsAdmin || photographerId) && (
         <div className="mb-6 flex gap-4 items-end">
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -207,8 +187,8 @@ export default function AdminDashboard() {
             <input
               type="date"
               className="border rounded-lg p-2"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              value={startDateInput}
+              onChange={(e) => setStartDateInput(e.target.value)}
             />
           </div>
 
@@ -219,17 +199,17 @@ export default function AdminDashboard() {
             <input
               type="date"
               className="border rounded-lg p-2"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              value={endDateInput}
+              onChange={(e) => setEndDateInput(e.target.value)}
             />
           </div>
 
           <Button
             onClick={handleApplyDateFilter}
-            disabled={earningsLoading}
+            disabled={earningsLoading && userIsAdmin}
             className="h-10"
           >
-            {earningsLoading ? "Cargando..." : "Aplicar"}
+            {earningsLoading && userIsAdmin ? "Cargando..." : "Aplicar"}
           </Button>
         </div>
       )}

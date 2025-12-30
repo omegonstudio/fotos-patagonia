@@ -151,6 +151,8 @@ export interface User {
   role: Role;
   // Campos auxiliares para compatibilidad con código existente
   photographer_id?: number;
+  // Relación completa cuando el backend la envía embebida
+  photographer?: Photographer | null;
 }
 
 // Helper function para obtener el nombre del rol
