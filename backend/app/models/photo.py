@@ -1,10 +1,11 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, root_validator
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from typing import List, Optional
 from db.base import Base
 from .photographer import PhotographerSchema
 from .tag import TagSchema
+from services.storage import storage_service
 
 # Pydantic models (Schemas)
 class PhotoBaseSchema(BaseModel):
@@ -34,6 +35,23 @@ class PhotoInDBBaseSchema(PhotoBaseSchema):
 class PhotoSchema(PhotoInDBBaseSchema):
     pass
 
+class PublicPhotoSchema(PhotoSchema):
+    url: Optional[str] = None
+    watermark_url: Optional[str] = None
+
+    @root_validator(pre=True)
+    def generate_urls(cls, values):
+        # El objeto 'values' es una instancia del modelo Photo de SQLAlchemy.
+        # Accedemos a sus atributos directamente.
+        object_name = getattr(values, 'object_name', None)
+        if object_name:
+            # TODO: Cuando haya marcas de agua, generar una URL diferente para watermark_url
+            # Por ahora, ambos apuntan al original para que la app no se rompa.
+            url = storage_service.generate_presigned_get_url(object_name)
+            setattr(values, 'url', url)
+            setattr(values, 'watermark_url', url) # Apunta al mismo por ahora
+        return values
+
 # SQLAlchemy model
 class Photo(Base):
     __tablename__ = "photos"
@@ -55,3 +73,4 @@ class Photo(Base):
 # Import schemas for forward references and rebuild
 from .photo_session import PhotoSessionSchema
 PhotoSchema.model_rebuild()
+PublicPhotoSchema.model_rebuild()

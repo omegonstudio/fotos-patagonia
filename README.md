@@ -37,3 +37,14 @@ photographer_1@example.com - password1
 - docker compose -f docker-compose.dev.yml run --rm backend alembic revision --autogenerate -m "Un mensaje descriptivo de tus cambios"
 - docker compose -f docker-compose.dev.yml run --rm backend alembic upgrade head
 
+# MailHOG - Servicio de prueba de emails en desarrollo
+Levanta solo con el entorno de DEV, en http://localhost:8025/
+# Email settings for MailHog agregar en el ENV
+EMAIL_HOST=mailhog
+EMAIL_PORT=1025
+EMAIL_USER=
+EMAIL_PASSWORD=
+EMAIL_FROM=noreply@fotopatagonia.com
+
+
+

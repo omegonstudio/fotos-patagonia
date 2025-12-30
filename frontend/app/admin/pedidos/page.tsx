@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useOrders } from "@/hooks/orders/useOrders";
-import type { Order } from "@/lib/types";
+import { Order, OrderStatus } from "@/lib/types";
+import { OrderStatusSelector } from "@/components/molecules/OrderStatusSelector";
 
 export default function PedidosPage() {
-  const { data: ordersData, loading, error } = useOrders();
+  const { data: ordersData, loading, error, refetch } = useOrders();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -72,65 +73,14 @@ export default function PedidosPage() {
     );
   }
 
-  const getStatusBadge = (status: Order["order_status"] | undefined) => {
-    const statusConfig = {
-      pending: { label: "Pendiente", className: "bg-yellow-500/10 text-yellow-600" },
-      paid: { label: "Pagado", className: "bg-green-500/10 text-green-600" },
-      completed: { label: "Completado", className: "bg-blue-500/10 text-blue-600" },
-      enviado: { label: "Enviado", className: "bg-blue-500/10 text-blue-600" },
-      rechazado: { label: "Rechazado", className: "bg-red-500/10 text-red-600" },
-      en_espera: { label: "En Espera", className: "bg-yellow-500/10 text-yellow-600" },
-      entregado: { label: "Entregado", className: "bg-green-600/10 text-green-700" },
-    } as const;
-
-    if (!status || !(status in statusConfig)) {
-      return {
-        label: "Desconocido",
-        className: "bg-gray-500/10 text-gray-600",
-      };
-    }
-
-    return statusConfig[status as keyof typeof statusConfig];
+  // Mapeo de valores del enum a etiquetas legibles por humanos para el filtro
+  const orderStatusLabels: Record<OrderStatus, string> = {
+    [OrderStatus.PENDING]: "Pendiente",
+    [OrderStatus.PAID]: "Pagado",
+    [OrderStatus.COMPLETED]: "Completado",
+    [OrderStatus.SHIPPED]: "Enviado",
+    [OrderStatus.REJECTED]: "Rechazado",
   };
-  
-
-  const handleStatusChange = (orderId: string, newStatus: Order["status"]) => {
-    const order = orders.find((o) => o.id === orderId)
-    if (!order) return
-
-    const now = new Date()
-    const editableUntil = order.editableUntil ? new Date(order.editableUntil) : null
-
-    if (!editableUntil || now > editableUntil) {
-      alert("No se puede editar este pedido. Han pasado más de 24 horas desde su creación.")
-      return
-    }
-
-    const updatedOrders = orders.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    setOrders(updatedOrders)
-  }
-
-  const handlePaymentMethodChange = (orderId: string, newMethod: Order["paymentMethod"]) => {
-    const order = orders.find((o) => o.id === orderId)
-    if (!order) return
-
-    const now = new Date()
-    const editableUntil = order.editableUntil ? new Date(order.editableUntil) : null
-
-    if (!editableUntil || now > editableUntil) {
-      alert("No se puede editar este pedido. Han pasado más de 24 horas desde su creación.")
-      return
-    }
-
-    const updatedOrders = orders.map((o) => (o.id === orderId ? { ...o, paymentMethod: newMethod } : o))
-    setOrders(updatedOrders)
-  }
-
-  const isEditable = (order: Order) => {
-    const now = new Date()
-    const editableUntil = order.editableUntil ? new Date(order.editableUntil) : null
-    return editableUntil ? now <= editableUntil : false
-  }
 
   const formatOrderDate = (order: Order) => {
     const dateValue = order.created_at ?? order.createdAt;
@@ -172,11 +122,11 @@ export default function PedidosPage() {
               </SelectTrigger>
               <SelectContent className="bg-[#f2f2e4] text-[#1c2e4d] border border-neutral-300 shadow-lg">
               <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="en_espera">En Espera</SelectItem>
-                <SelectItem value="enviado">Enviado</SelectItem>
-                <SelectItem value="pagado">Pagado</SelectItem>
-                <SelectItem value="entregado">Entregado</SelectItem>
-                <SelectItem value="rechazado">Rechazado</SelectItem>
+                {Object.values(OrderStatus).map((statusValue) => (
+                  <SelectItem key={statusValue} value={statusValue} className="capitalize">
+                    {orderStatusLabels[statusValue]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={channelFilter} onValueChange={setChannelFilter}>
@@ -227,13 +177,12 @@ export default function PedidosPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredOrders.map((order) => {
-                    const statusInfo = getStatusBadge(order.order_status);
-                    // const editable = isEditable(order); // This logic might need adjustment
+                    // const statusInfo = getStatusBadge(order.order_status);
                     return (
                       <TableRow key={order.id}>
                         <TableCell className="font-mono font-medium">{order.id}</TableCell>
                         <TableCell>
-                          <Badge className={statusInfo.className}>{statusInfo.label}</Badge>
+                          <OrderStatusSelector order={order} onStatusUpdate={refetch} />
                         </TableCell>
                         <TableCell>{order.user?.email || 'N/A'}</TableCell>
                         <TableCell>

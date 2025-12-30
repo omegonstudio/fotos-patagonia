@@ -78,6 +78,14 @@ services:
     networks:
       - fotopatagonia_network
 
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    networks:
+      - fotopatagonia_network
+
 # Definición de volúmenes y redes
 volumes:
   postgres_data:

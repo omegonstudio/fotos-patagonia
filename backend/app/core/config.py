@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     MERCADOPAGO_PENDING_URL: str = "https://www.example.com/payment-pending"
     MERCADOPAGO_NOTIFICATION_URL: str = "https://16b7de876104.ngrok-free.app/checkout/mercadopago/webhook"
 
+    FRONTEND_URL: str = "http://localhost:3001"
+
+    # Email settings
+    EMAIL_HOST: str | None = None
+    EMAIL_PORT: int = 1025
+    EMAIL_USER: str | None = None
+    EMAIL_PASSWORD: str | None = None
+    EMAIL_FROM: str = "noreply@fotopatagonia.com"
+
     @property
     def storage_allowed_origins(self) -> list[str]:
         """

@@ -103,26 +103,43 @@ export interface OrderItem {
   priceAtPurchase?: number;
 }
 
+// Enums para consistencia con el backend
+export enum OrderStatus {
+  PENDING = "pending",
+  PAID = "paid",
+  COMPLETED = "completed",
+  SHIPPED = "shipped",
+  REJECTED = "rejected",
+}
+
+export enum PaymentMethod {
+  EFECTIVO = "efectivo",
+  TRANSFERENCIA = "transferencia",
+  POSNET = "posnet",
+  MP = "mp",
+}
+
 export interface Order {
   id: string | number;
   // Campos de la API
   uuid?: string;
+  public_id?: string;
   user_id?: number;
   user?: User;
   discount_id?: number | null;
   discount?: DiscountCode | null;
-  order_status?: "pending" | "paid" | "completed" | "shipped" | "rejected";
+  order_status?: OrderStatus;
   payment_status?: "pending" | "paid" | "failed" | "refunded";
-  payment_method?: "efectivo" | "transferencia" | "posnet" | "mp";
+  payment_method?: PaymentMethod;
   external_payment_id?: string | null;
   created_at?: string; // ISO date from API
-  // Campos legacy (localStorage)
+  // Campos legacy (localStorage) - mantener para compatibilidad si aún se usan
   channel?: "web" | "local";
-  status?: "enviado" | "rechazado" | "en_espera" | "pagado" | "entregado";
+  status?: "enviado" | "rechazado" | "en_espera" | "pagado" | "entregado"; // Mantener por si hay código legacy
   email?: string;
   localOrderNumber?: string | number;
   downloadUrl?: string;
-  paymentMethod?: "efectivo" | "transferencia" | "posnet" | "mp";
+  paymentMethod?: "efectivo" | "transferencia" | "posnet" | "mp"; // Mantener por si hay código legacy
   createdAt?: string;
   editableUntil?: string;
   photos?: string[];

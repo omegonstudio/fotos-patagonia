@@ -169,6 +169,7 @@ class CheckoutService(BaseService):
     def create_order(self, order_in: OrderCreateSchema) -> Order:
         db_order = Order(
             user_id=order_in.user_id,
+            customer_email=order_in.customer_email,
             total=order_in.total,
             payment_method=order_in.payment_method,
             payment_status=order_in.payment_status,

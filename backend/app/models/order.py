@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from db.base import Base
 from .user import UserSchema
-from .photo import PhotoSchema
+from .photo import PhotoSchema, PublicPhotoSchema
 from .discount import DiscountSchema
 
 class PaymentMethod(str, Enum):
@@ -45,7 +45,15 @@ class OrderItemSchema(OrderItemBaseSchema):
     class Config:
         from_attributes = True
 
+class PublicOrderItemSchema(OrderItemBaseSchema):
+    id: int
+    photo: PublicPhotoSchema
+
+    class Config:
+        from_attributes = True
+
 class OrderBaseSchema(BaseModel):
+    customer_email: Optional[str] = None
     total: float
     payment_method: PaymentMethod
     payment_status: PaymentStatus = PaymentStatus.PENDING
@@ -58,6 +66,7 @@ class OrderCreateSchema(OrderBaseSchema):
     items: List[OrderItemCreateSchema]
 
 class OrderUpdateSchema(OrderBaseSchema):
+    customer_email: Optional[str] = None
     total: Optional[float] = None
     payment_method: Optional[PaymentMethod] = None
     payment_status: Optional[PaymentStatus] = None
@@ -68,10 +77,21 @@ class OrderUpdateSchema(OrderBaseSchema):
 
 class OrderSchema(OrderBaseSchema):
     id: int
-    uuid: uuid.UUID
+    public_id: uuid.UUID
     created_at: Optional[datetime] = None
     user: Optional[UserSchema] = None # User can be optional
     items: List[OrderItemSchema] = []
+    discount: Optional[DiscountSchema] = None
+
+    class Config:
+        from_attributes = True
+
+class PublicOrderSchema(OrderBaseSchema):
+    id: int
+    public_id: uuid.UUID
+    created_at: Optional[datetime] = None
+    user: Optional[UserSchema] = None
+    items: List[PublicOrderItemSchema] = []
     discount: Optional[DiscountSchema] = None
 
     class Config:
@@ -82,8 +102,9 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
-    uuid = Column(UUID(as_uuid=True), default=uuid.uuid4, index=True, unique=True, nullable=False)
+    public_id = Column(UUID(as_uuid=True), default=uuid.uuid4, index=True, unique=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Allow user_id to be null
+    customer_email = Column(String(100), nullable=True)
     discount_id = Column(Integer, ForeignKey("discounts.id"), nullable=True)
     total = Column(Float, nullable=False)
     payment_method = Column(SQLAlchemyEnum(PaymentMethod), nullable=False)

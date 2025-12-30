@@ -170,8 +170,9 @@ export default function CheckoutPage() {
     // Payload para backend (ajustar si el backend espera campos distintos)
   // Payload para backend (ajustado al esquema real)
 const orderPayload = {
+  customer_email: email, // <--- CORREGIDO AQUÍ
   total,
-  payment_method: paymentMethod === "mp" ? "mercadopago" : paymentMethod,
+  payment_method: paymentMethod, // 'mp' ya es un valor válido en el backend
   payment_status: "pending",
   order_status: "pending",
   external_payment_id: null,
@@ -186,7 +187,6 @@ const orderPayload = {
 
   // EXTRA — si querés mantener metadata útil sin romper el backend
   metadata: {
-    email,
     channel: orderChannel,
     items: orderItems,
   },
