@@ -67,7 +67,7 @@ interface PhotoCompletionData {
 interface UploadPhotoParams {
   files: File[];
   photographer_id: number;
-  session_id?: number;  // opcional según flujo
+  session_id?: number; // opcional según flujo
   price: number;
   description?: string;
   album_id?: number;
@@ -246,7 +246,11 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
       const processedFiles = await Promise.all(
         files.map((file) =>
           compressImageVisuallyLossless(file).catch((err) => {
-            console.warn("⚠️ Compresión fallida, se usa original:", file.name, err);
+            console.warn(
+              "⚠️ Compresión fallida, se usa original:",
+              file.name,
+              err
+            );
             return file;
           })
         )
@@ -279,7 +283,10 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
       try {
         const validThumbs = thumbnailFiles
           .map((thumb, index) => ({ thumb, index }))
-          .filter((t) => t.thumb !== null) as Array<{ thumb: File; index: number }>;
+          .filter((t) => t.thumb !== null) as Array<{
+          thumb: File;
+          index: number;
+        }>;
 
         if (validThumbs.length > 0) {
           const response = await apiFetch<{ urls: PresignedURLData[] }>(
@@ -330,7 +337,12 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
           retryable: true,
         };
         originalResults.push(result);
-        uploadTasks.push({ kind: "original", file, urlData, resultRef: result });
+        uploadTasks.push({
+          kind: "original",
+          file,
+          urlData,
+          resultRef: result,
+        });
       });
 
       // Mapear thumbnails con sus URLs (si existen), de lo contrario marcarlos como fallidos inmediatos.
@@ -339,12 +351,11 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
         const originalObj = originalPresigned[index]?.object_name;
         const filename = getThumbFilename(originalObj, thumbFile?.name);
         if (!thumbFile) {
+          const objectNameFallback = `thumb_${filename ?? "unknown"}`;
           thumbnailResults.push({
             kind: "thumbnail",
             filename,
-            objectName: originalObj
-              ? buildThumbObjectName(originalObj)
-              : `thumb_${filename}`,
+            objectName: buildThumbObjectName(originalObj) ?? objectNameFallback,
             size: 0,
             status: "failed",
             attempts: 0,
@@ -362,9 +373,8 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
           thumbnailResults.push({
             kind: "thumbnail",
             filename,
-            objectName: originalObj
-              ? buildThumbObjectName(originalObj)
-              : `thumb_${filename}`,
+            objectName:
+              buildThumbObjectName(originalObj) ?? `thumb_${filename}`,
             size: thumbFile.size,
             status: "failed",
             attempts: 0,
@@ -571,4 +581,3 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
     error,
   };
 }
-
