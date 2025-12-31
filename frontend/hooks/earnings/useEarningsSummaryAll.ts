@@ -4,12 +4,25 @@ import { useState, useEffect, useCallback } from "react"
 import { apiFetch } from "@/lib/api"
 import type { EarningsSummaryAllItem } from "@/lib/types"
 
-export function useEarningsSummaryAll(startDate?: string, endDate?: string) {
+type UseEarningsSummaryAllOptions = {
+  enabled?: boolean
+}
+
+export function useEarningsSummaryAll(
+  startDate?: string,
+  endDate?: string,
+  options?: UseEarningsSummaryAllOptions
+) {
   const [data, setData] = useState<EarningsSummaryAllItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const enabled = options?.enabled ?? true
 
   const fetchData = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false)
+      return
+    }
     try {
       setLoading(true)
 
@@ -27,7 +40,7 @@ export function useEarningsSummaryAll(startDate?: string, endDate?: string) {
     } finally {
       setLoading(false)
     }
-  }, [startDate, endDate])
+  }, [startDate, endDate, enabled])
 
   useEffect(() => {
     fetchData()
