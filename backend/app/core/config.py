@@ -34,10 +34,10 @@ class Settings(BaseSettings):
     # MERCADOPAGO_SUCCESS_URL: str = "http://localhost:3001/payment-success"
     # MERCADOPAGO_FAILURE_URL: str = "http://localhost:3001/payment-failure"
     # MERCADOPAGO_PENDING_URL: str = "http://localhost:3001/payment-pending"
-    MERCADOPAGO_SUCCESS_URL: str = "https://www.example.com/payment-success"
-    MERCADOPAGO_FAILURE_URL: str = "https://www.example.com/payment-failure"
-    MERCADOPAGO_PENDING_URL: str = "https://www.example.com/payment-pending"
-    MERCADOPAGO_NOTIFICATION_URL: str = "https://16b7de876104.ngrok-free.app/checkout/mercadopago/webhook"
+    MERCADOPAGO_SUCCESS_URL: str = "https://somosfotospatagonia.com/checkout/success"
+    MERCADOPAGO_FAILURE_URL: str = "https://somosfotospatagonia.com/checkout/error"
+    MERCADOPAGO_PENDING_URL: str = "https://somosfotospatagonia.com/checkout/success"
+    MERCADOPAGO_NOTIFICATION_URL: str = "https://somosfotospatagonia.com/api/checkout/mercadopago/webhook"
 
     FRONTEND_URL: str = "http://localhost:3001"
 
