@@ -220,6 +220,8 @@ export interface Photographer {
   commission_percentage: number;
   contact_info: string;
   user_id?: number;
+  email?: string;
+  password?: string;
 }
 
 export interface Earning {

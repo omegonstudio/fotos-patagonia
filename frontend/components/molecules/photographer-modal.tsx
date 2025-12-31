@@ -18,8 +18,9 @@ import type { Photographer } from "@/lib/types";
 interface PhotographerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Photographer) => void;
-  photographer?: Photographer | null;
+  onSave: (data: Photographer) => Promise<void>;
+  photographer: Photographer | null;
+  isSubmitting?: boolean; 
 }
 
 const basePhotographer: Photographer = {
