@@ -6,6 +6,7 @@ import {
   buildThumbObjectName,
   generateThumbnailBlob,
 } from "@/lib/photo-thumbnails";
+import { compressImageVisuallyLossless } from "@/lib/image-compression";
 import type { BackendPhoto } from "@/hooks/photos/usePhotos";
 import { ApiError } from "@/lib/api";
 
@@ -241,13 +242,25 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
     let createdPhotos: BackendPhoto[] = [];
 
     try {
+      // 0) Comprimir originales para reducir peso antes de pedir URLs
+      const processedFiles = await Promise.all(
+        files.map((file) =>
+          compressImageVisuallyLossless(file).catch((err) => {
+            console.warn("⚠️ Compresión fallida, se usa original:", file.name, err);
+            return file;
+          })
+        )
+      );
+
       // 0) Solicitar presigned URLs para originales
-      const originalPresigned = await requestUploadUrls(files);
+      // Nota: usamos processedFiles (ya comprimidos) para que los tamaños,
+      // nombres y totalBytes reflejen el artefacto real que se sube.
+      const originalPresigned = await requestUploadUrls(processedFiles);
       pushProgress(5);
 
       // 1) Generar thumbnails localmente por archivo (tolerante a fallos individuales)
       const thumbnailFiles: Array<File | null> = await Promise.all(
-        files.map(async (file) => {
+        processedFiles.map(async (file) => {
           try {
             const thumbBlob = await generateThumbnailBlob(file);
             return new File([thumbBlob], `thumb_${file.name}`, {
@@ -305,7 +318,7 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
       const uploadTasks: UploadTask[] = [];
 
       originalPresigned.forEach((urlData, index) => {
-        const file = files[index];
+        const file = processedFiles[index];
         const result: UploadFileResult = {
           kind: "original",
           filename: urlData.original_filename,
