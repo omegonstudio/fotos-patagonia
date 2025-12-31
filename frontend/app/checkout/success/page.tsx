@@ -5,7 +5,7 @@ import Link from "next/link"
 import { CheckCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { useCart } from "@/hooks/cart/use-cart" // Asegúrate de que la ruta sea correcta
+import { useCart } from "@/hooks/cart/useCart" // Asegúrate de que la ruta sea correcta
 
 export default function CheckoutSuccessPage() {
   const { clearCart } = useCart()
