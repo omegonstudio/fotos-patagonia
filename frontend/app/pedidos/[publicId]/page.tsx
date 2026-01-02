@@ -13,6 +13,7 @@ import { OrderStatus } from "@/lib/types"
 import { apiFetch } from "@/lib/api"
 // Importo Image de Next.js para optimización de imágenes
 import Image from "next/image"
+import { Logo } from "@/components/atoms/logo"
 
 // Define un tipo para el pedido que incluye los detalles de las fotos en los items
 // Usamos OrderItemPhoto directamente, ya que ahora el backend las devuelve con url y watermark_url
@@ -25,7 +26,7 @@ const buildPhotoFilename = (photo: OrderItemPhoto) => {
   return `${sanitizedDescription}.jpg`
 }
 
-const triggerFileDownload = (url: string, filename: string) => {
+/* const triggerFileDownload = (url: string, filename: string) => {
   if (!url || typeof document === "undefined") return
   const anchor = document.createElement("a")
   anchor.href = url
@@ -36,6 +37,27 @@ const triggerFileDownload = (url: string, filename: string) => {
   anchor.click()
   document.body.removeChild(anchor)
 }
+ */
+const triggerFileDownload = async (url: string, filename: string) => {
+  try {
+    const response = await fetch(url, { credentials: "omit" });
+    if (!response.ok) throw new Error("Error al descargar archivo");
+
+    const blob = await response.blob();
+    const objectUrl = window.URL.createObjectURL(blob);
+
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    console.error("Download failed", error);
+  }
+};
 
 function PhotoGridItem({ photo }: { photo: OrderItemPhoto }) {
   // El backend ya debería proveer photo.url y photo.watermark_url
@@ -149,11 +171,24 @@ export default function PublicOrderDetailPage() {
   }
 
 
-  const handleDownloadAll = () => {
-    // Aquí se implementaría la lógica para descargar todas las fotos en un ZIP.
-    // Por ahora, es un placeholder.
-    alert("En una aplicación real, esto descargaría todas las fotos en un archivo ZIP")
-  }
+  const handleDownloadAll = async () => {
+    if (!allOrderPhotos.length) return;
+  
+    try {
+      for (const photo of allOrderPhotos) {
+        const url = photo.url || photo.watermark_url;
+        if (!url) continue;
+  
+        await triggerFileDownload(url, buildPhotoFilename(photo));
+  
+        // pausa mínima para evitar bloqueo del navegador
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    } catch (error) {
+      console.error("Error descargando fotos", error);
+    }
+  };
+  
 
   const formatOrderDate = (dateValue: string | undefined | null) => {
     if (!dateValue) return "Sin fecha"
@@ -175,8 +210,9 @@ export default function PublicOrderDetailPage() {
     <div className="min-h-screen bg-background">
       {/* Header simple para la página pública */}
       <div className="container mx-auto px-4 py-4 flex justify-between items-center border-b border-gray-200">
+      <Logo />
         <Link href="/" className="text-lg font-semibold text-primary">
-          Fotos Patagonia
+          Somos Fotos Patagonia
         </Link>
       </div>
 
