@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Order, Photo } from "@/lib/types";
+import type { Order, OrderItem, Photo } from "@/lib/types";
+import { apiFetch } from "@/lib/api";
 import { usePhotos } from "@/hooks/photos/usePhotos";
 import { useToast } from "@/hooks/use-toast";
 import WatermarkedImage from "@/components/organisms/WatermarkedImage";
@@ -27,17 +28,31 @@ const buildPhotoFilename = (photo: Photo) => {
   return `${sanitizedPlace}.jpg`;
 };
 
-const triggerFileDownload = (url: string, filename: string) => {
-    if (!url || typeof document === "undefined") return;
+const triggerFileDownload = async (url: string, filename: string) => {
+  try {
+    const response = await fetch(url, { credentials: "omit" });
+    if (!response.ok) throw new Error("Error al descargar archivo");
+
+    const blob = await response.blob();
+    const objectUrl = window.URL.createObjectURL(blob);
+
     const anchor = document.createElement("a");
-    anchor.href = url;
+    anchor.href = objectUrl;
     anchor.download = filename;
-    anchor.target = "_blank";
-    anchor.rel = "noopener noreferrer"; // Security best practice
     document.body.appendChild(anchor);
     anchor.click();
+
     document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    console.error("Download failed", error);
+  }
 };
+
+
+interface PresignedUrlResponse {
+  url: string;
+}
 
 // Sub-componente para manejar la lógica de la URL presignada
 function PhotoGridItem({ photo }: { photo: Photo }) {
@@ -116,8 +131,81 @@ export default function OrderDetailPage() {
   const orderDownloadUrl = useMemo(() => {
     if (!order) return "";
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    return `${origin}/descargar/${order.id}`;
+    return `${origin}/pedidos/${order.public_id}`;
   }, [order]);
+
+  const orderPhotoItems = useMemo(() => {
+    if (!order?.items || order.items.length === 0) return [];
+    return order.items.flatMap((item: OrderItem) => {
+      const id = item.photo_id;
+      if (id == null) return [];
+      const photo = photosMap.get(String(id));
+      if (!photo) return [];
+      return [{ item, photo }];
+    });
+  }, [order?.items, photosMap]);
+
+  const allOrderPhotos = useMemo(() => {
+    const seen = new Set<string>();
+    return orderPhotoItems
+      .filter(({ photo }) => {
+        if (seen.has(photo.id)) return false;
+        seen.add(photo.id);
+        return true;
+      })
+      .map(({ photo }) => photo);
+  }, [orderPhotoItems]);
+
+  const digitalOrderPhotos = useMemo(() => {
+    const seen = new Set<string>();
+    return orderPhotoItems
+      .filter(({ item }) => !(item.forPrint || item.printFormat))
+      .filter(({ photo }) => {
+        if (seen.has(photo.id)) return false;
+        seen.add(photo.id);
+        return true;
+      })
+      .map(({ photo }) => photo);
+  }, [orderPhotoItems]);
+
+  const handleDownloadMultiple = async (photosToDownload: Photo[], emptyMessage: string) => {
+    if (!photosToDownload.length) {
+      toast({ title: emptyMessage });
+      return;
+    }
+
+    try {
+      for (const photo of photosToDownload) {
+        const response = await apiFetch<PresignedUrlResponse>(
+          `/photos/presigned-url/?object_name=${encodeURIComponent(photo.objectName)}`
+        );
+        if (!response?.url) {
+          throw new Error("URL presignada no disponible");
+        }
+        triggerFileDownload(response.url, buildPhotoFilename(photo));
+      }
+
+      toast({
+        title: "Descargas iniciadas",
+        description: `${photosToDownload.length} foto${photosToDownload.length === 1 ? "" : "s"} en proceso`,
+      });
+    } catch (downloadError) {
+      console.error(downloadError);
+      toast({
+        title: "Error al descargar fotos",
+        description: "Reintenta en unos instantes",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadAllPhotos = async () => {
+    await handleDownloadMultiple(allOrderPhotos, "No hay fotos en este pedido");
+  };
+
+  const handleDownloadDigitalPhotos = async () => {
+    await handleDownloadMultiple(digitalOrderPhotos, "No hay fotos digitales para descargar");
+  };
 
   const getStatusBadge = (status: Order["order_status"] | undefined) => {
     const statusConfig = {
@@ -166,13 +254,6 @@ export default function OrderDetailPage() {
   }
 
   const statusInfo = getStatusBadge(order.order_status);
-  const allOrderPhotos = (order.items ?? [])
-  .flatMap((item) => {
-    const id = item.photo_id
-    if (id == null) return [] // item sin foto: lo ignoramos
-    const photo = photosMap.get(String(id))
-    return photo ? [photo] : []
-  })
 
 
   return (
@@ -244,9 +325,27 @@ export default function OrderDetailPage() {
 
           {allOrderPhotos.length > 0 && (
             <Card className="rounded-2xl border-gray-200">
-              <CardHeader>
-                <CardTitle>Fotos del Pedido ({allOrderPhotos.length})</CardTitle>
-                <CardDescription>Miniaturas para descargar en alta resolución</CardDescription>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Fotos del Pedido ({allOrderPhotos.length})</CardTitle>
+                  <CardDescription>Miniaturas para descargar en alta resolución</CardDescription>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" className="rounded-xl" onClick={handleDownloadAllPhotos}>
+                    Descargar todas
+                  </Button>
+                  <Button size="sm" variant="outline" className="rounded-xl" onClick={handleDownloadDigitalPhotos}>
+                    Descargar fotos
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => toast({ title: "Función no implementada" })}
+                  >
+                    Descargar imprimir
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
