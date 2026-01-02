@@ -22,6 +22,46 @@ export default function PedidosPage() {
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
 
+  //pagination
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  useEffect(() => {
+    let filtered = [...orders];
+  
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (order) =>
+          (order.id && order.id.toString().toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (order.user?.email && order.user.email.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+  
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((order) => order.order_status === statusFilter);
+    }
+  
+    if (paymentFilter !== "all") {
+      filtered = filtered.filter((order) => order.payment_method === paymentFilter);
+    }
+  
+    // 👉 ORDEN: última orden primero
+    filtered.sort((a, b) => {
+      const da = new Date(a.created_at ?? a.createdAt ?? 0).getTime();
+      const db = new Date(b.created_at ?? b.createdAt ?? 0).getTime();
+      return db - da;
+    });
+  
+    setFilteredOrders(filtered);
+    setCurrentPage(1); // reset al filtrar
+  }, [searchTerm, statusFilter, channelFilter, paymentFilter, orders]);
+  
+  const totalPages = Math.ceil(filteredOrders.length / PAGE_SIZE);
+
+const paginatedOrders = filteredOrders.slice(
+  (currentPage - 1) * PAGE_SIZE,
+  currentPage * PAGE_SIZE
+);
+
   useEffect(() => {
     if (ordersData) {
       // Ensure data is always an array
@@ -30,33 +70,7 @@ export default function PedidosPage() {
     }
   }, [ordersData]);
 
-  useEffect(() => {
-    let filtered = orders;
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (order) =>
-          (order.id && order.id.toString().toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (order.user?.email && order.user.email.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-    }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((order) => order.order_status === statusFilter);
-    }
-
-    if (paymentFilter !== "all") {
-      filtered = filtered.filter((order) => order.payment_method === paymentFilter);
-    }
-
-    // NOTE: Channel filtering is not directly available in the model, skipping for now.
-    // if (channelFilter !== "all") {
-    //   filtered = filtered.filter((order) => order.channel === channelFilter);
-    // }
-
-    setFilteredOrders(filtered);
-  }, [searchTerm, statusFilter, channelFilter, paymentFilter, orders]);
-
+  
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -176,7 +190,8 @@ export default function PedidosPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((order) => {
+                {paginatedOrders.map((order) => {
+
                     // const statusInfo = getStatusBadge(order.order_status);
                     return (
                       <TableRow key={order.id}>
@@ -209,6 +224,35 @@ export default function PedidosPage() {
           )}
         </CardContent>
       </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-4">
+          <span className="text-sm text-muted-foreground">
+            Página {currentPage} de {totalPages}
+          </span>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+            >
+              Anterior
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
