@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 import { isAdmin } from "@/lib/types"
 import type { Photo, PrintFormat } from "@/lib/types"
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
+import { getPackSize } from "@/lib/print-formats"
 
 export default function CarritoPage() {
   const router = useRouter()
@@ -37,6 +38,7 @@ export default function CarritoPage() {
 
   const {
     items,
+    printSelections,
     email,
     discountCode,
     discountInfo,
@@ -46,7 +48,9 @@ export default function CarritoPage() {
     removeItem,
     toggleFavorite,
     togglePrinter,
-    setPrintFormat,
+    addPrintSelection,
+    removePhotosFromSelection,
+    clearPrintSelections,
     clearNonFavorites,
     setEmail,
     applyDiscount,
@@ -86,7 +90,7 @@ export default function CarritoPage() {
 
   useEffect(() => {
     updateTotals(mappedPhotos)
-  }, [items, discountInfo, updateTotals, mappedPhotos])
+  }, [items, printSelections, discountInfo, updateTotals, mappedPhotos])
 
   const cartPhotos = useMemo(() => {
     return items
@@ -101,23 +105,58 @@ export default function CarritoPage() {
     return cartPhotos.filter((item) => item.cartItem.favorite)
   }, [cartPhotos])
 
+  const printSelectionMap = useMemo(() => {
+    const map = new Map<string, { selectionId: string; format: PrintFormat }>()
+    printSelections.forEach((selection) => {
+      selection.photoIds.forEach((photoId) => {
+        map.set(photoId, { selectionId: selection.id, format: selection.format })
+      })
+    })
+    return map
+  }, [printSelections])
+
   const printerPhotos = useMemo(() => {
     return cartPhotos.filter((item) => item.cartItem.printer)
   }, [cartPhotos])
 
+  const printerPhotosForModal = useMemo(
+    () =>
+      printerPhotos.map((item) => ({
+        photo: item.photo,
+        assignedFormat: printSelectionMap.get(item.photo.id)?.format,
+      })),
+    [printerPhotos, printSelectionMap],
+  )
+
+  const printSelectionSummary = useMemo(() => {
+    return printSelections.map((selection) => {
+      const packSize = getPackSize(selection.format)
+      const packs = Math.ceil(selection.photoIds.length / packSize)
+      return {
+        ...selection,
+        packs,
+        totalPrice: packs * selection.format.price,
+      }
+    })
+  }, [printSelections])
+
   // Calcular subtotales para usuarios staff
-  const subtotalImpresas = useMemo(() => {
-    return printerPhotos.reduce((sum, item) => {
-      // Si tiene formato seleccionado, usar precio del formato, si no usar precio base
-      const price = item.cartItem.printFormat?.price || item.photo.price || 0
-      return sum + price
-    }, 0)
-  }, [printerPhotos])
+  const subtotalImpresas = useMemo(
+    () => printSelectionSummary.reduce((sum, selection) => sum + selection.totalPrice, 0),
+    [printSelectionSummary],
+  )
 
   const subtotalFotosDigitales = useMemo(() => {
-    const digitalPhotos = cartPhotos.filter((item) => !item.cartItem.printer)
-    return digitalPhotos.reduce((sum, item) => sum + (item.photo.price || 0), 0)
-  }, [cartPhotos])
+    return items.reduce((sum, item) => {
+      const photo = photosMap.get(item.photoId)
+      return sum + (photo?.price || 0)
+    }, 0)
+  }, [items, photosMap])
+
+  const unassignedPrinterPhotos = useMemo(
+    () => printerPhotos.filter((item) => !printSelectionMap.has(item.photo.id)),
+    [printerPhotos, printSelectionMap],
+  )
 
   // Actualizar montos editables cuando cambien los subtotales
   useEffect(() => {
@@ -198,28 +237,29 @@ export default function CarritoPage() {
   }
 
   const handleOpenFormatModal = () => {
-    // Abrir modal para todas las fotos marcadas para imprimir
-    const printerPhotoIds = printerPhotos.map((item) => item.photo.id)
-    setPhotosForFormatSelection(printerPhotoIds)
+    const unassigned = printerPhotosForModal
+      .filter((item) => !item.assignedFormat)
+      .map((item) => item.photo.id)
+    setPhotosForFormatSelection(unassigned)
     setIsFormatModalOpen(true)
   }
 
-  const handleSelectFormat = (format: PrintFormat) => {
-    // Aplicar el formato a todas las fotos seleccionadas para imprimir
-    photosForFormatSelection.forEach((photoId) => {
-      setPrintFormat(photoId, format)
-    })
-    
+  const handleSelectFormat = (format: PrintFormat, photoIds: string[]) => {
+    addPrintSelection(format, photoIds)
     toast({
       title: "Formato aplicado",
-      description: `Se aplicó ${format.name} a ${photosForFormatSelection.length} ${photosForFormatSelection.length === 1 ? "foto" : "fotos"}`,
+      description: `Se aplicó ${format.name} a ${photoIds.length} ${
+        photoIds.length === 1 ? "foto" : "fotos"
+      }`,
     })
-    
+
     setIsFormatModalOpen(false)
     setPhotosForFormatSelection([])
   }
 
   const isEmailValid = localEmail.includes("@") && localEmail.includes(".")
+
+  const hasPrinterWithoutSelection = unassignedPrinterPhotos.length > 0
 
   if (items.length === 0) {
     return (
@@ -288,6 +328,15 @@ export default function CarritoPage() {
                 Elegir Formato ({printerCount})
               </Button>
             )}
+            {printSelections.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={clearPrintSelections}
+                className="rounded-xl bg-transparent"
+              >
+                Limpiar formatos
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={handleSaveSession}
@@ -326,7 +375,7 @@ export default function CarritoPage() {
                     photo={item.photo}
                     isFavorite={item.cartItem.favorite}
                     isPrinter={item.cartItem.printer}
-                    printFormat={item.cartItem.printFormat}
+                    printFormat={printSelectionMap.get(item.photo.id)?.format}
                     onToggleFavorite={() => toggleFavorite(item.photo.id)}
                     onTogglePrinter={() => togglePrinter(item.photo.id)}
                     onRemove={() => removeItem(item.photo.id)}
@@ -351,7 +400,7 @@ export default function CarritoPage() {
                       photo={item.photo}
                       isFavorite={item.cartItem.favorite}
                       isPrinter={item.cartItem.printer}
-                      printFormat={item.cartItem.printFormat}
+                      printFormat={printSelectionMap.get(item.photo.id)?.format}
                       onToggleFavorite={() => toggleFavorite(item.photo.id)}
                       onTogglePrinter={() => togglePrinter(item.photo.id)}
                       onRemove={() => removeItem(item.photo.id)}
@@ -376,7 +425,7 @@ export default function CarritoPage() {
                       photo={item.photo}
                       isFavorite={item.cartItem.favorite}
                       isPrinter={item.cartItem.printer}
-                      printFormat={item.cartItem.printFormat}
+                    printFormat={printSelectionMap.get(item.photo.id)?.format}
                       onToggleFavorite={() => toggleFavorite(item.photo.id)}
                       onTogglePrinter={() => togglePrinter(item.photo.id)}
                       onRemove={() => removeItem(item.photo.id)}
@@ -499,29 +548,36 @@ export default function CarritoPage() {
                           </span>
                         </div>
                         
-                        {/* Mostrar formatos seleccionados */}
-                        {printerPhotos.some((item) => item.cartItem.printFormat) && (
-                          <div className="text-xs text-muted-foreground space-y-1">
-                            {printerPhotos
-                              .filter((item) => item.cartItem.printFormat)
-                              .reduce((acc, item) => {
-                                const format = item.cartItem.printFormat!
-                                const existing = acc.find((f) => f.id === format.id)
-                                if (existing) {
-                                  existing.count++
-                                } else {
-                                  acc.push({ ...format, count: 1 })
-                                }
-                                return acc
-                              }, [] as (typeof printerPhotos[0]['cartItem']['printFormat'] & { count: number })[])
-                              .map((format) => (
-                                <div key={format!.id} className="flex justify-between">
-                                  <span>• {format!.name} ({format!.size})</span>
-                                  <span>${format!.price} × {format!.count}</span>
+                        <div className="text-xs text-muted-foreground space-y-2">
+                          {printSelectionSummary.length === 0 ? (
+                            <p className="text-destructive">Asigná un formato a cada foto para imprimir.</p>
+                          ) : (
+                            printSelectionSummary.map((selection) => (
+                              <div key={selection.id} className="flex items-start justify-between gap-3">
+                                <div className="space-y-1">
+                                  <span className="block font-semibold">
+                                    • {selection.format.name} ({selection.format.size})
+                                  </span>
+                                  <span className="block text-[11px] text-muted-foreground">
+                                    {selection.photoIds.length} fotos • {selection.packs} pack(s) de{" "}
+                                    {getPackSize(selection.format)} foto{getPackSize(selection.format) > 1 ? "s" : ""}
+                                  </span>
                                 </div>
-                              ))}
-                          </div>
-                        )}
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold">${selection.totalPrice}</span>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 px-2 text-destructive"
+                                    onClick={() => removePhotosFromSelection(selection.id, selection.photoIds)}
+                                  >
+                                    Quitar
+                                  </Button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
                         
                         <div className="flex items-center gap-2">
                           <Label className="text-sm text-muted-foreground whitespace-nowrap">Subtotal:</Label>
@@ -603,14 +659,23 @@ export default function CarritoPage() {
                 )}
               </div>
 
-              <Button
+                <Button
                 onClick={() => router.push("/checkout")}
-                disabled={!isEmailValid || items.length === 0}
+                disabled={
+                  !isEmailValid ||
+                  items.length === 0 ||
+                  hasPrinterWithoutSelection
+                }
                 className="w-full rounded-xl bg-primary py-6 text-lg font-semibold text-foreground hover:bg-primary-hover disabled:opacity-50"
               >
                 Proceder al pago
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
+              {hasPrinterWithoutSelection && (
+                <p className="mt-2 text-sm text-destructive">
+                  Debes seleccionar un formato para todas las fotos a imprimir
+                </p>
+              )}
 
               <div className="space-y-2 border-t border-gray-200 pt-6 text-xs text-muted-foreground">
                 <p>✓ Te enviamos tus fotos al instante a tu email</p>
@@ -626,8 +691,9 @@ export default function CarritoPage() {
       <PrintFormatModal
         isOpen={isFormatModalOpen}
         onClose={() => setIsFormatModalOpen(false)}
-        onSelectFormat={handleSelectFormat}
-        photoCount={photosForFormatSelection.length}
+        onConfirm={handleSelectFormat}
+        printerPhotos={printerPhotosForModal}
+        defaultSelectedPhotoIds={photosForFormatSelection}
       />
     </div>
   )

@@ -42,16 +42,22 @@ export interface PrintFormat {
   requiredPhotos?: number; // Cantidad específica de fotos requeridas para este formato (ej: Polaroid)
 }
 
+export interface PrintSelection {
+  id: string;
+  format: PrintFormat;
+  photoIds: string[];
+}
+
 export interface CartItem {
   photoId: string;
   selected: boolean;  // checkbox selection
   favorite: boolean;
   printer: boolean;
-  printFormat?: PrintFormat; // Formato seleccionado si es para imprimir
 }
 
 export interface CartState {
   items: CartItem[];
+  printSelections: PrintSelection[];
   email?: string;
   discountCode?: string;
   discountInfo?: { type: "percent" | "fixed"; value: number };

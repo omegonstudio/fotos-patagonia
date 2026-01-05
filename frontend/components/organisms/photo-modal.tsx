@@ -39,7 +39,7 @@ interface PhotoModalProps {
   albumId?: number; // Nueva prop para el ID del álbum
 }
 
-const DEFAULT_PRICE = "5000";
+const DEFAULT_PRICE = "100";
 
 export function PhotoModal({
   open,

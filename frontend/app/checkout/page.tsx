@@ -27,12 +27,13 @@ import {
 import { useCartStore, useAuthStore } from "@/lib/store";
 import { usePhotos } from "@/hooks/photos/usePhotos";
 import { isAdmin } from "@/lib/types";
-import type { Order, OrderItem, Photo } from "@/lib/types";
+import type { Order, OrderItem, Photo, PrintFormat } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
 import { useCheckout } from "@/hooks/checkout/useCheckout";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
 import { buildThumbObjectName } from "@/lib/photo-thumbnails";
+import { getPackSize } from "@/lib/print-formats";
 
 type MercadoPagoPreferenceResponse = {
   init_point?: string;
@@ -75,7 +76,7 @@ function CheckoutPhotoThumbnail({ photo }: { photo: Photo }) {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, email, total, channel, clearCart } = useCartStore();
+  const { items, printSelections, email, total, channel, clearCart } = useCartStore();
   const { user, isAuthenticated } = useAuthStore();
   const { photos } = usePhotos();
   const { createOrder, createMercadoPagoPreference } = useCheckout();
@@ -93,6 +94,23 @@ export default function CheckoutPage() {
     });
     return map;
   }, [mappedPhotos]);
+
+  const printSelectionMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { selectionId: string; format: PrintFormat; photoIds: string[] }
+    >();
+    printSelections.forEach((selection) => {
+      selection.photoIds.forEach((photoId) => {
+        map.set(photoId, {
+          selectionId: selection.id,
+          format: selection.format,
+          photoIds: selection.photoIds,
+        });
+      });
+    });
+    return map;
+  }, [printSelections]);
 
   // Determinar el canal según el tipo de usuario
   // Staff users (admin o usuarios con photographer_id) pueden usar el canal "local"
@@ -127,10 +145,11 @@ export default function CheckoutPage() {
     return items
       .map((item) => {
         const photo = photosMap.get(item.photoId);
-        return photo ? { photo, item } : null;
+        const selection = printSelectionMap.get(item.photoId);
+        return photo ? { photo, item, selection } : null;
       })
       .filter((item) => item !== null);
-  }, [items, photosMap]);
+  }, [items, photosMap, printSelectionMap]);
 
   const digitalPhotos = useMemo(() => {
     return cartPhotos.filter((item) => !item.item.printer);
@@ -140,10 +159,41 @@ export default function CheckoutPage() {
     return cartPhotos.filter((item) => item.item.printer);
   }, [cartPhotos]);
 
+  const unassignedPrintPhotos = useMemo(
+    () => printPhotos.filter((item) => !item.selection),
+    [printPhotos],
+  );
+
+  const hasUnassignedPrints = unassignedPrintPhotos.length > 0;
+  const printValidationError = hasUnassignedPrints
+    ? "Asigná un formato a todas las fotos a imprimir antes de continuar."
+    : null;
+
+  const printSummary = useMemo(
+    () =>
+      printSelections.map((selection) => {
+        const packSize = getPackSize(selection.format);
+        const packs = Math.ceil(selection.photoIds.length / packSize);
+        return {
+          id: selection.id,
+          packs,
+          totalPrice: packs * selection.format.price,
+          format: selection.format,
+        };
+      }),
+    [printSelections],
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!paymentMethod || !email) return;
+    if (hasUnassignedPrints) {
+      setSubmitError(
+        "Hay fotos marcadas para imprimir sin formato. Volvé al carrito y asigná un formato.",
+      );
+      return;
+    }
 
     setIsProcessing(true);
     setSubmitError(null);
@@ -154,16 +204,30 @@ export default function CheckoutPage() {
     // Crear los OrderItems con la información de impresión
     const orderItems: OrderItem[] = items.map((item) => {
       const photo = photosMap.get(item.photoId);
-      const price =
-        item.printer && item.printFormat
-          ? item.printFormat.price
-          : photo?.price || 0;
+      const selection = printSelectionMap.get(item.photoId);
+      const basePrice = photo?.price || 0;
+
+      if (item.printer && selection) {
+        const packSize = getPackSize(selection.format);
+        const packs = Math.ceil(selection.photoIds.length / packSize);
+        const selectionTotal = packs * selection.format.price;
+        const perPhotoPrice =
+          selection.photoIds.length > 0
+            ? selectionTotal / selection.photoIds.length
+            : selectionTotal;
+
+        return {
+          photoId: item.photoId,
+          forPrint: true,
+          printFormat: selection.format,
+          priceAtPurchase: perPhotoPrice,
+        };
+      }
 
       return {
         photoId: item.photoId,
         forPrint: item.printer,
-        printFormat: item.printFormat,
-        priceAtPurchase: price,
+        priceAtPurchase: basePrice,
       };
     });
 
@@ -383,7 +447,7 @@ const orderPayload = {
 
               <Button
                 type="submit"
-                disabled={isProcessing || !paymentMethod}
+                disabled={isProcessing || !paymentMethod || hasUnassignedPrints}
                 className="w-full rounded-xl bg-primary py-6 text-lg font-semibold text-foreground hover:bg-primary-hover disabled:opacity-50"
               >
                 {isProcessing ? (
@@ -397,6 +461,9 @@ const orderPayload = {
                   </>
                 )}
               </Button>
+              {printValidationError && (
+                <p className="text-sm text-destructive text-center">{printValidationError}</p>
+              )}
               {submitError && (
                 <p className="text-sm text-destructive text-center">
                   {submitError}
@@ -423,7 +490,16 @@ const orderPayload = {
                       {printPhotos.length === 1 ? "foto" : "fotos"}
                     </span>
                   </div>
-                  {printPhotos.slice(0, 3).map(({ photo, item }) => (
+                  {printPhotos.slice(0, 3).map(({ photo, item, selection }) => {
+                    const packSize = selection ? getPackSize(selection.format) : 1;
+                    const packs = selection ? Math.ceil(selection.photoIds.length / packSize) : 0;
+                    const selectionTotal = selection ? packs * selection.format.price : 0;
+                    const perPhotoPrice =
+                      selection && selection.photoIds.length > 0
+                        ? selectionTotal / selection.photoIds.length
+                        : photo.price ?? 0;
+
+                    return (
                     <div
                       key={photo.id}
                       className="flex items-center gap-3"
@@ -433,10 +509,9 @@ const orderPayload = {
                         <p className="text-sm font-medium">
                           {photo.place}
                         </p>
-                        {item.printFormat ? (
+                        {selection ? (
                           <Badge variant="secondary" className="text-xs mt-1">
-                            {item.printFormat.name} (
-                            {item.printFormat.size})
+                            {selection.format.name} ({selection.format.size})
                           </Badge>
                         ) : (
                           <p className="text-xs text-destructive">
@@ -445,10 +520,10 @@ const orderPayload = {
                         )}
                       </div>
                       <p className="text-sm font-semibold">
-                        ${item.printFormat?.price || photo.price}
+                        ${perPhotoPrice.toFixed(0)}
                       </p>
                     </div>
-                  ))}
+                  )})}
                   {printPhotos.length > 3 && (
                     <p className="text-sm text-muted-foreground">
                       + {printPhotos.length - 3} fotos más
@@ -512,32 +587,15 @@ const orderPayload = {
                 </div>
                 {printPhotos.length > 0 && (
                   <div className="text-xs text-muted-foreground pt-2 space-y-1">
-                    {printPhotos
-                      .filter((item) => item.item.printFormat)
-                      .reduce((acc, item) => {
-                        const format = item.item.printFormat!;
-                        const existing = acc.find((f) => f.id === format.id);
-                        if (existing) {
-                          existing.count++;
-                          existing.totalPrice += format.price;
-                        } else {
-                          acc.push({
-                            id: format.id,
-                            name: format.name,
-                            size: format.size,
-                            price: format.price,
-                            count: 1,
-                            totalPrice: format.price,
-                          });
-                        }
-                        return acc;
-                      }, [] as Array<{ id: string; name: string; size: string; price: number; count: number; totalPrice: number }>)
-                      .map((format) => (
-                        <div key={format.id} className="flex justify-between">
-                          {/*   <span>• {format.name} ({format.size}) × {format.count}</span>
-                          <span>${format.totalPrice}</span> */}
-                        </div>
-                      ))}
+                    {printSummary.map((summary) => (
+                      <div key={summary.id} className="flex justify-between">
+                        <span>
+                          • {summary.format.name} ({summary.format.size}) × {summary.packs} pack
+                          {summary.packs > 1 ? "s" : ""}
+                        </span>
+                        <span>${summary.totalPrice}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
                 <div className="flex justify-between border-t border-gray-200 pt-2 text-lg font-bold">

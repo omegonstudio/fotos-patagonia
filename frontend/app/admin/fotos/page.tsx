@@ -118,6 +118,28 @@ export default function FotosPage() {
 
   const isSelected = (id: number) => selectedPhotoIds.includes(id);
 
+
+  //sellecccionar todas las fotos
+  const allFilteredIds = filteredPhotos.map((p) => p.id);
+
+  const areAllFilteredSelected =
+    allFilteredIds.length > 0 &&
+    allFilteredIds.every((id) => selectedPhotoIds.includes(id));
+  
+  const handleSelectAll = () => {
+    if (areAllFilteredSelected) {
+      // Deseleccionar todas las visibles
+      setSelectedPhotoIds((prev) =>
+        prev.filter((id) => !allFilteredIds.includes(id))
+      );
+    } else {
+      // Seleccionar todas las visibles (sin duplicados)
+      setSelectedPhotoIds((prev) =>
+        Array.from(new Set([...prev, ...allFilteredIds]))
+      );
+    }
+  };
+  
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
@@ -128,6 +150,15 @@ export default function FotosPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+            {filteredPhotos.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleSelectAll}
+                className="rounded-xl"
+              >
+                {areAllFilteredSelected ? "Deseleccionar todas" : "Seleccionar todas"}
+              </Button>
+            )}
           {selectedPhotoIds.length > 0 && (
             <Button
               onClick={handleDeleteSelected}

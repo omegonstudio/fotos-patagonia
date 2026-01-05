@@ -12,7 +12,27 @@ import {
   type StoredAuthSnapshot,
   writeStoredAuthSnapshot,
 } from "./auth"
-import type { CartState, LightboxState, GalleryState, Photo, Filters, User, PrintFormat } from "./types"
+import type {
+  CartState,
+  LightboxState,
+  GalleryState,
+  Photo,
+  Filters,
+  User,
+  PrintFormat,
+  PrintSelection,
+} from "./types"
+import { getPackSize } from "./print-formats"
+
+const generateSelectionId = () => `sel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+const removePhotoFromSelections = (selections: PrintSelection[], photoId: string) =>
+  selections
+    .map((selection) => ({
+      ...selection,
+      photoIds: selection.photoIds.filter((id) => id !== photoId),
+    }))
+    .filter((selection) => selection.photoIds.length > 0)
 
 interface CartStore extends CartState {
   addItem: (photoId: string) => void
@@ -20,7 +40,9 @@ interface CartStore extends CartState {
   toggleSelected: (photoId: string) => void
   toggleFavorite: (photoId: string) => void
   togglePrinter: (photoId: string) => void
-  setPrintFormat: (photoId: string, format: PrintFormat) => void
+  addPrintSelection: (format: PrintFormat, photoIds: string[]) => void
+  removePhotosFromSelection: (selectionId: string, photoIds: string[]) => void
+  clearPrintSelections: () => void
   clearNonFavorites: () => void
   setEmail: (email: string) => void
   applyDiscount: (code: string) => Promise<void>
@@ -34,6 +56,7 @@ export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
+      printSelections: [],
       email: undefined,
       discountCode: undefined,
       discountInfo: undefined,
@@ -50,7 +73,10 @@ export const useCartStore = create<CartStore>()(
       },
 
       removeItem: (photoId: string) => {
-        set({ items: get().items.filter((item) => item.photoId !== photoId) })
+        set({
+          items: get().items.filter((item) => item.photoId !== photoId),
+          printSelections: removePhotoFromSelections(get().printSelections, photoId),
+        })
       },
 
       // Helper: verifica si un item debe permanecer en carrito
@@ -92,13 +118,18 @@ export const useCartStore = create<CartStore>()(
           .map((item) => {
             if (item.photoId !== photoId) return item
             if (!newFavoriteState) {
-              // Al desmarcar favorite: también apagar printer y limpiar printFormat
-              return { ...item, favorite: false, printer: false, printFormat: undefined }
+              // Al desmarcar favorite: también apagar printer
+              return { ...item, favorite: false, printer: false }
             }
             return { ...item, favorite: true }
           })
           .filter((item) => item.selected || item.favorite || item.printer)
-        set({ items: updatedItems })
+        set({
+          items: updatedItems,
+          printSelections: newFavoriteState
+            ? get().printSelections
+            : removePhotoFromSelections(get().printSelections, photoId),
+        })
       },
 
       togglePrinter: (photoId: string) => {
@@ -119,24 +150,92 @@ export const useCartStore = create<CartStore>()(
               // Al marcar printer: también marcar favorite
               return { ...item, printer: true, favorite: true }
             }
-            // Al desmarcar printer: solo desmarcar printer y limpiar printFormat
-            return { ...item, printer: false, printFormat: undefined }
+            // Al desmarcar printer: solo desmarcar printer
+            return { ...item, printer: false }
           })
           .filter((item) => item.selected || item.favorite || item.printer)
-        set({ items: updatedItems })
-      },
-
-      setPrintFormat: (photoId: string, format: PrintFormat) => {
         set({
-          items: get().items.map((item) =>
-            // Seleccionar formato implica printer: true y favorite: true
-            item.photoId === photoId ? { ...item, printFormat: format, printer: true, favorite: true } : item
-          ),
+          items: updatedItems,
+          printSelections: newPrinterState
+            ? get().printSelections
+            : removePhotoFromSelections(get().printSelections, photoId),
         })
       },
 
+      addPrintSelection: (format: PrintFormat, photoIds: string[]) => {
+        const { items, printSelections } = get()
+        const uniquePhotoIds = Array.from(new Set(photoIds))
+        if (uniquePhotoIds.length === 0) return
+
+        const alreadyAssigned = uniquePhotoIds.some((photoId) =>
+          printSelections.some((selection) => selection.photoIds.includes(photoId)),
+        )
+        if (alreadyAssigned) {
+          toast({
+            title: "Fotos ya asignadas",
+            description: "Quitá el formato previo antes de asignar uno nuevo.",
+            variant: "destructive",
+          })
+          return
+        }
+
+        const itemsWithPrinter = uniquePhotoIds.reduce((acc, photoId) => {
+          const existing = acc.find((item) => item.photoId === photoId)
+          if (existing) {
+            return acc.map((item) =>
+              item.photoId === photoId ? { ...item, printer: true, favorite: true } : item,
+            )
+          }
+          return [...acc, { photoId, selected: false, favorite: true, printer: true }]
+        }, [...items])
+
+        const newSelection: PrintSelection = {
+          id: generateSelectionId(),
+          format,
+          photoIds: uniquePhotoIds,
+        }
+
+        set({
+          items: itemsWithPrinter,
+          printSelections: [...printSelections, newSelection],
+        })
+      },
+
+      removePhotosFromSelection: (selectionId: string, photoIds: string[]) => {
+        set((state) => {
+          const updatedSelections = state.printSelections
+            .map((selection) => {
+              if (selection.id !== selectionId) return selection
+              const remaining = selection.photoIds.filter((id) => !photoIds.includes(id))
+              return { ...selection, photoIds: remaining }
+            })
+            .filter((selection) => selection.photoIds.length > 0)
+
+          return { items: state.items, printSelections: updatedSelections }
+        })
+      },
+
+      clearPrintSelections: () => {
+        set((state) => ({
+          ...state,
+          printSelections: [],
+        }))
+      },
+
       clearNonFavorites: () => {
-        set({ items: get().items.filter((item) => item.favorite) })
+        set((state) => {
+          const favoriteItems = state.items.filter((item) => item.favorite)
+          const favoriteIds = favoriteItems.map((item) => item.photoId)
+          return {
+            items: favoriteItems,
+            printSelections: state.printSelections
+              .map((selection) => ({
+                ...selection,
+                photoIds: selection.photoIds.filter((id) => favoriteIds.includes(id)),
+              }))
+              .filter((selection) => selection.photoIds.length > 0),
+          }
+        })
       },
 
       setEmail: (email: string) => {
@@ -173,13 +272,17 @@ export const useCartStore = create<CartStore>()(
         const saved = localStorage.getItem(`cart-session-${sessionId}`)
         if (saved) {
           const state = JSON.parse(saved)
-          set(state)
+          set({
+            ...state,
+            printSelections: state.printSelections ?? [],
+          })
         }
       },
 
       clearCart: () => {
         set({
           items: [],
+          printSelections: [],
           email: undefined,
           discountCode: undefined,
           discountInfo: undefined,
@@ -189,16 +292,25 @@ export const useCartStore = create<CartStore>()(
       },
 
       updateTotals: (photos: Photo[]) => {
-        const { items, discountInfo } = get()
-        const subtotal = items.reduce((sum, item) => {
-          // Si tiene formato de impresión, usar el precio del formato
-          if (item.printer && item.printFormat) {
-            return sum + item.printFormat.price
-          }
-          // Si no, usar el precio base de la foto
-          const photo = photos.find((p) => p.id === item.photoId)
-          return sum + (photo?.price || 0)
+        const { items, printSelections, discountInfo } = get()
+
+        const photoPriceMap = photos.reduce<Map<string, number>>((acc, photo) => {
+          acc.set(photo.id, photo.price || 0)
+          return acc
+        }, new Map())
+
+        const subtotalFotos = items.reduce((sum, item) => {
+          const price = photoPriceMap.get(item.photoId) ?? 0
+          return sum + price
         }, 0)
+
+        const subtotalImpresas = printSelections.reduce((sum, selection) => {
+          const packSize = getPackSize(selection.format)
+          const packs = Math.ceil(selection.photoIds.length / packSize)
+          return sum + packs * selection.format.price
+        }, 0)
+
+        const subtotal = subtotalFotos + subtotalImpresas
 
         let total = subtotal
         if (discountInfo) {

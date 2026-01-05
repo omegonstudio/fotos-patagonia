@@ -59,3 +59,11 @@ export function getPrintFormatById(id: PrintFormatId): PrintFormat | undefined {
 export function getActivePrintFormats(): PrintFormat[] {
   return PRINT_FORMATS.filter(f => f.active)
 }
+
+export function getPackSize(format: PrintFormat): number {
+  return format.requiredPhotos ?? 1
+}
+
+export function isPackFormat(format: PrintFormat): boolean {
+  return (format.requiredPhotos ?? 1) > 1
+}
