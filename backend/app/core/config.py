@@ -31,9 +31,6 @@ class Settings(BaseSettings):
 
     # Mercado Pago settings
     MERCADOPAGO_ACCESS_TOKEN: str | None = None
-    # MERCADOPAGO_SUCCESS_URL: str = "http://localhost:3001/payment-success"
-    # MERCADOPAGO_FAILURE_URL: str = "http://localhost:3001/payment-failure"
-    # MERCADOPAGO_PENDING_URL: str = "http://localhost:3001/payment-pending"
     MERCADOPAGO_SUCCESS_URL: str = "https://somosfotospatagonia.com/checkout/success"
     MERCADOPAGO_FAILURE_URL: str = "https://somosfotospatagonia.com/checkout/error"
     MERCADOPAGO_PENDING_URL: str = "https://somosfotospatagonia.com/checkout/success"

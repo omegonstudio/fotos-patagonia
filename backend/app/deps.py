@@ -3,13 +3,14 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from typing import Optional
 
 from db.session import SessionLocal
 from core.config import settings
 from models.user import User
 from services.users import UserService
 
-reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login")
+reusable_oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 class TokenData(BaseModel):
     user_id: int | None = None
@@ -20,6 +21,37 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def get_current_user_or_guest(
+    db: Session = Depends(get_db),
+    token: Optional[str] = Depends(reusable_oauth2)
+) -> User:
+    if token is None:
+        # No hay token, devolvemos un usuario "invitado" anónimo.
+        # Este usuario no se guarda en la DB, solo existe en el contexto de la request.
+        return User(id=None, role="guest")
+
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        user_id = payload.get("sub")
+        if user_id is None:
+            # Token inválido o sin 'sub'. Tratamos como invitado.
+            return User(id=None, role="guest")
+        
+        token_data = TokenData(user_id=int(user_id))
+
+    except (JWTError, ValueError):
+        # El token es inválido. Tratamos como invitado.
+        return User(id=None, role="guest")
+    
+    user = UserService(db).get_user(user_id=token_data.user_id)
+    if not user:
+        # El usuario del token ya no existe. Tratamos como invitado.
+        return User(id=None, role="guest")
+        
+    return user
 
 def get_current_user(
     db: Session = Depends(get_db),

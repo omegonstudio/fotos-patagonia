@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
-from sqlalchemy import Column, Integer, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from db.base import Base
 from .user import UserSchema
@@ -25,12 +25,14 @@ class CartBaseSchema(BaseModel):
     pass
 
 class CartCreateSchema(CartBaseSchema):
-    user_id: int
+    user_id: Optional[int] = None
+    guest_id: Optional[str] = None
     photo_session_id: Optional[int] = None
 
 class CartSchema(CartBaseSchema):
     id: int
-    user: UserSchema
+    user: Optional[UserSchema] = None
+    guest_id: Optional[str] = None
     items: List[CartItemSchema] = []
     photo_session: Optional[PhotoSessionSchema] = None
     total: float
@@ -43,17 +45,18 @@ class Cart(Base):
     __tablename__ = "carts"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, unique=True)
+    guest_id = Column(String, nullable=True, unique=True, index=True)
     photo_session_id = Column(Integer, ForeignKey("photo_sessions.id"), nullable=True)
 
     user = relationship("User", back_populates="carts")
-    items = relationship("CartItem", back_populates="cart")
+    items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
     saved_cart = relationship("SavedCart", back_populates="cart", uselist=False)
     photo_session = relationship("PhotoSession")
 
     @property
     def total(self) -> float:
-        return sum(item.quantity * item.photo.price for item in self.items)
+        return sum(item.quantity * item.photo.price for item in self.items if item.photo)
 
 class CartItem(Base):
     __tablename__ = "cart_items"

@@ -19,34 +19,33 @@ def create_mercadopago_preference(payload: CreatePreferencePayload, db: Session 
     return CheckoutService(db).create_mercadopago_preference(order_id=payload.order_id)
 
 @router.post("/mercadopago/webhook", status_code=status.HTTP_200_OK)
+@router.post("/mercadopago/webhook/", status_code=status.HTTP_200_OK, include_in_schema=False)
 async def mercadopago_webhook(request: Request, db: Session = Depends(get_db)):
-    # Mercado Pago can send notifications as either a JSON body or as query parameters.
-    # This handler will try to handle both cases.
-    
-    webhook_data = {}
-    
-    # First, try to get data from query parameters (for IPN-style notifications)
     query_params = request.query_params
-    if "data.id" in query_params and "type" in query_params:
-        webhook_data = {
-            "type": query_params.get("type"),
-            "data": {
-                "id": query_params.get("data.id")
-            }
-        }
-        print(f"Received Mercado Pago webhook via query params: {webhook_data}")
-    else:
-        # If not in query params, try to parse JSON body (for modern webhooks)
-        try:
-            webhook_data = await request.json()
-            print(f"Received Mercado Pago webhook via JSON body: {webhook_data}")
-        except Exception:
-            print("Webhook received without valid query params or JSON body.")
-            # Return 200 to prevent Mercado Pago from retrying a request we can't process.
-            return {"status": "request ignored"}
+    print(f"Webhook received. Query Params: {query_params}")
 
-    if not webhook_data:
-        return {"status": "no data received"}
+    notification_type = query_params.get("topic") or query_params.get("type")
+
+    if notification_type != "payment":
+        print(f"Ignoring webhook of type '{notification_type}'.")
+        return {"status": f"webhook ignored, not a payment type"}
+    
+    payment_id = query_params.get("id") or query_params.get("data.id")
+
+    if not payment_id:
+        try:
+            body = await request.json()
+            if body.get("type") == "payment":
+                payment_id = body.get("data", {}).get("id")
+        except Exception:
+            pass # No body or not JSON, which is fine
+    
+    if not payment_id:
+        print("Webhook received, but contained no processable payment ID.")
+        return {"status": "request ignored, no valid data"}
+        
+    webhook_data = {"type": "payment", "data": {"id": payment_id}}
+    print(f"Processing payment webhook for ID: {payment_id}")
 
     return CheckoutService(db).mercadopago_webhook(webhook_data=webhook_data)
 

@@ -5,6 +5,7 @@ from models.earning import Earning
 from models.photo import Photo
 from services.base import BaseService
 from services.email_service import send_email
+from services.cart import CartService # Importar CartService
 from core.config import settings
 
 def process_earnings_for_order_item(db: Session, order_item: OrderItem):
@@ -149,6 +150,17 @@ class OrderService(BaseService):
         self.process_earnings_for_order(order)
 
         self._save_and_refresh(order)
+
+        # --- Vaciar el carrito asociado a la orden ---
+        cart_service = CartService(self.db)
+        if order.user_id:
+            cart_service.empty_cart(user_id=order.user_id)
+            print(f"INFO: Cart for user {order.user_id} emptied after order {order.id} was paid.")
+        elif order.guest_id:
+            cart_service.empty_cart(guest_id=order.guest_id)
+            print(f"INFO: Cart for guest {order.guest_id} emptied after order {order.id} was paid.")
+        else:
+            print(f"WARNING: Order {order.id} paid but no user_id or guest_id found to empty a cart.")
         
         # --- Send confirmation email ---
         email_to = None

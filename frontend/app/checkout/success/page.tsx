@@ -5,15 +5,17 @@ import Link from "next/link"
 import { CheckCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { useCart } from "@/hooks/cart/useCart" // Asegúrate de que la ruta sea correcta
+import { useCart } from "@/hooks/cart/useCart"
 
 export default function CheckoutSuccessPage() {
-  const { clearCart } = useCart()
+  const { refetch } = useCart()
 
-  // Limpiar el carrito una vez que el pago fue exitoso
+  // Forzar la recarga del estado del carrito desde el backend.
+  // El webhook ya ha vaciado el carrito en la DB; esto simplemente
+  // sincroniza el estado del frontend con el del backend.
   useEffect(() => {
-    clearCart()
-  }, [clearCart])
+    refetch()
+  }, [refetch])
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
