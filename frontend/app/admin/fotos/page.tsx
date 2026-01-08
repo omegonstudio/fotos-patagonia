@@ -23,6 +23,8 @@ import {
 import { cn } from "@/lib/utils";
 import { DeleteConfirmationModal } from "@/components/molecules/delete-confirmation-modal";
 import { AdminPhotoCard } from "@/components/molecules/admin-photo-card"; // <- Importación correcta
+import type { UploadingPhoto } from "@/lib/types";
+import { AlertCircle } from "lucide-react";
 
 export default function FotosPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,6 +39,7 @@ export default function FotosPage() {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deleteTargetIds, setDeleteTargetIds] = useState<number[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState<UploadingPhoto[]>([]);
 
   // Obtener fotos y sesiones del backend
   const { photos, loading, refetch, deletePhoto } = usePhotos();
@@ -139,6 +142,48 @@ export default function FotosPage() {
       );
     }
   };
+
+  const handleUploadStart = (items: UploadingPhoto[]) => {
+    if (!items.length) return;
+    setUploadingPhotos((prev) => [...items, ...prev]);
+  };
+
+  const handleUploadProgress = (tempIds: string[], progress: number) => {
+    if (!tempIds.length) return;
+    setUploadingPhotos((prev) =>
+      prev.map((photo) =>
+        tempIds.includes(photo.tempId)
+          ? { ...photo, progress, status: photo.status === "error" ? "error" : "uploading" }
+          : photo
+      )
+    );
+  };
+
+  const handleUploadComplete = (result: { success: string[]; failed: string[] }) => {
+    const successSet = new Set(result.success);
+    const failedSet = new Set(result.failed);
+    setUploadingPhotos((prev) =>
+      prev
+        .filter((photo) => !successSet.has(photo.tempId))
+        .map((photo) =>
+          failedSet.has(photo.tempId)
+            ? { ...photo, status: "error", progress: undefined }
+            : photo
+        )
+    );
+    void refetch();
+  };
+
+  const handleUploadError = (tempIds: string[]) => {
+    if (!tempIds.length) return;
+    setUploadingPhotos((prev) =>
+      prev.map((photo) =>
+        tempIds.includes(photo.tempId)
+          ? { ...photo, status: "error", progress: undefined }
+          : photo
+      )
+    );
+  };
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -208,6 +253,49 @@ export default function FotosPage() {
       {!loading && (
         <>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {uploadingPhotos.map((photo) => {
+              const isError = photo.status === "error";
+              return (
+                <div
+                  key={photo.tempId}
+                  className={cn(
+                    "relative overflow-hidden rounded-2xl border-2 bg-muted",
+                    isError ? "border-destructive" : "border-primary/40"
+                  )}
+                >
+                  <div className="relative aspect-square overflow-hidden">
+                    <img
+                      src={photo.previewUrl || "/placeholder.svg"}
+                      alt="Subiendo foto"
+                      className={cn(
+                        "h-full w-full object-cover transition-opacity",
+                        isError ? "opacity-60" : "opacity-80"
+                      )}
+                    />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 text-white">
+                      {isError ? (
+                        <AlertCircle className="h-6 w-6 text-destructive" />
+                      ) : (
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      )}
+                      <span className="text-sm font-semibold">
+                        {isError ? "Error al subir" : "Subiendo..."}
+                      </span>
+                      {photo.progress !== undefined && !isError && (
+                        <span className="text-xs text-white/80">
+                          {Math.round(photo.progress)}%
+                        </span>
+                      )}
+                      {isError && (
+                        <span className="text-xs text-white/80">
+                          Podés reintentar desde el modal
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
             {filteredPhotos.map((photo) => {
               const selected = isSelected(photo.id);
               return (
@@ -239,6 +327,10 @@ export default function FotosPage() {
         mode={modalMode}
         photo={selectedPhoto}
         onSave={handlePhotoSaved}
+        onUploadStart={handleUploadStart}
+        onUploadProgress={handleUploadProgress}
+        onUploadComplete={handleUploadComplete}
+        onUploadError={handleUploadError}
       />
 
       {/* Modal de confirmación reutilizable para eliminar 1 o varias fotos */}

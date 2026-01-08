@@ -27,6 +27,7 @@ import { useAlbums } from "@/hooks/albums/useAlbums";
 import { useTags } from "@/hooks/tags/useTags";
 import { apiFetch } from "@/lib/api";
 import type { BackendPhoto } from "@/hooks/photos/usePhotos";
+import type { UploadingPhoto } from "@/lib/types";
 import { generateThumbnailDataUrl } from "@/lib/photo-thumbnails";
 import { useUploadQueueStore } from "@/hooks/upload/useUploadQueue";
 
@@ -37,9 +38,13 @@ interface PhotoModalProps {
   photo?: BackendPhoto;
   onSave?: () => void;
   albumId?: number; // Nueva prop para el ID del álbum
+  onUploadStart?: (photos: UploadingPhoto[]) => void;
+  onUploadProgress?: (tempIds: string[], progress: number) => void;
+  onUploadComplete?: (result: { success: string[]; failed: string[] }) => void;
+  onUploadError?: (tempIds: string[]) => void;
 }
 
-const DEFAULT_PRICE = "100";
+const DEFAULT_PRICE = "1500";
 
 export function PhotoModal({
   open,
@@ -48,6 +53,10 @@ export function PhotoModal({
   photo,
   onSave,
   albumId, // Nueva prop
+  onUploadStart,
+  onUploadProgress,
+  onUploadComplete,
+  onUploadError,
 }: PhotoModalProps) {
   const isAddMode = mode === "add";
   const [selectedAlbum, setSelectedAlbum] = useState<string>("");
@@ -230,8 +239,35 @@ export function PhotoModal({
         return;
       }
 
-      // Lanzar upload en background y cerrar de inmediato
+      // Generar identificadores temporales y previsualizaciones para UI optimista
       const taskId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+      const optimisticEntries: UploadingPhoto[] = uploadedFiles.map(
+        (file, index) => {
+          const preview =
+            previewUrls[index] && previewUrls[index].length > 0
+              ? previewUrls[index]
+              : URL.createObjectURL(file);
+          return {
+            tempId: `${taskId}-${index}-${file.name}`,
+            previewUrl: preview,
+            status: "uploading",
+            progress: 0,
+          };
+        }
+      );
+      const filenameToTempId = new Map<string, string>();
+      optimisticEntries.forEach((entry, index) => {
+        const file = uploadedFiles[index];
+        if (file?.name) {
+          filenameToTempId.set(file.name, entry.tempId);
+        }
+      });
+      const optimisticTempIds = optimisticEntries.map((p) => p.tempId);
+      if (optimisticEntries.length > 0) {
+        onUploadStart?.(optimisticEntries);
+      }
+
+      // Lanzar upload en background y cerrar de inmediato
       uploadQueue.enqueue({
         id: taskId,
         title: "Subiendo fotos",
@@ -250,8 +286,41 @@ export function PhotoModal({
           album_id: Number(selectedAlbum),
         },
         {
-          onProgress: (pct) => uploadQueue.updateProgress(taskId, pct),
+          onProgress: (pct) => {
+            uploadQueue.updateProgress(taskId, pct);
+            if (optimisticTempIds.length > 0) {
+              onUploadProgress?.(optimisticTempIds, pct);
+            }
+          },
           onComplete: async (createdPhotos, batchResult) => {
+            const successTempIds: string[] = [];
+            const failedTempIds: string[] = [];
+
+            const originals = batchResult?.originals ?? [];
+            originals.forEach((item) => {
+              const tempId = filenameToTempId.get(item.filename);
+              if (!tempId) return;
+              if (item.status === "success") {
+                successTempIds.push(tempId);
+              }
+              if (item.status === "failed") {
+                failedTempIds.push(tempId);
+              }
+            });
+
+            batchResult?.failedFiles?.forEach((file) => {
+              const tempId = filenameToTempId.get(file.name);
+              if (tempId && !failedTempIds.includes(tempId)) {
+                failedTempIds.push(tempId);
+              }
+            });
+
+            const dedupSuccess =
+              successTempIds.length > 0
+                ? Array.from(new Set(successTempIds))
+                : optimisticTempIds;
+            const dedupFailed = Array.from(new Set(failedTempIds));
+
             const status = batchResult?.status ?? "success";
             const failedFiles = batchResult?.failedFiles?.map((f) => ({
               name: f.name,
@@ -285,6 +354,10 @@ export function PhotoModal({
                 failedFiles,
               });
             }
+            onUploadComplete?.({
+              success: dedupSuccess,
+              failed: dedupFailed,
+            });
             if (selectedTagNames.length && Array.isArray(createdPhotos)) {
               const newPhotoIds = createdPhotos
                 .map((createdPhoto: { id?: number }) => createdPhoto.id)
@@ -302,6 +375,9 @@ export function PhotoModal({
           },
           onError: (error, batchResult) => {
             uploadQueue.markError(taskId, error.message);
+            if (optimisticTempIds.length > 0) {
+              onUploadError?.(optimisticTempIds);
+            }
             if (batchResult?.failedFiles?.length) {
               uploadQueue.setResult(taskId, {
                 failedFiles: batchResult.failedFiles.map((f) => ({
