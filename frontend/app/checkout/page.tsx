@@ -407,6 +407,15 @@ const orderPayload = {
                             Tarjeta (POS en local)
                           </Label>
                         </div>
+                        <div className="flex items-center space-x-3 rounded-xl border border-gray-200 p-4">
+                          <RadioGroupItem value="transferencia" id="transferencia" />
+                          <Label
+                            htmlFor="transferencia"
+                            className="flex-1 cursor-pointer font-medium"
+                          >
+                            Transferencia
+                          </Label>
+                        </div>
                       </>
                     ) : (
                       // Solo Mercado Pago para visitantes

@@ -53,12 +53,12 @@ function HeaderComponent() {
         </Link>
 
           <nav className="hidden items-center gap-6 md:flex">
-            <Link
+          {/*   <Link
               href="/galeria"
               className="text-sm font-medium text-foreground transition-colors hover:text-[#f9a01b] hover:bg-[#ffecce] px-3 py-2 rounded-md"
             >
               Galería
-            </Link>
+            </Link> */}
             <Link
               href="/albumes"
               className="text-sm font-medium text-foreground transition-colors hover:text-[#f9a01b] hover:bg-[#ffecce] px-3 py-2 rounded-md"

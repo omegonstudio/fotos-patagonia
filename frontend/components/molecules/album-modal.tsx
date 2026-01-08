@@ -18,6 +18,7 @@ import {
 import type { Album, Tag } from "@/lib/types"
 import { useSessions } from "@/hooks/sessions/useSessions"
 import { useTags } from "@/hooks/tags/useTags"
+import { MultiSelectDropdown } from "./MultiSelectDropdown"
 
 interface AlbumModalProps {
   isOpen: boolean
@@ -120,34 +121,22 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
 
           {/* Sesiones */}
           <div>
-            <Label>Agregar Sesión</Label>
+          <Label>Agregar Sesión</Label>
 
-            <Popover open={sessionPopoverOpen} onOpenChange={setSessionPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  disabled={sessionsLoading}
-                  className="mt-1 w-full justify-between rounded-lg border-gray-200"
-                >
-                  Selecciona sesión
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                <Command>
-                  <CommandInput placeholder="Buscar sesión..." />
-                  <CommandEmpty>No hay sesiones</CommandEmpty>
-                  <CommandList>
-                    <CommandGroup>
-                      {sessions.map((s) => (
-                        <CommandItem key={s.id} onSelect={() => handleSelectSession(String(s.id))}>
-                          {s.event_name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <MultiSelectDropdown
+              items={sessions}
+              loading={sessionsLoading}
+              placeholder="Selecciona sesión"
+              getKey={(s) => s.id}
+              getLabel={(s) => s.event_name}
+              onSelect={(id) =>
+                setSelectedSessionIds((prev) =>
+                  prev.includes(id) ? prev : [...prev, id]
+                )
+              }
+            />
+
+
 
             {/* Chips de sesiones */}
             <div className="flex flex-wrap gap-2 mt-2">
@@ -173,34 +162,22 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
 
           {/* Tags */}
           <div>
-            <Label>Agregar Tag</Label>
+          <Label>Agregar Tag</Label>
 
-            <Popover open={tagPopoverOpen} onOpenChange={setTagPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  disabled={tagsLoading}
-                  className="mt-1 w-full justify-between rounded-lg border-gray-200"
-                >
-                  Selecciona tag
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                <Command>
-                  <CommandInput placeholder="Buscar tag..." />
-                  <CommandEmpty>No hay tags</CommandEmpty>
-                  <CommandList>
-                    <CommandGroup>
-                      {tags.map((tag) => (
-                        <CommandItem key={tag.id} onSelect={() => handleSelectTag(String(tag.id))}>
-                          {tag.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <MultiSelectDropdown
+              items={tags}
+              loading={tagsLoading}
+              placeholder="Selecciona tag"
+              getKey={(t) => t.id}
+              getLabel={(t) => t.name}
+              onSelect={(id) =>
+                setSelectedTagIds((prev) =>
+                  prev.includes(id) ? prev : [...prev, id]
+                )
+              }
+            />
+
+
 
             {/* Chips de tags */}
             <div className="flex flex-wrap gap-2 mt-2">
