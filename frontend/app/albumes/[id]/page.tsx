@@ -27,23 +27,39 @@ export default function AlbumDetailPage() {
   // Transform backend data
   const album = albumData && !Array.isArray(albumData) ? albumData : null
   
+  // Debug: registrar el orden crudo de sesiones recibido
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return
+    if (!album?.sessions) return
+
+    console.log("[AlbumDetail][sessions order]", album.sessions.map((session: any) => ({
+      id: session.id,
+      event_date: session.event_date,
+    })))
+  }, [album])
+  
   // Get all photos from all sessions in the album
   const albumPhotos = useMemo(() => {
     if (!album || !album.sessions) return []
+  
+    const debugEntries: Array<{
+      photoId: string | number
+      filename?: string
+      sessionId?: number
+      sessionEventDate?: string
+    }> = []
 
     const photos: Photo[] = []
+  
     album.sessions.forEach((session: any) => {
       if (session.photos && Array.isArray(session.photos)) {
         session.photos.forEach((photo: any) => {
-          // Directamente mapeamos la foto del backend, asumiendo que ya tiene la estructura correcta
-          // y que el mapper se encargará de la transformación.
-          // El `object_name` debe venir en el objeto `photo` del backend.
           const backendPhoto: BackendPhoto = {
             id: photo.id,
             filename: photo.filename || `photo-${photo.id}`,
             description: photo.description,
             price: photo.price,
-            object_name: photo.object_name, // <- Cambio clave
+            object_name: photo.object_name,
             photographer_id: photo.photographer_id ?? session.photographer_id ?? 0,
             session_id: session.id,
             photographer: photo.photographer ?? session.photographer,
@@ -57,7 +73,16 @@ export default function AlbumDetailPage() {
               photographer: session.photographer,
             },
             tags: photo.tags,
-          };
+          }
+  
+          if (process.env.NODE_ENV !== "production") {
+            debugEntries.push({
+              photoId: backendPhoto.id ?? photo.id,
+              filename: backendPhoto.filename,
+              sessionId: backendPhoto.session?.id,
+              sessionEventDate: backendPhoto.session?.event_date ?? undefined,
+            })
+          }
 
           photos.push(
             mapBackendPhotoToPhoto(backendPhoto, {
@@ -68,9 +93,81 @@ export default function AlbumDetailPage() {
         })
       }
     })
+  
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[AlbumDetail][flattened photos - first 15]", debugEntries.slice(0, 15))
+      console.log("[AlbumDetail][flattened photos - last 15]", debugEntries.slice(-15))
+    }
 
-    return photos
+    const sortedPhotos = [...photos].sort((a, b) => {
+      const dateA = a.session?.event_date
+        ? new Date(a.session.event_date).getTime()
+        : 0
+    
+      const dateB = b.session?.event_date
+        ? new Date(b.session.event_date).getTime()
+        : 0
+    
+      // 1️⃣ Sesión más nueva primero
+      if (dateA !== dateB) {
+        return dateB - dateA
+      }
+    
+      // 2️⃣ Dentro de la misma sesión → ID de foto descendente
+      return Number(b.id) - Number(a.id)
+    })
+
+    if (process.env.NODE_ENV !== "production") {
+      const toDebugFields = (p: any) => ({
+        photoId: p.id,
+        sessionId: p.session?.id,
+        sessionEventDate: p.session?.event_date,
+        filename: p.filename,
+      })
+
+      const sortedDebug = sortedPhotos.map(toDebugFields)
+
+      console.log("[AlbumDetail][photos sorted - first 15]", sortedDebug.slice(0, 15))
+      console.log("[AlbumDetail][photos sorted - last 15]", sortedDebug.slice(-15))
+
+      for (let i = 1; i < sortedPhotos.length; i++) {
+        const prev = sortedPhotos[i - 1] as any
+        const curr = sortedPhotos[i] as any
+
+        const prevDate = prev.session?.event_date ? new Date(prev.session.event_date).getTime() : 0
+        const currDate = curr.session?.event_date ? new Date(curr.session.event_date).getTime() : 0
+        const prevIdNum = Number(prev.id)
+        const currIdNum = Number(curr.id)
+
+        const hasInversion =
+          prevDate < currDate ||
+          (prevDate === currDate &&
+            !Number.isNaN(prevIdNum) &&
+            !Number.isNaN(currIdNum) &&
+            prevIdNum < currIdNum)
+
+        if (hasInversion) {
+          console.warn("[AlbumDetail][sort inversion]", {
+            indexPrev: i - 1,
+            indexCurr: i,
+            prev: {
+              id: prev.id,
+              sessionDate: prev.session?.event_date,
+              filename: prev.filename,
+            },
+            curr: {
+              id: curr.id,
+              sessionDate: curr.session?.event_date,
+              filename: curr.filename,
+            },
+          })
+        }
+      }
+    }
+
+    return sortedPhotos
   }, [album])
+  
 
   const filteredPhotos = useMemo(() => {
     const normalizedPlaceFilter = filters.place?.trim().toLowerCase()
@@ -94,6 +191,26 @@ export default function AlbumDetailPage() {
   }
 
   const photosToDisplay = filteredPhotos
+  
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return
+
+    const debugDisplay = photosToDisplay.slice(0, 15).map((p) => {
+      const photoAny = p as any
+      return {
+        photoId: photoAny.id,
+        sessionId: photoAny.session?.id,
+        sessionEventDate: photoAny.session?.event_date,
+        filename: photoAny.filename,
+      }
+    })
+
+    console.log("[AlbumDetail][photosToDisplay - first 15]", debugDisplay)
+    console.log("[AlbumDetail][photosToDisplay uses albumPhotos]", {
+      sameRef: photosToDisplay === albumPhotos,
+      hasActiveFilters,
+    })
+  }, [photosToDisplay, albumPhotos, hasActiveFilters])
   
   // Get unique photographers from sessions
   const albumPhotographers = useMemo(() => {
@@ -176,7 +293,9 @@ export default function AlbumDetailPage() {
     addItem(photoId)
   }
 
-  const currentPhoto = currentPhotoId ? albumPhotos.find((p) => p.id === currentPhotoId) : null
+  const currentPhoto = currentPhotoId
+  ? photosToDisplay.find((p) => p.id === currentPhotoId)
+  : null
 
   return (
     <div className="min-h-screen bg-background">

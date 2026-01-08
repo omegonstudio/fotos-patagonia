@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check } from "lucide-react"
+import { Check, ImageIcon } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import type { Photo, PrintFormat } from "@/lib/types"
 import { getActivePrintFormats, getPackSize } from "@/lib/print-formats"
+import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
+import WatermarkedImage from "@/components/organisms/WatermarkedImage"
 
 interface PrintFormatModalProps {
   isOpen: boolean
@@ -20,6 +22,62 @@ interface PrintFormatModalProps {
   onConfirm: (format: PrintFormat, photoIds: string[]) => void
   printerPhotos: Array<{ photo: Photo; assignedFormat?: PrintFormat }>
   defaultSelectedPhotoIds?: string[]
+}
+
+/* -------------------------------------------------
+   Sub-componente: fila de foto imprimible con thumb
+--------------------------------------------------*/
+function PrintablePhotoRow({
+  photo,
+  assignedFormat,
+}: {
+  photo: Photo
+  assignedFormat?: PrintFormat
+}) {
+  const objectName =
+    (photo as any).previewObjectName ??
+    (photo as any).thumbObjectName ??
+    (photo as any).objectName
+
+  const { url, loading } = usePresignedUrl(objectName)
+
+  return (
+    <div className="flex items-center gap-3">
+      {/* Thumbnail */}
+      <div className="relative h-40 w-40 md:h-44 md:w-44 rounded-lg overflow-hidden bg-muted">
+      {loading || !url ? (
+          <ImageIcon className="h-5 w-5 text-muted-foreground" />
+        ) : (
+          <WatermarkedImage
+            src={url}
+            alt={photo.description || photo.place || `Foto ${photo.id}`}
+            fill
+            opacity={1}
+            objectFit="cover"
+          />
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="min-w-0">
+       {/*  <p className="text-sm font-medium truncate">
+          {photo.description || photo.place || photo.albumName || `Foto ${photo.id}`}
+        </p> */}
+
+        {/* <p className="text-xs text-muted-foreground">
+          {photo.takenAt
+            ? new Date(photo.takenAt).toLocaleDateString("es-AR")
+            : `ID ${photo.id}`}
+        </p> */}
+
+        {assignedFormat && (
+          <p className="text-[11px] text-muted-foreground">
+            Ya asignada a {assignedFormat.name}
+          </p>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export function PrintFormatModal({
@@ -51,20 +109,37 @@ export function PrintFormatModal({
 
   const togglePhoto = (photoId: string) => {
     setSelectedPhotoIds((prev) =>
-      prev.includes(photoId) ? prev.filter((id) => id !== photoId) : [...prev, photoId],
+      prev.includes(photoId)
+        ? prev.filter((id) => id !== photoId)
+        : [...prev, photoId],
     )
   }
 
   const activeFormats = getActivePrintFormats()
   const packSize = selectedFormat ? getPackSize(selectedFormat) : 1
-  const packsNeeded = selectedFormat ? Math.ceil(selectedPhotoIds.length / packSize) : 0
+  const packsNeeded = selectedFormat
+    ? Math.ceil(selectedPhotoIds.length / packSize)
+    : 0
+
   const canConfirm = !!selectedFormat && selectedPhotoIds.length > 0
   const availablePhotos = printerPhotos.filter((p) => !p.assignedFormat)
   const noSelectablePhotos = availablePhotos.length === 0
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl">
+     <DialogContent
+        className="
+          max-w-[96vw] 
+          lg:max-w-6xl 
+          xl:max-w-7xl
+          h-[90vh]
+          flex
+          flex-col
+          p-6
+        "
+      >
+
+
         <DialogHeader>
           <DialogTitle className="text-2xl font-heading">
             Elegir Formato de Impresión
@@ -74,9 +149,18 @@ export function PrintFormatModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <ScrollArea className="max-h-[420px] rounded-xl border">
-            <div className="grid gap-3 p-3">
+        <div className="
+          grid 
+          grid-cols-1 
+          lg:grid-cols-[480px_1fr]
+          gap-6
+          flex-1
+          overflow-hidden"
+          >
+        {/* FORMATOS */}
+          <ScrollArea className="h-full rounded-xl border min-w-[250px]">
+
+            <div className="grid gap-3 p-1 min-w-[250px]">
               {activeFormats.map((format) => (
                 <button
                   key={format.id}
@@ -106,13 +190,18 @@ export function PrintFormatModal({
                           </p>
                         )}
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Pack de {getPackSize(format)} foto{getPackSize(format) > 1 ? "s" : ""}
+                          Pack de {getPackSize(format)} foto
+                          {getPackSize(format) > 1 ? "s" : ""}
                         </p>
                       </div>
 
                       <div className="text-right">
-                        <p className="text-lg font-bold text-primary">${format.price}</p>
-                        <p className="text-xs text-muted-foreground">precio por pack</p>
+                        <p className="text-lg font-bold text-primary">
+                          ${format.price}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          precio por pack
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -121,14 +210,18 @@ export function PrintFormatModal({
             </div>
           </ScrollArea>
 
-          <ScrollArea className="max-h-[420px] rounded-xl border">
+          {/* FOTOS */}
+          <ScrollArea className="h-full rounded-xl border">
             <div className="space-y-2 p-3">
               {printerPhotos.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No hay fotos marcadas para imprimir.</p>
+                <p className="text-sm text-muted-foreground">
+                  No hay fotos marcadas para imprimir.
+                </p>
               ) : (
                 printerPhotos.map(({ photo, assignedFormat }) => {
                   const checked = selectedPhotoIds.includes(photo.id)
                   const disabled = !!assignedFormat
+
                   return (
                     <label
                       key={photo.id}
@@ -137,7 +230,9 @@ export function PrintFormatModal({
                           ? "cursor-not-allowed bg-muted/40 text-muted-foreground"
                           : "cursor-pointer hover:bg-muted/60"
                       } ${
-                        checked ? "border-primary bg-primary/5" : "border-gray-200"
+                        checked
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-200"
                       }`}
                     >
                       <input
@@ -150,18 +245,12 @@ export function PrintFormatModal({
                           togglePhoto(photo.id)
                         }}
                       />
+
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{photo.place || `Foto ${photo.id}`}</p>
-                        {photo.takenAt && (
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(photo.takenAt).toLocaleDateString("es-AR")}
-                          </p>
-                        )}
-                        {assignedFormat && (
-                          <p className="text-[11px] text-muted-foreground">
-                            Ya asignada a {assignedFormat.name}
-                          </p>
-                        )}
+                        <PrintablePhotoRow
+                          photo={photo}
+                          assignedFormat={assignedFormat}
+                        />
                       </div>
                     </label>
                   )
@@ -169,8 +258,9 @@ export function PrintFormatModal({
               )}
             </div>
           </ScrollArea>
-          </div>
+        </div>
 
+        {/* RESUMEN */}
         <div className="flex flex-col gap-2 rounded-xl bg-muted/50 p-3 text-sm">
           {noSelectablePhotos && (
             <p className="text-[13px] text-muted-foreground">
@@ -184,15 +274,18 @@ export function PrintFormatModal({
           {selectedFormat && (
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">
-                {packsNeeded} pack(s) de {packSize} foto{packSize > 1 ? "s" : ""}
+                {packsNeeded} pack(s) de {packSize} foto
+                {packSize > 1 ? "s" : ""}
               </span>
               <span className="font-semibold">
-                ${selectedFormat.price} × {packsNeeded} = ${packsNeeded * selectedFormat.price}
+                ${selectedFormat.price} × {packsNeeded} ={" "}
+                ${packsNeeded * selectedFormat.price}
               </span>
             </div>
           )}
         </div>
 
+        {/* ACCIONES */}
         <div className="flex gap-3 border-t pt-4">
           <Button variant="outline" onClick={onClose} className="flex-1 rounded-xl">
             Cancelar

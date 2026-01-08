@@ -7,6 +7,7 @@ import { ShoppingCart, Heart, Tag, ArrowRight, Save, Upload, Trash2, Printer } f
 import { Header } from "@/components/organisms/header"
 import { CartItem } from "@/components/molecules/cart-item"
 import { PrintFormatModal } from "@/components/molecules/print-format-modal"
+import { PhotoViewerModal } from "@/components/organisms/photo-viewer-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -80,6 +81,7 @@ export default function CarritoPage() {
   // Estados para el modal de formato de impresión
   const [isFormatModalOpen, setIsFormatModalOpen] = useState(false)
   const [photosForFormatSelection, setPhotosForFormatSelection] = useState<string[]>([])
+  const [viewerPhoto, setViewerPhoto] = useState<Photo | null>(null)
 
   useEffect(() => {
     const sessionParam = searchParams.get("session")
@@ -375,10 +377,11 @@ export default function CarritoPage() {
                     photo={item.photo}
                     isFavorite={item.cartItem.favorite}
                     isPrinter={item.cartItem.printer}
-                    printFormat={printSelectionMap.get(item.photo.id)?.format}
+                      printFormat={printSelectionMap.get(item.photo.id)?.format}
                     onToggleFavorite={() => toggleFavorite(item.photo.id)}
                     onTogglePrinter={() => togglePrinter(item.photo.id)}
                     onRemove={() => removeItem(item.photo.id)}
+                    onPreview={() => setViewerPhoto(item.photo)}
                   />
                 ))}
                 </div>
@@ -404,6 +407,7 @@ export default function CarritoPage() {
                       onToggleFavorite={() => toggleFavorite(item.photo.id)}
                       onTogglePrinter={() => togglePrinter(item.photo.id)}
                       onRemove={() => removeItem(item.photo.id)}
+                      onPreview={() => setViewerPhoto(item.photo)}
                     />
                   ))
                 )}
@@ -425,10 +429,11 @@ export default function CarritoPage() {
                       photo={item.photo}
                       isFavorite={item.cartItem.favorite}
                       isPrinter={item.cartItem.printer}
-                    printFormat={printSelectionMap.get(item.photo.id)?.format}
+                      printFormat={printSelectionMap.get(item.photo.id)?.format}
                       onToggleFavorite={() => toggleFavorite(item.photo.id)}
                       onTogglePrinter={() => togglePrinter(item.photo.id)}
                       onRemove={() => removeItem(item.photo.id)}
+                      onPreview={() => setViewerPhoto(item.photo)}
                     />
                   ))
                 )}
@@ -695,6 +700,14 @@ export default function CarritoPage() {
         printerPhotos={printerPhotosForModal}
         defaultSelectedPhotoIds={photosForFormatSelection}
       />
+      {viewerPhoto && (
+        <PhotoViewerModal
+          photo={viewerPhoto}
+          onClose={() => setViewerPhoto(null)}
+          onNext={() => {}}
+          onPrev={() => {}}
+        />
+      )}
     </div>
   )
 }

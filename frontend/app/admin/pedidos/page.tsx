@@ -199,7 +199,7 @@ const paginatedOrders = filteredOrders.slice(
                         <TableCell>
                           <OrderStatusSelector order={order} onStatusUpdate={refetch} />
                         </TableCell>
-                        <TableCell>{order.user?.email || 'N/A'}</TableCell>
+                        <TableCell>{order.customer_email || 'N/A'}</TableCell>
                         <TableCell>
                           <span className="capitalize">{order.payment_method}</span>
                         </TableCell>

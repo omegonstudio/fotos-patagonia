@@ -36,10 +36,37 @@ export interface PrintFormat {
   id: PrintFormatId;
   name: string;
   size: string; // "10x15", "13x18", etc.
-  price: number;
+  price: number; // Precio POR PACK de impresión (no incluye la foto digital)
   description?: string;
   active: boolean;
   requiredPhotos?: number; // Cantidad específica de fotos requeridas para este formato (ej: Polaroid)
+}
+
+/**
+ * 🔎 Modelos explícitos para separar conceptos:
+ * - DigitalPhoto: lo que siempre se compra y descarga.
+ * - PrintablePhoto: extiende DigitalPhoto y puede tener uno o más formatos de impresión asociados.
+ * - PrintFormatPrice: precio adicional que se suma al precio digital base.
+ */
+export interface DigitalPhoto extends Photo {
+  price: number; // Precio base de la foto digital, proviene del backend (Photo.price)
+}
+
+export interface PrintablePhoto extends DigitalPhoto {
+  printFormats?: PrintFormatId[]; // Formatos permitidos (future-proof, aún no persistido en backend)
+}
+
+export type OrderItemKind = "digital" | "print";
+
+// Línea calculada antes de enviar al backend, usada para trazabilidad en metadata.
+export interface OrderDraftItem {
+  kind: OrderItemKind;
+  photoId: string;
+  price: number; // Precio capturado al momento de compra (digital o impresión)
+  quantity: number;
+  printFormatId?: PrintFormatId;
+  printFormatLabel?: string;
+  packSize?: number;
 }
 
 export interface PrintSelection {
@@ -132,6 +159,7 @@ export interface Order {
   public_id?: string;
   user_id?: number;
   user?: User;
+  customer_email?: string;
   discount_id?: number | null;
   discount?: DiscountCode | null;
   order_status?: OrderStatus;
