@@ -1,5 +1,6 @@
 import sys
 import os
+import argparse
 from sqlalchemy.orm import sessionmaker
 from db.session import engine
 from models.role import Role
@@ -12,9 +13,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # Configuración de la sesión de la base de datos
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-def create_test_admin_user():
+def create_admin_user(email, password):
     """
-    Crea un usuario de prueba con el rol 'Admin'.
+    Crea un usuario administrador con el email y contraseña proporcionados.
     """
     db = SessionLocal()
     try:
@@ -29,32 +30,33 @@ def create_test_admin_user():
 
         user_service = UserService(db)
 
-        test_admin_email = "somos.fotos.patagonia@gmail.com"
-        test_admin_password = "sonrei2026" # Contraseña de prueba
-
         # Verificar si el usuario ya existe
-        existing_user = user_service.get_user_by_email(email=test_admin_email)
+        existing_user = user_service.get_user_by_email(email=email)
         if existing_user:
-            print(f"El usuario '{test_admin_email}' ya existe. No se creará de nuevo.")
+            print(f"El usuario '{email}' ya existe. No se creará de nuevo.")
             return
 
-        print(f"Creando usuario administrador de prueba: {test_admin_email}...")
+        print(f"Creando usuario administrador: {email}...")
         user_in = UserCreateSchema(
-            email=test_admin_email,
-            password=test_admin_password,
+            email=email,
+            password=password,
             role_id=admin_role.id
         )
 
         user = user_service.create_user(user_in=user_in)
         db.commit()
 
-        print("\n¡Usuario administrador de prueba creado exitosamente!")
+        print("\n¡Usuario administrador creado exitosamente!")
         print(f"  Email: {user.email}")
-        print(f"  Contraseña: {test_admin_password}")
         print(f"  Rol: {user.role.name}")
 
     finally:
         db.close()
 
 if __name__ == "__main__":
-    create_test_admin_user()
+    parser = argparse.ArgumentParser(description="Crear un nuevo usuario administrador.")
+    parser.add_argument("email", type=str, help="El email del nuevo administrador.")
+    parser.add_argument("password", type=str, help="La contraseña del nuevo administrador.")
+    args = parser.parse_args()
+
+    create_admin_user(args.email, args.password)

@@ -209,12 +209,16 @@ class PhotoService(BaseService):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found.")
 
         user_permissions = {p.name for p in current_user.role.permissions}
-        can_edit_any = Permissions.EDIT_ANY_PHOTO.value in user_permissions
-        can_edit_own = Permissions.EDIT_OWN_PHOTO.value in user_permissions
+        
+        # El admin con FULL_ACCESS puede saltarse las comprobaciones de propiedad
+        if Permissions.FULL_ACCESS.value not in user_permissions:
+            can_edit_any = Permissions.EDIT_ANY_PHOTO.value in user_permissions
+            can_edit_own = Permissions.EDIT_OWN_PHOTO.value in user_permissions
 
-        if not can_edit_any:
-            if not can_edit_own or not current_user.photographer or db_photo.photographer_id != current_user.photographer.id:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to edit tags for this photo.")
+            if not can_edit_any:
+                is_owner = current_user.photographer and db_photo.photographer_id == current_user.photographer.id
+                if not (can_edit_own and is_owner):
+                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to edit tags for this photo.")
 
         db_photo.tags.clear()
         
