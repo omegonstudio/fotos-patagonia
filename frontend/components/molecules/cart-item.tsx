@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Heart, Trash2, Printer, ImageIcon } from "lucide-react"
+import { Heart, Trash2, Printer, ImageIcon, Pencil } from "lucide-react"
 import type { Photo, PrintFormat } from "@/lib/types"
 import { IconButton } from "@/components/atoms/icon-button"
 import { cn } from "@/lib/utils"
@@ -19,6 +19,7 @@ interface CartItemProps {
   onTogglePrinter: () => void
   onRemove: () => void
   onPreview?: () => void
+  onEditPrintFormat?: () => void
 }
 
 export function CartItem({
@@ -26,6 +27,7 @@ export function CartItem({
   isFavorite,
   isPrinter,
   printFormat,
+  onEditPrintFormat,
   onToggleFavorite,
   onTogglePrinter,
   onRemove,
@@ -92,18 +94,38 @@ export function CartItem({
       {/* Footer con íconos */}
       <div className="flex flex-col gap-2 p-3">
         <div className="text-xs text-muted-foreground flex items-center justify-between">
-          <span>Digital</span>
+          <span> Foto Digital</span>
           <span className="font-semibold text-foreground">${photo.price ?? 0}</span>
         </div>
         {/* Info del formato si está seleccionado */}
-        {isPrinter && printFormat && (
+
+        <button
+           type="button"
+            onClick={onEditPrintFormat}
+            className={cn(
+              "text-left text-xs text-muted-foreground rounded-lg px-2 py-1 -mx-2",
+              "hover:bg-muted/60 transition",
+              onEditPrintFormat ? "cursor-pointer" : "cursor-default",
+            )}
+            aria-label="Editar formato de impresión"
+            disabled={!onEditPrintFormat}
+          >
+            <div className="flex justify-between items-center">
+              <span className="font-medium inline-flex items-center gap-1">
+                {printFormat?.name}
+                <Pencil className="h-3.5 w-3.5 opacity-70" />
+              </span>
+              <span className="font-semibold text-primary">${printFormat?.price}</span>
+            </div>
+          </button>
+       {/*  {isPrinter && printFormat && (
           <div className="text-xs text-muted-foreground">
             <div className="flex justify-between items-center">
               <span className="font-medium">{printFormat.name}</span>
               <span className="font-semibold text-primary">${printFormat.price}</span>
             </div>
           </div>
-        )}
+        )} */}
         
         {/* Botones de acción */}
         <div className="flex items-center justify-between">

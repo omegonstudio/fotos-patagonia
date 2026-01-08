@@ -246,6 +246,11 @@ export default function CarritoPage() {
     setIsFormatModalOpen(true)
   }
 
+    const handleEditFormatForPhoto = (photoId: string) => {
+        setPhotosForFormatSelection([photoId])
+        setIsFormatModalOpen(true)
+      }
+
   const handleSelectFormat = (format: PrintFormat, photoIds: string[]) => {
     addPrintSelection(format, photoIds)
     toast({
@@ -382,6 +387,7 @@ export default function CarritoPage() {
                     onTogglePrinter={() => togglePrinter(item.photo.id)}
                     onRemove={() => removeItem(item.photo.id)}
                     onPreview={() => setViewerPhoto(item.photo)}
+                    onEditPrintFormat={item.cartItem.printer ? () => handleEditFormatForPhoto(item.photo.id) : undefined}
                   />
                 ))}
                 </div>
