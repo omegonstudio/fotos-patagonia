@@ -13,6 +13,7 @@ import { usePhotos } from "@/hooks/photos/usePhotos"
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
 import { buildThumbObjectName } from "@/lib/photo-thumbnails"
+import { formatDateTime, formatPhotoDate } from "@/lib/datetime"
 
 // Sub-componente para cargar la imagen de la foto en la confirmación
 function ConfirmationPhotoThumbnail({ photo }: { photo: Photo }) {
@@ -124,16 +125,8 @@ function ConfirmacionContent() {
     const dateValue = order.created_at ?? order.createdAt;
     if (!dateValue) return "Sin fecha";
 
-    const parsed = new Date(dateValue);
-    return Number.isNaN(parsed.getTime())
-      ? "Fecha inválida"
-      : parsed.toLocaleDateString("es-AR", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+    const formatted = formatDateTime(dateValue);
+    return formatted || "Fecha inválida";
   };
 
   const getStatusBadge = (status: Order["status"]) => {
@@ -279,7 +272,7 @@ function ConfirmacionContent() {
                     <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {photo.takenAt && new Date(photo.takenAt).toLocaleDateString("es-AR")}
+                        {photo.takenAt && formatPhotoDate(photo.takenAt)}
                       </span>
                       {photo.timeSlot && (
                         <span className="flex items-center gap-1">

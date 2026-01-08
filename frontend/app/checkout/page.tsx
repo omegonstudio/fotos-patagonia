@@ -34,6 +34,7 @@ import { useCheckout } from "@/hooks/checkout/useCheckout";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
 import { buildThumbObjectName } from "@/lib/photo-thumbnails";
 import { getPackSize } from "@/lib/print-formats";
+import { formatPhotoDate } from "@/lib/datetime";
 
 type MercadoPagoPreferenceResponse = {
   init_point?: string;
@@ -579,10 +580,7 @@ const orderPayload = {
                           {photo.place}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {photo.takenAt &&
-                            new Date(photo.takenAt).toLocaleDateString(
-                              "es-AR"
-                            )}
+                          {photo.takenAt && formatPhotoDate(photo.takenAt)}
                         </p>
                       </div>
                       <p className="text-sm font-semibold">

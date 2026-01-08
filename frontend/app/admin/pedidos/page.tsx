@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useOrders } from "@/hooks/orders/useOrders";
 import { Order, OrderStatus } from "@/lib/types";
 import { OrderStatusSelector } from "@/components/molecules/OrderStatusSelector";
+import { formatDateTime, parseUtcNaiveDate } from "@/lib/datetime";
 
 export default function PedidosPage() {
   const { data: ordersData, loading, error, refetch } = useOrders();
@@ -21,6 +22,8 @@ export default function PedidosPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
+
+  const toMillis = (value?: string | null) => parseUtcNaiveDate(value)?.getTime() ?? 0;
 
   //pagination
   const PAGE_SIZE = 10;
@@ -46,8 +49,8 @@ export default function PedidosPage() {
   
     // 👉 ORDEN: última orden primero
     filtered.sort((a, b) => {
-      const da = new Date(a.created_at ?? a.createdAt ?? 0).getTime();
-      const db = new Date(b.created_at ?? b.createdAt ?? 0).getTime();
+      const da = toMillis(a.created_at ?? a.createdAt ?? null);
+      const db = toMillis(b.created_at ?? b.createdAt ?? null);
       return db - da;
     });
   
@@ -100,15 +103,8 @@ const paginatedOrders = filteredOrders.slice(
     const dateValue = order.created_at ?? order.createdAt;
     if (!dateValue) return "Sin fecha";
 
-    const parsed = new Date(dateValue);
-    return Number.isNaN(parsed.getTime())
-      ? "Fecha inválida"
-      : parsed.toLocaleDateString("es-AR", {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+    const formatted = formatDateTime(dateValue, { month: "short", includeYear: false });
+    return formatted || "Fecha inválida";
   };
 
   return (

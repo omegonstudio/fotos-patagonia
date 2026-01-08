@@ -14,6 +14,7 @@ import { apiFetch } from "@/lib/api"
 // Importo Image de Next.js para optimización de imágenes
 import Image from "next/image"
 import { Logo } from "@/components/atoms/logo"
+import { formatDateTime } from "@/lib/datetime"
 
 // Define un tipo para el pedido que incluye los detalles de las fotos en los items
 // Usamos OrderItemPhoto directamente, ya que ahora el backend las devuelve con url y watermark_url
@@ -229,16 +230,8 @@ export default function PublicOrderDetailPage() {
 
   const formatOrderDate = (dateValue: string | undefined | null) => {
     if (!dateValue) return "Sin fecha"
-    const parsed = new Date(dateValue)
-    return Number.isNaN(parsed.getTime())
-      ? "Fecha inválida"
-      : parsed.toLocaleDateString("es-AR", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })
+    const formatted = formatDateTime(dateValue)
+    return formatted || "Fecha inválida"
   }
 
   const isPaidOrCompleted = order.order_status === OrderStatus.PAID || order.order_status === OrderStatus.COMPLETED

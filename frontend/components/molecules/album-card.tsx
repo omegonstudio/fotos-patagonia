@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Camera, MapPin, Calendar } from "lucide-react";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
 import { buildThumbObjectName } from "@/lib/photo-thumbnails";
+import { formatDateOnly } from "@/lib/datetime";
 
 // Mantenemos la misma definición de tipo que en la página
 interface AlbumWithDetails {
@@ -76,7 +77,7 @@ export function AlbumCard({ album }: { album: AlbumWithDetails }) {
             {album.createdAt && (
               <div className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                <span>{new Date(album.createdAt).toLocaleDateString("es-AR")}</span>
+                <span>{formatDateOnly(album.createdAt)}</span>
               </div>
             )}
           </div>

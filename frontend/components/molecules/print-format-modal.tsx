@@ -60,15 +60,6 @@ function PrintablePhotoRow({
 
       {/* Info */}
       <div className="min-w-0">
-       {/*  <p className="text-sm font-medium truncate">
-          {photo.description || photo.place || photo.albumName || `Foto ${photo.id}`}
-        </p> */}
-
-        {/* <p className="text-xs text-muted-foreground">
-          {photo.takenAt
-            ? new Date(photo.takenAt).toLocaleDateString("es-AR")
-            : `ID ${photo.id}`}
-        </p> */}
 
         {assignedFormat && (
           <p className="text-[11px] text-muted-foreground">
@@ -122,9 +113,25 @@ export function PrintFormatModal({
     : 0
 
   const canConfirm = !!selectedFormat && selectedPhotoIds.length > 0
-  const availablePhotos = printerPhotos.filter((p) => !p.assignedFormat)
-  const noSelectablePhotos = availablePhotos.length === 0
 
+  const isEditMode = printerPhotos.some(
+    (p) =>
+      p.assignedFormat &&
+      defaultSelectedPhotoIds.includes(p.photo.id),
+  )
+  const availablePhotos = isEditMode
+  ? printerPhotos
+  : printerPhotos.filter((p) => !p.assignedFormat)
+
+  const noSelectablePhotos =
+  !isEditMode && availablePhotos.length === 0
+
+
+
+
+  
+
+  
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
      <DialogContent
@@ -158,9 +165,8 @@ export function PrintFormatModal({
           overflow-hidden"
           >
         {/* FORMATOS */}
-          <ScrollArea className="h-full rounded-xl border min-w-[250px]">
-
-            <div className="grid gap-3 p-1 min-w-[250px]">
+        <ScrollArea className="h-full rounded-xl border overflow-hidden">
+        <div className="grid gap-3 p-3 min-w-[250px]">
               {activeFormats.map((format) => (
                 <button
                   key={format.id}
@@ -211,8 +217,8 @@ export function PrintFormatModal({
           </ScrollArea>
 
           {/* FOTOS */}
-          <ScrollArea className="h-full rounded-xl border">
-            <div className="space-y-2 p-3">
+          <ScrollArea className="h-full rounded-xl border overflow-hidden">
+          <div className="space-y-2 p-3">
               {printerPhotos.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No hay fotos marcadas para imprimir.
@@ -220,7 +226,7 @@ export function PrintFormatModal({
               ) : (
                 printerPhotos.map(({ photo, assignedFormat }) => {
                   const checked = selectedPhotoIds.includes(photo.id)
-                  const disabled = !!assignedFormat
+                  const disabled = !isEditMode && !!assignedFormat
 
                   return (
                     <label
@@ -235,16 +241,16 @@ export function PrintFormatModal({
                           : "border-gray-200"
                       }`}
                     >
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 accent-primary"
-                        checked={checked}
-                        disabled={disabled}
-                        onChange={() => {
-                          if (disabled) return
-                          togglePhoto(photo.id)
-                        }}
-                      />
+                     <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-primary"
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={() => {
+                            if (disabled) return
+                            togglePhoto(photo.id)
+                          }}
+                        />
 
                       <div className="flex-1">
                         <PrintablePhotoRow

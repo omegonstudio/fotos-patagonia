@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import type { Order, OrderItem } from "@/lib/types"
 import { apiFetch } from "@/lib/api"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
+import { formatDateOnly } from "@/lib/datetime"
 
 // Define a type for the fetched order that includes photo details in items
 type OrderWithPhotoItems = Omit<Order, "items"> & {
@@ -125,14 +126,8 @@ export default function DescargarPage() {
     const dateValue = order.created_at ?? order.createdAt;
     if (!dateValue) return "Sin fecha";
 
-    const parsed = new Date(dateValue);
-    return Number.isNaN(parsed.getTime())
-      ? "Fecha inválida"
-      : parsed.toLocaleDateString("es-AR", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
+    const formatted = formatDateOnly(dateValue);
+    return formatted || "Fecha inválida";
   };
 
   const handleDownload = (photoUrl?: string) => {
