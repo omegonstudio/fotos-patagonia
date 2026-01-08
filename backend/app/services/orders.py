@@ -154,7 +154,7 @@ class OrderService(BaseService):
         # --- Vaciar el carrito asociado a la orden ---
         cart_service = CartService(self.db)
         if order.user_id:
-            cart_service.empty_cart(user_id=order.user_id)
+            cart_service.empty_cart(user_id=order.user_id, guest_id=None)
             print(f"INFO: Cart for user {order.user_id} emptied after order {order.id} was paid.")
         elif order.guest_id:
             cart_service.empty_cart(guest_id=order.guest_id)

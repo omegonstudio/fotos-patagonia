@@ -35,3 +35,38 @@ def request_upload_urls(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to prepare upload URLs: {str(e)}"
         )
+
+@router.get("/usage", response_model=dict)
+def get_storage_usage(
+    current_user: User = Depends(PermissionChecker([Permissions.FULL_ACCESS]))
+):
+    """
+    Get the total used space in the storage bucket.
+    """
+    try:
+        return storage_service.get_bucket_usage()
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get bucket usage: {str(e)}"
+        )
+
+@router.delete("/cleanup", response_model=dict)
+def cleanup_old_files(
+    days_older: int,
+    current_user: User = Depends(PermissionChecker([Permissions.FULL_ACCESS]))
+):
+    """
+    Delete files from the storage bucket that are older than a specified number of days.
+    """
+    try:
+        return storage_service.delete_old_files(days_older)
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to cleanup old files: {str(e)}"
+        )
