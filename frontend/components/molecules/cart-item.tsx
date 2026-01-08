@@ -91,6 +91,10 @@ export function CartItem({
 
       {/* Footer con íconos */}
       <div className="flex flex-col gap-2 p-3">
+        <div className="text-xs text-muted-foreground flex items-center justify-between">
+          <span>Digital</span>
+          <span className="font-semibold text-foreground">${photo.price ?? 0}</span>
+        </div>
         {/* Info del formato si está seleccionado */}
         {isPrinter && printFormat && (
           <div className="text-xs text-muted-foreground">

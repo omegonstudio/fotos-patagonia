@@ -113,8 +113,8 @@ export default function OrderDetailPage() {
   const QRCanvas = Canvas as (props: any) => ReactElement;
 
   useEffect(() => {
-    if (order?.user?.email) {
-      setEmail(order.user.email);
+    if (order?.customer_email) {
+      setEmail(order.customer_email);
     }
   }, [order]);
 

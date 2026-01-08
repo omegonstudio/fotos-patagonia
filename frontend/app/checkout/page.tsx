@@ -27,7 +27,7 @@ import {
 import { useCartStore, useAuthStore } from "@/lib/store";
 import { usePhotos } from "@/hooks/photos/usePhotos";
 import { isAdmin } from "@/lib/types";
-import type { Order, OrderItem, Photo, PrintFormat } from "@/lib/types";
+import type { Order, OrderDraftItem, OrderItem, Photo, PrintFormat } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
 import { useCheckout } from "@/hooks/checkout/useCheckout";
@@ -201,41 +201,60 @@ export default function CheckoutPage() {
     // Determinar el canal según el tipo de usuario
     const orderChannel = isStaffUser ? "local" : "web";
 
-    // Crear los OrderItems con la información de impresión
-    const orderItems: OrderItem[] = items.map((item) => {
+    // ----- Orden explícita: siempre comprar digital + agregar impresión si aplica -----
+    const digitalLines: OrderDraftItem[] = items.map((item) => {
       const photo = photosMap.get(item.photoId);
-      const selection = printSelectionMap.get(item.photoId);
       const basePrice = photo?.price || 0;
-
-      if (item.printer && selection) {
-        const packSize = getPackSize(selection.format);
-        const packs = Math.ceil(selection.photoIds.length / packSize);
-        const selectionTotal = packs * selection.format.price;
-        const perPhotoPrice =
-          selection.photoIds.length > 0
-            ? selectionTotal / selection.photoIds.length
-            : selectionTotal;
-
-        return {
-          photoId: item.photoId,
-          forPrint: true,
-          printFormat: selection.format,
-          priceAtPurchase: perPhotoPrice,
-        };
-      }
-
       return {
+        kind: "digital",
         photoId: item.photoId,
-        forPrint: item.printer,
-        priceAtPurchase: basePrice,
+        price: basePrice,
+        quantity: 1,
       };
     });
+
+    const printLines: OrderDraftItem[] = [];
+    printSelections.forEach((selection) => {
+      const packSize = getPackSize(selection.format);
+      const packs = Math.ceil(selection.photoIds.length / packSize);
+      const selectionTotal = packs * selection.format.price;
+      const perPhotoPrintPrice =
+        selection.photoIds.length > 0
+          ? selectionTotal / selection.photoIds.length
+          : selectionTotal;
+
+      selection.photoIds.forEach((photoId) => {
+        printLines.push({
+          kind: "print",
+          photoId,
+          price: perPhotoPrintPrice,
+          quantity: 1,
+          printFormatId: selection.format.id,
+          printFormatLabel: selection.format.name,
+          packSize,
+        });
+      });
+    });
+
+    const orderDraftItems: OrderDraftItem[] = [...digitalLines, ...printLines];
+
+    // Lo que se envía al backend (OrderItemCreateSchema): solo price/quantity/photo_id
+    const orderItemsForBackend: OrderItem[] = orderDraftItems.map((it) => ({
+      price: it.price,
+      quantity: it.quantity,
+      photo_id: Number(it.photoId),
+    }));
+
+    const computedTotal = orderItemsForBackend.reduce(
+      (sum, it) => sum + (it.price ?? 0) * (it.quantity ?? 1),
+      0,
+    );
 
     // Payload para backend (ajustar si el backend espera campos distintos)
   // Payload para backend (ajustado al esquema real)
 const orderPayload = {
   customer_email: email, // <--- CORREGIDO AQUÍ
-  total,
+  total: computedTotal, // suma de digital + impresión (sin rely en estado previo)
   payment_method: paymentMethod, // 'mp' ya es un valor válido en el backend
   payment_status: "pending",
   order_status: "pending",
@@ -243,16 +262,12 @@ const orderPayload = {
   user_id: isAuthenticated ? user?.id ?? null : null,
   discount_id: null,
 
-  items: orderItems.map((it) => ({
-    price: it.priceAtPurchase,
-    quantity: 1,
-    photo_id: Number(it.photoId),
-  })),
+  items: orderItemsForBackend,
 
-  // EXTRA — si querés mantener metadata útil sin romper el backend
+  // EXTRA — metadata aún no persistida en backend (TODO backend: guardar JSON)
   metadata: {
     channel: orderChannel,
-    items: orderItems,
+    items: orderDraftItems,
   },
 };
 

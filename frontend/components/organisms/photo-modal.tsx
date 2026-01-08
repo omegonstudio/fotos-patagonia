@@ -617,7 +617,7 @@ export function PhotoModal({
                   Subiendo...
                 </>
               ) : (
-                "Guardar"
+                "Subir"
               )}
             </Button>
           </div>
