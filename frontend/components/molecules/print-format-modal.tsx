@@ -60,15 +60,6 @@ function PrintablePhotoRow({
 
       {/* Info */}
       <div className="min-w-0">
-       {/*  <p className="text-sm font-medium truncate">
-          {photo.description || photo.place || photo.albumName || `Foto ${photo.id}`}
-        </p> */}
-
-        {/* <p className="text-xs text-muted-foreground">
-          {photo.takenAt
-            ? new Date(photo.takenAt).toLocaleDateString("es-AR")
-            : `ID ${photo.id}`}
-        </p> */}
 
         {assignedFormat && (
           <p className="text-[11px] text-muted-foreground">

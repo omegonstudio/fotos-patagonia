@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import type { Photo } from "@/lib/types"
+import { formatPhotoDate } from "@/lib/datetime"
 import { cn } from "@/lib/utils"
 import { Check, Heart, Printer, Image as ImageIcon } from "lucide-react"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
@@ -62,7 +63,6 @@ export function PhotoThumbnail({
     e.stopPropagation()
     onTogglePrinter?.()
   }
-
   return (
     <div
       className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl bg-muted shadow-md transition-all hover:shadow-xl"
@@ -146,8 +146,15 @@ export function PhotoThumbnail({
           isHovered ? "translate-y-0" : "translate-y-full",
         )}
       >
-        {photo.place && <p className="text-sm font-semibold">{photo.place}</p>}
-        {photo.takenAt && <p className="text-xs opacity-90">{new Date(photo.takenAt).toLocaleDateString("es-AR")}</p>}
+        {/* {photo.place && <p className="text-sm font-semibold">{photo.place}</p>} */}
+        {photo.takenAt && (
+  <p className="text-xs opacity-90">{formatPhotoDate(photo.takenAt)}</p>
+)}
+
+
+
+
+
       </div>
     </div>
   )

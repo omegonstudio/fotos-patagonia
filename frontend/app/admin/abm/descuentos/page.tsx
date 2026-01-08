@@ -10,6 +10,7 @@ import { useDiscounts } from "@/hooks/discounts/useDiscounts"
 import { useToast } from "@/hooks/use-toast"
 import { DiscountModal } from "@/components/molecules/discount-modal"
 import { DeleteConfirmationModal } from "@/components/molecules/delete-confirmation-modal"
+import { formatDateOnly, parseUtcNaiveDate } from "@/lib/datetime"
 
 export default function DiscountsManagementPage() {
   const { discounts, loading, error, refetch, createDiscount, updateDiscount, deleteDiscount } = useDiscounts()
@@ -80,7 +81,9 @@ export default function DiscountsManagementPage() {
 
   const isExpired = (expiresAt?: string | null) => {
     if (!expiresAt) return false
-    return new Date(expiresAt) < new Date()
+    const parsed = parseUtcNaiveDate(expiresAt)
+    if (!parsed) return false
+    return parsed.getTime() < Date.now()
   }
 
   const discountToDelete = discounts.find((d) => d.id === deleteConfirmation.discountId)
@@ -181,11 +184,7 @@ export default function DiscountsManagementPage() {
                     <CalendarIcon className="h-4 w-4" />
                     <span>
                       {discount.expires_at 
-                        ? `Vence: ${new Date(discount.expires_at).toLocaleDateString("es-AR", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}`
+                        ? `Vence: ${formatDateOnly(discount.expires_at, { month: "short" }) || "Fecha inválida"}`
                         : "Sin vencimiento"}
                     </span>
                   </div>

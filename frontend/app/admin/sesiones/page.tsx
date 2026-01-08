@@ -12,6 +12,7 @@ import { usePhotographers } from "@/hooks/photographers/usePhotographers"
 import { useToast } from "@/hooks/use-toast"
 import { SessionModal } from "@/components/molecules/session-modal"
 import { DeleteConfirmationModal } from "@/components/molecules/delete-confirmation-modal"
+import { formatDateTime } from "@/lib/datetime"
 
 export default function AdminSesionesPage() {
   const { sessions, loading, error, refetch, createSession, updateSession, deleteSession, sendCartLink } = useSessions()
@@ -205,13 +206,7 @@ export default function AdminSesionesPage() {
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="h-4 w-4" />
                     <span>
-                      {new Date(session.event_date).toLocaleDateString("es-AR", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatDateTime(session.event_date) || "Fecha inválida"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">

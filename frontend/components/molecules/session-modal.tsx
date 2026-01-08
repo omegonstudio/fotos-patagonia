@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Calendar } from "lucide-react"
 import type { BackendSession } from "@/hooks/sessions/useSessions"
+import { parseUtcNaiveDate } from "@/lib/datetime"
 
 interface SessionModalProps {
   isOpen: boolean
@@ -65,9 +66,9 @@ export function SessionModal({
       // Convertir fecha ISO a formato datetime-local
       let eventDateLocal = ""
       if (session.event_date) {
-        const date = new Date(session.event_date)
+        const date = parseUtcNaiveDate(session.event_date)
         // Formato: YYYY-MM-DDTHH:mm
-        eventDateLocal = date.toISOString().slice(0, 16)
+        eventDateLocal = date ? date.toISOString().slice(0, 16) : ""
       }
 
       setFormData({

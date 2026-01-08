@@ -15,6 +15,7 @@ import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 import type { BackendPhoto } from "@/hooks/photos/usePhotos"
 import type { Photo } from "@/lib/types"
 import { PhotoModal } from "@/components/organisms/photo-modal"
+import { formatDateOnly, parseUtcNaiveDate } from "@/lib/datetime"
 
 export default function AlbumDetailPage() {
   const params = useParams()
@@ -23,6 +24,7 @@ export default function AlbumDetailPage() {
   const [filters, setFilters] = useState<{ date?: string; place?: string; time?: string }>({})
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const { isAuthenticated } = useAuthStore()
+  const eventDateMs = (value?: string | null) => parseUtcNaiveDate(value)?.getTime() ?? 0
 
   // Transform backend data
   const album = albumData && !Array.isArray(albumData) ? albumData : null
@@ -100,13 +102,8 @@ export default function AlbumDetailPage() {
     }
 
     const sortedPhotos = [...photos].sort((a, b) => {
-      const dateA = a.session?.event_date
-        ? new Date(a.session.event_date).getTime()
-        : 0
-    
-      const dateB = b.session?.event_date
-        ? new Date(b.session.event_date).getTime()
-        : 0
+      const dateA = eventDateMs(a.takenAt ?? null)
+      const dateB = eventDateMs(b.takenAt ?? null)
     
       // 1️⃣ Sesión más nueva primero
       if (dateA !== dateB) {
@@ -127,15 +124,12 @@ export default function AlbumDetailPage() {
 
       const sortedDebug = sortedPhotos.map(toDebugFields)
 
-      console.log("[AlbumDetail][photos sorted - first 15]", sortedDebug.slice(0, 15))
-      console.log("[AlbumDetail][photos sorted - last 15]", sortedDebug.slice(-15))
-
       for (let i = 1; i < sortedPhotos.length; i++) {
         const prev = sortedPhotos[i - 1] as any
         const curr = sortedPhotos[i] as any
 
-        const prevDate = prev.session?.event_date ? new Date(prev.session.event_date).getTime() : 0
-        const currDate = curr.session?.event_date ? new Date(curr.session.event_date).getTime() : 0
+        const prevDate = eventDateMs(prev.session?.event_date ?? null)
+        const currDate = eventDateMs(curr.session?.event_date ?? null)
         const prevIdNum = Number(prev.id)
         const currIdNum = Number(curr.id)
 
@@ -205,11 +199,7 @@ export default function AlbumDetailPage() {
       }
     })
 
-    console.log("[AlbumDetail][photosToDisplay - first 15]", debugDisplay)
-    console.log("[AlbumDetail][photosToDisplay uses albumPhotos]", {
-      sameRef: photosToDisplay === albumPhotos,
-      hasActiveFilters,
-    })
+  
   }, [photosToDisplay, albumPhotos, hasActiveFilters])
   
   // Get unique photographers from sessions
@@ -314,7 +304,7 @@ export default function AlbumDetailPage() {
             <div className="mb-4 md:mb-0">
               <h1 className="mb-4 text-3xl font-heading md:text-4xl">{album.name}</h1>
               {album.description && <p className="mb-4 text-muted-foreground">{album.description}</p>}
-              {eventName && <p className="mb-4 text-lg text-muted-foreground">{eventName}</p>}
+              {/* {eventName && <p className="mb-4 text-lg text-muted-foreground">{eventName}</p>} */}
               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                 {location && (
                   <div className="flex items-center gap-2">
@@ -326,11 +316,7 @@ export default function AlbumDetailPage() {
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     <span>
-                      {new Date(eventDate).toLocaleDateString("es-AR", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      {formatDateOnly(eventDate)}
                     </span>
                   </div>
                 )}

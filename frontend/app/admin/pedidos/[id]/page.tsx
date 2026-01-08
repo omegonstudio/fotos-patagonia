@@ -20,6 +20,7 @@ import WatermarkedImage from "@/components/organisms/WatermarkedImage";
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
 import { useOrders } from "@/hooks/orders/useOrders";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
+import { formatDateTime } from "@/lib/datetime";
 
 const QR_CANVAS_ID = "order-download-qr-canvas";
 
@@ -270,6 +271,7 @@ export default function OrderDetailPage() {
   }
 
   const statusInfo = getStatusBadge(order.order_status);
+  const createdAtLabel = order.created_at ? formatDateTime(order.created_at) : "";
 
 
   return (
@@ -303,15 +305,7 @@ export default function OrderDetailPage() {
               <div>
                 <Label className="text-sm text-muted-foreground">Fecha de Creación</Label>
                 <p className="font-medium">
-                  {order.created_at
-                    ? new Date(order.created_at).toLocaleDateString("es-AR", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "Fecha no disponible"}
+                  {createdAtLabel || "Fecha no disponible"}
                 </p>
               </div>
               <div>
