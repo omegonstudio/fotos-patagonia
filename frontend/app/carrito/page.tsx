@@ -611,7 +611,7 @@ export default function CarritoPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-muted-foreground">FOTOS</span>
                         <span className="text-xs text-muted-foreground">
-                          {totalCount - printerCount} {totalCount - printerCount === 1 ? "foto" : "fotos"}
+                          {totalCount} {totalCount  === 1 ? "foto" : "fotos"}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
