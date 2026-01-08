@@ -10,6 +10,7 @@ import { useCartStore } from "@/lib/store"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
 import { buildThumbObjectName } from "@/lib/photo-thumbnails"
+import { formatPhotoDate } from "@/lib/datetime"
 
 interface PhotoViewerModalProps {
   photo: Photo
@@ -156,7 +157,7 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
                 <Calendar className="h-4 w-4 text-white" />
                 <span className="text-white">Fecha:</span>
                 <span className="font-medium text-white">
-                  {new Date(photo.takenAt).toLocaleDateString("es-AR")}
+                  {formatPhotoDate(photo.takenAt)}
                 </span>
               </div>
             )}

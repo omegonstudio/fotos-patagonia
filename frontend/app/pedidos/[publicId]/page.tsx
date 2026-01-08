@@ -14,6 +14,7 @@ import { apiFetch } from "@/lib/api"
 // Importo Image de Next.js para optimización de imágenes
 import Image from "next/image"
 import { Logo } from "@/components/atoms/logo"
+import { formatDateTime } from "@/lib/datetime"
 
 // Define un tipo para el pedido que incluye los detalles de las fotos en los items
 // Usamos OrderItemPhoto directamente, ya que ahora el backend las devuelve con url y watermark_url
@@ -24,6 +25,38 @@ type OrderWithPublicPhotoItems = Omit<Order, "items"> & {
 const buildPhotoFilename = (photo: OrderItemPhoto) => {
   const sanitizedDescription = photo.description?.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || `foto-${photo.id}`
   return `${sanitizedDescription}.jpg`
+}
+
+// Heurística para separar ítems digitales vs impresión sin romper pedidos existentes.
+const splitOrderItems = (items: OrderItem[]) => {
+  const grouped = new Map<number, OrderItem[]>()
+  items.forEach((item) => {
+    const pid = item.photo_id || item.photo?.id
+    if (!pid) return
+    grouped.set(pid, [...(grouped.get(pid) ?? []), item])
+  })
+
+  const digital: OrderItem[] = []
+  const print: OrderItem[] = []
+  const isApproxEqual = (a = 0, b = 0, tol = 0.01) => Math.abs(a - b) <= tol
+
+  grouped.forEach((list) => {
+    if (list.length === 1) {
+      const item = list[0]
+      const base = item.photo?.price ?? item.price
+      if (base !== undefined && !isApproxEqual(item.price ?? 0, base)) {
+        print.push(item)
+      } else {
+        digital.push(item)
+      }
+      return
+    }
+    const sorted = [...list].sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
+    digital.push(sorted[0])
+    print.push(...sorted.slice(1))
+  })
+
+  return { digital, print }
 }
 
 /* const triggerFileDownload = (url: string, filename: string) => {
@@ -120,6 +153,11 @@ export default function PublicOrderDetailPage() {
     return `${origin}/pedidos/${order.public_id}`
   }, [order])
 
+  const { digital: digitalItems, print: printItems } = useMemo(
+    () => splitOrderItems(order?.items ?? []),
+    [order],
+  )
+
   const getStatusBadge = (status: Order["order_status"] | undefined) => {
     const statusConfig = {
       [OrderStatus.PENDING]: { label: "Pendiente", className: "bg-yellow-500/10 text-yellow-600" },
@@ -192,16 +230,8 @@ export default function PublicOrderDetailPage() {
 
   const formatOrderDate = (dateValue: string | undefined | null) => {
     if (!dateValue) return "Sin fecha"
-    const parsed = new Date(dateValue)
-    return Number.isNaN(parsed.getTime())
-      ? "Fecha inválida"
-      : parsed.toLocaleDateString("es-AR", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })
+    const formatted = formatDateTime(dateValue)
+    return formatted || "Fecha inválida"
   }
 
   const isPaidOrCompleted = order.order_status === OrderStatus.PAID || order.order_status === OrderStatus.COMPLETED
@@ -256,6 +286,52 @@ export default function PublicOrderDetailPage() {
                 </div>
               </CardContent>
             )}
+          </Card>
+
+          {/* Semántica de ítems para futuras vistas de UI */}
+          <Card className="mb-6 rounded-2xl border-gray-200 shadow-lg">
+            <CardHeader>
+              <CardTitle>Detalle de ítems</CardTitle>
+              <CardDescription>
+                Separá en UI: fotos digitales vs ítems de impresión (formato aún no persistido en backend).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div>
+                <p className="font-semibold text-muted-foreground">Fotos digitales</p>
+                {digitalItems.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No hay ítems digitales registrados.</p>
+                ) : (
+                  <ul className="mt-2 space-y-1">
+                    {digitalItems.map((item) => (
+                      <li key={item.id} className="flex justify-between">
+                        <span>{item.photo?.description || `Foto ${item.photo_id}`}</span>
+                        <span className="font-semibold">${item.price}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div>
+                <p className="font-semibold text-muted-foreground">Fotos para impresión</p>
+                {printItems.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Sin impresiones asociadas.</p>
+                ) : (
+                  <ul className="mt-2 space-y-1">
+                    {printItems.map((item) => (
+                      <li key={item.id} className="flex justify-between">
+                        <span>
+                          {item.photo?.description || `Foto ${item.photo_id}`} • Formato no especificado
+                          <span className="text-muted-foreground"> (TODO backend: persistir formato)</span>
+                        </span>
+                        <span className="font-semibold">${item.price}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </CardContent>
           </Card>
 
           {/* Download All Button - Mostrar solo si está pagado/completado */}

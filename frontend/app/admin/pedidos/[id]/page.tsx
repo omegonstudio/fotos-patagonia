@@ -20,6 +20,7 @@ import WatermarkedImage from "@/components/organisms/WatermarkedImage";
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
 import { useOrders } from "@/hooks/orders/useOrders";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
+import { formatDateTime } from "@/lib/datetime";
 
 const QR_CANVAS_ID = "order-download-qr-canvas";
 
@@ -113,8 +114,8 @@ export default function OrderDetailPage() {
   const QRCanvas = Canvas as (props: any) => ReactElement;
 
   useEffect(() => {
-    if (order?.user?.email) {
-      setEmail(order.user.email);
+    if (order?.customer_email) {
+      setEmail(order.customer_email);
     }
   }, [order]);
 
@@ -168,6 +169,18 @@ export default function OrderDetailPage() {
       .map(({ photo }) => photo);
   }, [orderPhotoItems]);
 
+  const printOrderPhotos = useMemo(() => {
+    const seen = new Set<string>();
+    return orderPhotoItems
+      .filter(({ item }) => item.forPrint || item.printFormat)
+      .filter(({ photo }) => {
+        if (seen.has(photo.id)) return false;
+        seen.add(photo.id);
+        return true;
+      })
+      .map(({ photo }) => photo);
+  }, [orderPhotoItems]);
+
   const handleDownloadMultiple = async (photosToDownload: Photo[], emptyMessage: string) => {
     if (!photosToDownload.length) {
       toast({ title: emptyMessage });
@@ -205,6 +218,10 @@ export default function OrderDetailPage() {
 
   const handleDownloadDigitalPhotos = async () => {
     await handleDownloadMultiple(digitalOrderPhotos, "No hay fotos digitales para descargar");
+  };
+
+  const handleDownloadPrintPhotos = async () => {
+    await handleDownloadMultiple(printOrderPhotos, "No hay fotos para imprimir");
   };
 
   const getStatusBadge = (status: Order["order_status"] | undefined) => {
@@ -254,6 +271,7 @@ export default function OrderDetailPage() {
   }
 
   const statusInfo = getStatusBadge(order.order_status);
+  const createdAtLabel = order.created_at ? formatDateTime(order.created_at) : "";
 
 
   return (
@@ -287,15 +305,7 @@ export default function OrderDetailPage() {
               <div>
                 <Label className="text-sm text-muted-foreground">Fecha de Creación</Label>
                 <p className="font-medium">
-                  {order.created_at
-                    ? new Date(order.created_at).toLocaleDateString("es-AR", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "Fecha no disponible"}
+                  {createdAtLabel || "Fecha no disponible"}
                 </p>
               </div>
               <div>
@@ -328,7 +338,7 @@ export default function OrderDetailPage() {
               <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle>Fotos del Pedido ({allOrderPhotos.length})</CardTitle>
-                  <CardDescription>Miniaturas para descargar en alta resolución</CardDescription>
+                  <CardDescription>Miniaturas separadas por digital e impresión</CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button size="sm" className="rounded-xl" onClick={handleDownloadAllPhotos}>
@@ -341,17 +351,47 @@ export default function OrderDetailPage() {
                     size="sm"
                     variant="outline"
                     className="rounded-xl"
-                    onClick={() => toast({ title: "Función no implementada" })}
+                    onClick={handleDownloadPrintPhotos}
                   >
                     Descargar imprimir
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                  {allOrderPhotos.map((photo) => (
-                    <PhotoGridItem key={photo.id} photo={photo} />
-                  ))}
+                <div className="space-y-8">
+                  {digitalOrderPhotos.length > 0 ? (
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold">Fotos digitales</h3>
+                      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                        {digitalOrderPhotos.map((photo) => (
+                          <PhotoGridItem key={photo.id} photo={photo} />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No hay fotos digitales en este pedido.</p>
+                  )}
+
+                  {printOrderPhotos.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2">
+                          <Printer className="h-4 w-4 text-muted-foreground" />
+                          <h3 className="text-lg font-semibold">Fotos para imprimir</h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Se descargarán en alta resolución listas para impresión.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                        {printOrderPhotos.map((photo) => (
+                          <PhotoGridItem key={photo.id} photo={photo} />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No hay fotos para imprimir en este pedido.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>

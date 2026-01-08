@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Percent, Calendar } from "lucide-react"
 import type { BackendDiscount } from "@/hooks/discounts/useDiscounts"
+import { parseUtcNaiveDate } from "@/lib/datetime"
 
 interface DiscountModalProps {
   isOpen: boolean
@@ -48,9 +49,9 @@ export function DiscountModal({ isOpen, mode, discount, onClose, onSave }: Disco
       // Convertir fecha ISO a formato date
       let expiresAtLocal = ""
       if (discount.expires_at) {
-        const date = new Date(discount.expires_at)
+        const date = parseUtcNaiveDate(discount.expires_at)
         // Formato: YYYY-MM-DD
-        expiresAtLocal = date.toISOString().slice(0, 10)
+        expiresAtLocal = date ? date.toISOString().slice(0, 10) : ""
       }
 
       setFormData({

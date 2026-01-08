@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, apiFetch, getApiBaseUrl } from "@/lib/api";
+import { ApiError, apiFetch, getApiBaseUrl, refreshAccessToken } from "@/lib/api";
 import { getTokenExpiration } from "@/lib/auth";
 import { useAuthStore } from "@/lib/store";
 import type { LogoutOptions } from "@/lib/store";
@@ -25,14 +25,12 @@ export function useAuth() {
   const setUser = useAuthStore((state) => state.setUser);
   const setToken = useAuthStore((state) => state.setToken);
   const logoutStore = useAuthStore((state) => state.logout);
-  const isTokenExpired = useAuthStore((state) => state.isTokenExpired);
-
   const [loading, setLoading] = useState(!initialized);
   const [error, setError] = useState<string | null>(null);
 
   const fetchMe = useCallback(
     async (force = false): Promise<User | null> => {
-      if (!token || isTokenExpired()) {
+      if (!token) {
         setUser(null);
         setLoading(false);
         return null;
@@ -51,8 +49,8 @@ export function useAuth() {
           return data;
         })
         .catch((err: unknown) => {
-          setUser(null);
           if (err instanceof ApiError && err.status === 401) {
+            setUser(null);
             logoutStore({ reason: "invalid" });
           } else if (err instanceof Error) {
             setError(err.message);
@@ -69,7 +67,7 @@ export function useAuth() {
       authPromise = request;
       return request;
     },
-    [token, isTokenExpired, setUser, logoutStore]
+    [token, setUser, logoutStore]
   );
 
   const login = useCallback(
@@ -146,9 +144,7 @@ export function useAuth() {
   );
 
   const refresh = useCallback(async () => {
-    const result = await apiFetch<{ access_token?: string }>("/auth/refresh", {
-      method: "POST",
-    });
+    const result = await refreshAccessToken();
     if (result?.access_token) {
       const expiresAt = getTokenExpiration(result.access_token);
       if (!expiresAt) {

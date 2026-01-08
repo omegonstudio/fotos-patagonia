@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Download, AlertCircle, Calendar } from "lucide-react"
@@ -11,10 +11,43 @@ import { Badge } from "@/components/ui/badge"
 import type { Order, OrderItem } from "@/lib/types"
 import { apiFetch } from "@/lib/api"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
+import { formatDateOnly } from "@/lib/datetime"
 
 // Define a type for the fetched order that includes photo details in items
 type OrderWithPhotoItems = Omit<Order, "items"> & {
   items: OrderItem[]
+}
+
+// Heurística compartida con la vista pública para separar digital vs impresión
+const splitOrderItems = (items: OrderItem[]) => {
+  const grouped = new Map<number, OrderItem[]>()
+  items.forEach((item) => {
+    const pid = item.photo_id || item.photo?.id
+    if (!pid) return
+    grouped.set(pid, [...(grouped.get(pid) ?? []), item])
+  })
+
+  const digital: OrderItem[] = []
+  const print: OrderItem[] = []
+  const isApproxEqual = (a = 0, b = 0, tol = 0.01) => Math.abs(a - b) <= tol
+
+  grouped.forEach((list) => {
+    if (list.length === 1) {
+      const item = list[0]
+      const base = item.photo?.price ?? item.price
+      if (base !== undefined && !isApproxEqual(item.price ?? 0, base)) {
+        print.push(item)
+      } else {
+        digital.push(item)
+      }
+      return
+    }
+    const sorted = [...list].sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
+    digital.push(sorted[0])
+    print.push(...sorted.slice(1))
+  })
+
+  return { digital, print }
 }
 
 export default function DescargarPage() {
@@ -81,6 +114,11 @@ export default function DescargarPage() {
     .map((item) => item.photo)
     .filter((photo): photo is NonNullable<OrderItem["photo"]> => Boolean(photo))
 
+  const { digital: digitalItems, print: printItems } = useMemo(
+    () => splitOrderItems(order.items ?? []),
+    [order],
+  )
+
   const normalizedStatus = order.order_status?.toLowerCase() as Order["order_status"] | undefined
   const canDownload = normalizedStatus === "paid" || normalizedStatus === "completed"
 
@@ -88,14 +126,8 @@ export default function DescargarPage() {
     const dateValue = order.created_at ?? order.createdAt;
     if (!dateValue) return "Sin fecha";
 
-    const parsed = new Date(dateValue);
-    return Number.isNaN(parsed.getTime())
-      ? "Fecha inválida"
-      : parsed.toLocaleDateString("es-AR", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
+    const formatted = formatDateOnly(dateValue);
+    return formatted || "Fecha inválida";
   };
 
   const handleDownload = (photoUrl?: string) => {
@@ -152,6 +184,51 @@ export default function DescargarPage() {
                 </div>
               </CardContent>
             )}
+          </Card>
+
+          {/* Semántica de ítems para separar visualización */}
+          <Card className="mb-6 rounded-2xl border-gray-200 shadow-lg">
+            <CardHeader>
+              <CardTitle>Detalle de ítems</CardTitle>
+              <CardDescription>
+                Usa estos grupos para renderizar bloques separados de digital / impresión sin tocar el backend actual.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div>
+                <p className="font-semibold text-muted-foreground">Fotos digitales</p>
+                {digitalItems.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Sin ítems digitales.</p>
+                ) : (
+                  <ul className="mt-2 space-y-1">
+                    {digitalItems.map((item) => (
+                      <li key={item.id} className="flex justify-between">
+                        <span>{item.photo?.description || `Foto ${item.photo_id}`}</span>
+                        <span className="font-semibold">${item.price}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <p className="font-semibold text-muted-foreground">Fotos para impresión</p>
+                {printItems.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Sin impresiones asociadas.</p>
+                ) : (
+                  <ul className="mt-2 space-y-1">
+                    {printItems.map((item) => (
+                      <li key={item.id} className="flex justify-between">
+                        <span>
+                          {item.photo?.description || `Foto ${item.photo_id}`} • Formato no especificado
+                          <span className="text-muted-foreground"> (TODO backend: persistir formato)</span>
+                        </span>
+                        <span className="font-semibold">${item.price}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </CardContent>
           </Card>
 
           {/* Download All Button */}

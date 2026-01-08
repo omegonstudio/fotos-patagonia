@@ -201,6 +201,8 @@ export function PhotoModal({
   };
 
   const handleSave = async () => {
+    if (uploading) return;
+
     const numericPrice = parseFloat(price);
     if (Number.isNaN(numericPrice)) {
       toast({
@@ -605,11 +607,11 @@ export function PhotoModal({
               type="button"
               onClick={handleSave}
               className="rounded-xl bg-primary font-semibold text-foreground hover:bg-primary/90"
-              /* disabled={
+              disabled={
                 uploading ||
                 !price ||
                 (isAddMode && (!selectedPhotographer || uploadedFiles.length === 0))
-              } */
+              }
             >
               {uploading ? (
                 <>
@@ -617,7 +619,7 @@ export function PhotoModal({
                   Subiendo...
                 </>
               ) : (
-                "Guardar"
+                "Subir"
               )}
             </Button>
           </div>

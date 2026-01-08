@@ -299,11 +299,15 @@ export const useCartStore = create<CartStore>()(
           return acc
         }, new Map())
 
+        // 🔐 Regla de negocio: toda foto marcada para imprimir sigue siendo una compra digital.
+        // Por eso el subtotal digital considera TODAS las fotos del carrito.
         const subtotalFotos = items.reduce((sum, item) => {
           const price = photoPriceMap.get(item.photoId) ?? 0
           return sum + price
         }, 0)
 
+        // Precio de impresión = precio de pack * cantidad de packs necesarios.
+        // No incluye el precio digital (se suma aparte en subtotalFotos).
         const subtotalImpresas = printSelections.reduce((sum, selection) => {
           const packSize = getPackSize(selection.format)
           const packs = Math.ceil(selection.photoIds.length / packSize)
@@ -450,11 +454,18 @@ const initialAuthState: AuthState = {
   initialized: false,
 }
 
-const computeIsAuthenticated = (snapshot: StoredAuthSnapshot) => {
+/* const computeIsAuthenticated = (snapshot: StoredAuthSnapshot) => {
   if (!snapshot.token || !snapshot.user) return false
   if (!snapshot.expiresAt) return false
   return snapshot.expiresAt > Date.now()
-}
+} */
+
+  const computeIsAuthenticated = (snapshot: StoredAuthSnapshot) => {
+    if (!snapshot.token) return false
+    if (!snapshot.expiresAt) return false
+    return snapshot.expiresAt > Date.now()
+  }
+  
 
 const LOGOUT_MESSAGES: Record<LogoutReason, { title: string; description: string }> = {
   manual: {
@@ -615,7 +626,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         // noop
       }
       try {
-        window.sessionStorage.clear()
+        window.sessionStorage.removeItem(AUTH_STORAGE_KEY)
       } catch {
         // noop
       }

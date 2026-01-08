@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 import logging
 import uuid
 from typing import List
+from datetime import datetime, timedelta, timezone
 
 from core.config import settings
 from pydantic import BaseModel
@@ -116,6 +117,79 @@ class StorageService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Could not delete file from storage."
+            )
+
+    def get_bucket_usage(self) -> dict:
+        """
+        Calculates the total size of all objects in the bucket.
+        """
+        total_size = 0
+        try:
+            paginator = self.s3_client.get_paginator('list_objects_v2')
+            pages = paginator.paginate(Bucket=self.bucket_name)
+            for page in pages:
+                if "Contents" in page:
+                    for obj in page['Contents']:
+                        total_size += obj['Size']
+            
+            # Convert size to a more readable format
+            if total_size < 1024:
+                readable_size = f"{total_size} Bytes"
+            elif total_size < 1024**2:
+                readable_size = f"{total_size/1024:.2f} KB"
+            elif total_size < 1024**3:
+                readable_size = f"{total_size/1024**2:.2f} MB"
+            else:
+                readable_size = f"{total_size/1024**3:.2f} GB"
+
+            return {"total_size_bytes": total_size, "readable_size": readable_size}
+        except ClientError as e:
+            logging.error(f"Error calculating bucket size: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Could not calculate bucket size."
+            )
+
+    def delete_old_files(self, days_older: int):
+        """
+        Deletes files older than a specified number of days.
+        """
+        if days_older <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Number of days must be positive."
+            )
+
+        try:
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_older)
+            objects_to_delete = []
+            
+            paginator = self.s3_client.get_paginator('list_objects_v2')
+            pages = paginator.paginate(Bucket=self.bucket_name)
+
+            for page in pages:
+                if "Contents" in page:
+                    for obj in page['Contents']:
+                        if obj['LastModified'] < cutoff_date:
+                            objects_to_delete.append({'Key': obj['Key']})
+            
+            if not objects_to_delete:
+                return {"message": "No files found older than specified date.", "deleted_count": 0}
+
+            # S3 delete_objects can handle up to 1000 keys at a time
+            for i in range(0, len(objects_to_delete), 1000):
+                chunk = objects_to_delete[i:i + 1000]
+                self.s3_client.delete_objects(
+                    Bucket=self.bucket_name,
+                    Delete={'Objects': chunk}
+                )
+            
+            return {"message": f"Successfully deleted {len(objects_to_delete)} old files.", "deleted_count": len(objects_to_delete)}
+        except ClientError as e:
+            logging.error(f"Error deleting old files: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Could not delete old files."
             )
 
     def _sanitize_object_name(self, object_name: str) -> str:

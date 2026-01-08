@@ -10,21 +10,24 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, initialized, token } = useAuthStore()
   const router = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!initialized) return
+  
+    if (!token) {
       router.push("/")
     }
-  }, [isAuthenticated, router])
+  }, [initialized, token, router])
+  
   
   // Obtener nombre del rol
   const roleName = getUserRoleName(user)
 
   // Mostrar mensaje mientras se verifica autenticación
-  if (!isAuthenticated || !user) {
+  if (!initialized || (token && !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -72,7 +75,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="px-3 py-1 rounded-full bg-[#ffecce] text-[#f9a01b] text-sm font-medium">
-            {user.email}
+            {user?.email}
           </div>
         </div>
 

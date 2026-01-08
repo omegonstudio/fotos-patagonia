@@ -59,7 +59,7 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
         />
       </div>
 
-      <div className="flex-1">
+   {/*    <div className="flex-1">
         <label className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
           <MapPin className="w-4 h-4" />
           Lugar
@@ -71,7 +71,7 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
           className="rounded-xl border-gray-200"
           onChange={(e) => handlePlaceChange(e.target.value)}
         />
-      </div>
+      </div> */}
 
       <div className="flex-1">
         <label className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">

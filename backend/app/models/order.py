@@ -129,3 +129,6 @@ class OrderItem(Base):
 
     order = relationship("Order", back_populates="items")
     photo = relationship("Photo", back_populates="order_items")
+
+# TODO(print-metadata): agregar columna JSON opcional para persistir datos de impresión
+# (formato, packSize, channel) sin romper órdenes existentes.

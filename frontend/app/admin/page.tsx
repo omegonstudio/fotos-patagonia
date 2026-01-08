@@ -362,7 +362,7 @@ export default function AdminDashboard() {
                   <div className="flex-1">
                     <p className="font-semibold">Pedido #{order.id}</p>
                     <p className="text-sm text-muted-foreground">
-                      {order.user?.email || "Sin email"}
+                      {order.customer_email || "Sin email"}
                     </p>
                   </div>
                   <div className="text-right">

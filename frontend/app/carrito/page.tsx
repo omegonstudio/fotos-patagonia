@@ -7,6 +7,7 @@ import { ShoppingCart, Heart, Tag, ArrowRight, Save, Upload, Trash2, Printer } f
 import { Header } from "@/components/organisms/header"
 import { CartItem } from "@/components/molecules/cart-item"
 import { PrintFormatModal } from "@/components/molecules/print-format-modal"
+import { PhotoViewerModal } from "@/components/organisms/photo-viewer-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -80,6 +81,7 @@ export default function CarritoPage() {
   // Estados para el modal de formato de impresión
   const [isFormatModalOpen, setIsFormatModalOpen] = useState(false)
   const [photosForFormatSelection, setPhotosForFormatSelection] = useState<string[]>([])
+  const [viewerPhoto, setViewerPhoto] = useState<Photo | null>(null)
 
   useEffect(() => {
     const sessionParam = searchParams.get("session")
@@ -244,6 +246,11 @@ export default function CarritoPage() {
     setIsFormatModalOpen(true)
   }
 
+    const handleEditFormatForPhoto = (photoId: string) => {
+        setPhotosForFormatSelection([photoId])
+        setIsFormatModalOpen(true)
+      }
+
   const handleSelectFormat = (format: PrintFormat, photoIds: string[]) => {
     addPrintSelection(format, photoIds)
     toast({
@@ -261,6 +268,13 @@ export default function CarritoPage() {
 
   const hasPrinterWithoutSelection = unassignedPrinterPhotos.length > 0
 
+  const calculatedTotal = useMemo(() => {
+    return (
+      Number(editableSubtotalImpresas || 0) +
+      Number(editableSubtotalFotos || 0)
+    )
+  }, [editableSubtotalImpresas, editableSubtotalFotos])
+  
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background">
@@ -375,10 +389,12 @@ export default function CarritoPage() {
                     photo={item.photo}
                     isFavorite={item.cartItem.favorite}
                     isPrinter={item.cartItem.printer}
-                    printFormat={printSelectionMap.get(item.photo.id)?.format}
+                      printFormat={printSelectionMap.get(item.photo.id)?.format}
                     onToggleFavorite={() => toggleFavorite(item.photo.id)}
                     onTogglePrinter={() => togglePrinter(item.photo.id)}
                     onRemove={() => removeItem(item.photo.id)}
+                    onPreview={() => setViewerPhoto(item.photo)}
+                    onEditPrintFormat={item.cartItem.printer ? () => handleEditFormatForPhoto(item.photo.id) : undefined}
                   />
                 ))}
                 </div>
@@ -404,6 +420,7 @@ export default function CarritoPage() {
                       onToggleFavorite={() => toggleFavorite(item.photo.id)}
                       onTogglePrinter={() => togglePrinter(item.photo.id)}
                       onRemove={() => removeItem(item.photo.id)}
+                      onPreview={() => setViewerPhoto(item.photo)}
                     />
                   ))
                 )}
@@ -425,10 +442,11 @@ export default function CarritoPage() {
                       photo={item.photo}
                       isFavorite={item.cartItem.favorite}
                       isPrinter={item.cartItem.printer}
-                    printFormat={printSelectionMap.get(item.photo.id)?.format}
+                      printFormat={printSelectionMap.get(item.photo.id)?.format}
                       onToggleFavorite={() => toggleFavorite(item.photo.id)}
                       onTogglePrinter={() => togglePrinter(item.photo.id)}
                       onRemove={() => removeItem(item.photo.id)}
+                      onPreview={() => setViewerPhoto(item.photo)}
                     />
                   ))
                 )}
@@ -600,7 +618,7 @@ export default function CarritoPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-muted-foreground">FOTOS</span>
                         <span className="text-xs text-muted-foreground">
-                          {totalCount - printerCount} {totalCount - printerCount === 1 ? "foto" : "fotos"}
+                          {totalCount} {totalCount  === 1 ? "foto" : "fotos"}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -617,7 +635,7 @@ export default function CarritoPage() {
                       </div>
                     </div>
 
-                    {/* Total Editable */}
+                   {/* Total calculado automáticamente */}
                     <div className="space-y-2 pt-3">
                       <div className="flex items-center gap-2">
                         <Label className="text-lg font-bold whitespace-nowrap">Total:</Label>
@@ -625,9 +643,12 @@ export default function CarritoPage() {
                           <span className="text-lg font-bold text-primary">$</span>
                           <Input
                             type="number"
-                            value={editableTotal}
-                            onChange={(e) => setEditableTotal(Number(e.target.value))}
-                            className="rounded-lg h-10 text-lg font-bold text-primary"
+                            value={calculatedTotal}
+                            readOnly
+                            className="
+                              rounded-lg h-10 text-lg font-bold text-primary
+                              bg-muted cursor-not-allowed
+                            "
                           />
                         </div>
                       </div>
@@ -695,6 +716,14 @@ export default function CarritoPage() {
         printerPhotos={printerPhotosForModal}
         defaultSelectedPhotoIds={photosForFormatSelection}
       />
+      {viewerPhoto && (
+        <PhotoViewerModal
+          photo={viewerPhoto}
+          onClose={() => setViewerPhoto(null)}
+          onNext={() => {}}
+          onPrev={() => {}}
+        />
+      )}
     </div>
   )
 }

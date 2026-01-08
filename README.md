@@ -46,5 +46,11 @@ EMAIL_USER=
 EMAIL_PASSWORD=
 EMAIL_FROM=noreply@fotopatagonia.com
 
+# Consultar espacio en el cloud y borrar archivos
+
+   1. Obtener espacio utilizado:
+       * Endpoint: GET /api/v1/storage/usage
+   2. Eliminar archivos antiguos:
+       * Endpoint: DELETE /api/v1/storage/cleanup?days_older={dias}
 
 

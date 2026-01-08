@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 
 import { AlbumCard } from "@/components/molecules/album-card";
+import { parseUtcNaiveDate } from "@/lib/datetime";
 
 interface AlbumWithDetails {
   id: number;
@@ -60,6 +61,8 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
     });
   }, [albumsData]);
 
+  const toMillis = (value?: string | null) => parseUtcNaiveDate(value)?.getTime() ?? 0;
+
   // Filter and sort albums
   const filteredAlbums = useMemo(() => {
     let filtered = albums.filter((album) => album.photoCount >= 0) // Solo mostrar álbumes con fotos 
@@ -82,9 +85,9 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
     // Sort
     filtered.sort((a, b) => {
       if (sortBy === "recent") {
-        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        return toMillis(b.createdAt) - toMillis(a.createdAt)
       } else if (sortBy === "oldest") {
-        return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+        return toMillis(a.createdAt) - toMillis(b.createdAt)
       } else {
         return a.name.localeCompare(b.name)
       }
