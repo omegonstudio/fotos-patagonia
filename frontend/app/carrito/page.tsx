@@ -268,6 +268,13 @@ export default function CarritoPage() {
 
   const hasPrinterWithoutSelection = unassignedPrinterPhotos.length > 0
 
+  const calculatedTotal = useMemo(() => {
+    return (
+      Number(editableSubtotalImpresas || 0) +
+      Number(editableSubtotalFotos || 0)
+    )
+  }, [editableSubtotalImpresas, editableSubtotalFotos])
+  
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background">
@@ -628,7 +635,7 @@ export default function CarritoPage() {
                       </div>
                     </div>
 
-                    {/* Total Editable */}
+                   {/* Total calculado automáticamente */}
                     <div className="space-y-2 pt-3">
                       <div className="flex items-center gap-2">
                         <Label className="text-lg font-bold whitespace-nowrap">Total:</Label>
@@ -636,9 +643,12 @@ export default function CarritoPage() {
                           <span className="text-lg font-bold text-primary">$</span>
                           <Input
                             type="number"
-                            value={editableTotal}
-                            onChange={(e) => setEditableTotal(Number(e.target.value))}
-                            className="rounded-lg h-10 text-lg font-bold text-primary"
+                            value={calculatedTotal}
+                            readOnly
+                            className="
+                              rounded-lg h-10 text-lg font-bold text-primary
+                              bg-muted cursor-not-allowed
+                            "
                           />
                         </div>
                       </div>
