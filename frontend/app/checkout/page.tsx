@@ -555,7 +555,7 @@ export default function CheckoutPage() {
                         )}
                       </div>
                       <p className="text-sm font-semibold">
-                        ${subtotalImpresasOverride}
+                        ${subtotalImpresasOverride ?? selectionTotal}
 
                       </p>
                     </div>
