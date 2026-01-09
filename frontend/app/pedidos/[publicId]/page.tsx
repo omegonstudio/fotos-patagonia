@@ -8,7 +8,7 @@ import { ArrowLeft, Download, AlertCircle, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import type { Order, OrderItem, OrderItemPhoto } from "@/lib/types" // Mantengo Order y OrderItem
+import type { Order, OrderDraftItem, OrderItemPhoto } from "@/lib/types" // Mantengo Order y OrderItem
 import { OrderStatus } from "@/lib/types"
 import { apiFetch } from "@/lib/api"
 // Importo Image de Next.js para optimización de imágenes
@@ -19,44 +19,12 @@ import { formatDateTime } from "@/lib/datetime"
 // Define un tipo para el pedido que incluye los detalles de las fotos en los items
 // Usamos OrderItemPhoto directamente, ya que ahora el backend las devuelve con url y watermark_url
 type OrderWithPublicPhotoItems = Omit<Order, "items"> & {
-  items: Array<Omit<OrderItem, "photo"> & { photo: OrderItemPhoto }>
+  items: Array<{ photo_id?: number; photo: OrderItemPhoto }>
 }
 
 const buildPhotoFilename = (photo: OrderItemPhoto) => {
   const sanitizedDescription = photo.description?.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || `foto-${photo.id}`
   return `${sanitizedDescription}.jpg`
-}
-
-// Heurística para separar ítems digitales vs impresión sin romper pedidos existentes.
-const splitOrderItems = (items: OrderItem[]) => {
-  const grouped = new Map<number, OrderItem[]>()
-  items.forEach((item) => {
-    const pid = item.photo_id || item.photo?.id
-    if (!pid) return
-    grouped.set(pid, [...(grouped.get(pid) ?? []), item])
-  })
-
-  const digital: OrderItem[] = []
-  const print: OrderItem[] = []
-  const isApproxEqual = (a = 0, b = 0, tol = 0.01) => Math.abs(a - b) <= tol
-
-  grouped.forEach((list) => {
-    if (list.length === 1) {
-      const item = list[0]
-      const base = item.photo?.price ?? item.price
-      if (base !== undefined && !isApproxEqual(item.price ?? 0, base)) {
-        print.push(item)
-      } else {
-        digital.push(item)
-      }
-      return
-    }
-    const sorted = [...list].sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
-    digital.push(sorted[0])
-    print.push(...sorted.slice(1))
-  })
-
-  return { digital, print }
 }
 
 /* const triggerFileDownload = (url: string, filename: string) => {
@@ -147,15 +115,72 @@ export default function PublicOrderDetailPage() {
     }
   }, [publicId])
 
-  const orderPageUrl = useMemo(() => {
-    if (!order) return ""
-    const origin = typeof window !== "undefined" ? window.location.origin : ""
-    return `${origin}/pedidos/${order.public_id}`
-  }, [order])
+  const orderMetadataItems: OrderDraftItem[] = order?.metadata?.items ?? []
+  const isLegacyOrder = orderMetadataItems.length === 0
 
-  const { digital: digitalItems, print: printItems } = useMemo(
-    () => splitOrderItems(order?.items ?? []),
-    [order],
+  const orderItems = order?.items ?? []
+
+  const photoMap = useMemo(() => {
+    const map = new Map<string, OrderItemPhoto>()
+    orderItems.forEach((item) => {
+      const pid = item.photo_id || item.photo?.id
+      if (!pid || !item.photo) return
+      map.set(String(pid), item.photo)
+    })
+    return map
+  }, [orderItems])
+
+  const allOrderPhotos = useMemo(() => {
+    const seen = new Set<string>()
+    const list: OrderItemPhoto[] = []
+
+    if (!isLegacyOrder) {
+      orderMetadataItems.forEach((item) => {
+        const photo = photoMap.get(String(item.photoId))
+        if (!photo) return
+        const pid = String(photo.id)
+        if (seen.has(pid)) return
+        seen.add(pid)
+        list.push(photo)
+      })
+      return list
+    }
+
+    orderItems.forEach((item) => {
+      const photo = item.photo
+      const pid = item.photo?.id || item.photo_id
+      if (!photo || !pid) return
+      const key = String(pid)
+      if (seen.has(key)) return
+      seen.add(key)
+      list.push(photo)
+    })
+    return list
+  }, [isLegacyOrder, orderItems, orderMetadataItems, photoMap])
+
+  const digitalLines = useMemo(
+    () =>
+      orderMetadataItems
+        .filter((i) => i.kind === "digital")
+        .map((item) => ({
+          photo: photoMap.get(String(item.photoId)),
+          price: item.price,
+          photoId: item.photoId,
+        })),
+    [orderMetadataItems, photoMap],
+  )
+
+  const printLines = useMemo(
+    () =>
+      orderMetadataItems
+        .filter((i) => i.kind === "print")
+        .map((item) => ({
+          photo: photoMap.get(String(item.photoId)),
+          price: item.price,
+          photoId: item.photoId,
+          printFormatLabel: item.printFormatLabel,
+        })),
+    [orderMetadataItems, photoMap],
   )
 
   const getStatusBadge = (status: Order["order_status"] | undefined) => {
@@ -174,10 +199,6 @@ export default function PublicOrderDetailPage() {
     }
     return statusConfig[status as keyof typeof statusConfig]
   }
-
-  const allOrderPhotos = (order?.items ?? [])
-    .map((item) => item.photo)
-    .filter((photo): photo is NonNullable<OrderItemPhoto> => Boolean(photo))
 
   const statusInfo = getStatusBadge(order?.order_status)
 
@@ -288,24 +309,33 @@ export default function PublicOrderDetailPage() {
             )}
           </Card>
 
-          {/* Semántica de ítems para futuras vistas de UI */}
+          {/* Semántica de ítems basada en metadata */}
           <Card className="mb-6 rounded-2xl border-gray-200 shadow-lg">
             <CardHeader>
               <CardTitle>Detalle de ítems</CardTitle>
               <CardDescription>
-                Separá en UI: fotos digitales vs ítems de impresión (formato aún no persistido en backend).
+                Separá en UI: fotos digitales vs ítems de impresión usando metadata explícita.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
+              {isLegacyOrder && (
+                <div className="rounded-lg bg-muted p-3 text-muted-foreground">
+                  Pedido legacy – no se pudo determinar qué fotos son para impresión.
+                </div>
+              )}
               <div>
                 <p className="font-semibold text-muted-foreground">Fotos digitales</p>
-                {digitalItems.length === 0 ? (
+                {isLegacyOrder ? (
+                  <p className="text-xs text-muted-foreground">
+                    No se puede separar fotos digitales sin metadata.
+                  </p>
+                ) : digitalLines.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No hay ítems digitales registrados.</p>
                 ) : (
                   <ul className="mt-2 space-y-1">
-                    {digitalItems.map((item) => (
-                      <li key={item.id} className="flex justify-between">
-                        <span>{item.photo?.description || `Foto ${item.photo_id}`}</span>
+                    {digitalLines.map((item) => (
+                      <li key={`${item.photoId}-digital`} className="flex justify-between">
+                        <span>{item.photo?.description || `Foto ${item.photoId}`}</span>
                         <span className="font-semibold">${item.price}</span>
                       </li>
                     ))}
@@ -315,15 +345,19 @@ export default function PublicOrderDetailPage() {
 
               <div>
                 <p className="font-semibold text-muted-foreground">Fotos para impresión</p>
-                {printItems.length === 0 ? (
+                {isLegacyOrder ? (
+                  <p className="text-xs text-muted-foreground">
+                    No se puede determinar si hubo impresiones en este pedido.
+                  </p>
+                ) : printLines.length === 0 ? (
                   <p className="text-xs text-muted-foreground">Sin impresiones asociadas.</p>
                 ) : (
                   <ul className="mt-2 space-y-1">
-                    {printItems.map((item) => (
-                      <li key={item.id} className="flex justify-between">
+                    {printLines.map((item) => (
+                      <li key={`${item.photoId}-print`} className="flex justify-between">
                         <span>
-                          {item.photo?.description || `Foto ${item.photo_id}`} • Formato no especificado
-                          <span className="text-muted-foreground"> (TODO backend: persistir formato)</span>
+                          {item.photo?.description || `Foto ${item.photoId}`}{" "}
+                          {item.printFormatLabel ? `• ${item.printFormatLabel}` : "• Formato no especificado"}
                         </span>
                         <span className="font-semibold">${item.price}</span>
                       </li>

@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Order, OrderItem, Photo } from "@/lib/types";
+import type { Order, OrderDraftItem, OrderItem, Photo } from "@/lib/types";
 import { apiFetch } from "@/lib/api";
 import { usePhotos } from "@/hooks/photos/usePhotos";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +21,8 @@ import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
 import { useOrders } from "@/hooks/orders/useOrders";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
 import { formatDateTime } from "@/lib/datetime";
+import type { OrderWithMetadata } from "@/lib/types";
+
 
 const QR_CANVAS_ID = "order-download-qr-canvas";
 
@@ -49,6 +51,7 @@ const triggerFileDownload = async (url: string, filename: string) => {
     console.error("Download failed", error);
   }
 };
+
 
 
 interface PresignedUrlResponse {
@@ -105,7 +108,11 @@ export default function OrderDetailPage() {
   const orderId = params.id as string;
 
   const { data: orderData, loading, error } = useOrders(orderId);
-  const order = useMemo(() => (Array.isArray(orderData) ? null : orderData), [orderData]);
+  const order = useMemo<OrderWithMetadata | null>(
+    () => (Array.isArray(orderData) ? null : (orderData as OrderWithMetadata)),
+    [orderData]
+  );
+  
 
   const { toast } = useToast();
   const { photos } = usePhotos();
@@ -156,61 +163,91 @@ export default function OrderDetailPage() {
       })
       .map(({ photo }) => photo);
   }, [orderPhotoItems]);
+  
+  const orderMetadataItems: OrderDraftItem[] = order?.metadata?.items ?? [];
+  const isLegacyOrder = orderMetadataItems.length === 0;
+
+  const printPhotoIds = new Set(
+    orderMetadataItems
+      .filter((i) => i.kind === "print")
+      .map((i) => String(i.photoId))
+  );
 
   const digitalOrderPhotos = useMemo(() => {
-    const seen = new Set<string>();
-    return orderPhotoItems
-      .filter(({ item }) => !(item.forPrint || item.printFormat))
-      .filter(({ photo }) => {
-        if (seen.has(photo.id)) return false;
-        seen.add(photo.id);
-        return true;
-      })
-      .map(({ photo }) => photo);
-  }, [orderPhotoItems]);
-
+    return allOrderPhotos.filter(photo =>
+      !printPhotoIds.has(String(photo.id))
+    );
+  }, [allOrderPhotos, printPhotoIds]);
+  
+  
+ 
   const printOrderPhotos = useMemo(() => {
-    const seen = new Set<string>();
-    return orderPhotoItems
-      .filter(({ item }) => item.forPrint || item.printFormat)
-      .filter(({ photo }) => {
-        if (seen.has(photo.id)) return false;
-        seen.add(photo.id);
-        return true;
-      })
-      .map(({ photo }) => photo);
-  }, [orderPhotoItems]);
+    return allOrderPhotos.filter(photo =>
+      printPhotoIds.has(String(photo.id))
+    );
+  }, [allOrderPhotos, printPhotoIds]);
+  
 
-  const handleDownloadMultiple = async (photosToDownload: Photo[], emptyMessage: string) => {
+  const handleDownloadMultiple = async (
+    photosToDownload: Photo[],
+    emptyMessage: string
+  ) => {
     if (!photosToDownload.length) {
       toast({ title: emptyMessage });
       return;
     }
-
+  
+    if (isDownloading) {
+      const confirmAgain = window.confirm(
+        "La descarga ya fue iniciada. ¿Querés volver a descargar las fotos?"
+      );
+      if (!confirmAgain) return;
+    }
+  
+    setIsDownloading(true);
+  
+    toast({
+      title: "Preparando descarga…",
+      description: "Por favor aguardá unos segundos",
+    });
+  
     try {
       for (const photo of photosToDownload) {
         const response = await apiFetch<PresignedUrlResponse>(
-          `/photos/presigned-url/?object_name=${encodeURIComponent(photo.objectName)}`
+          `/photos/presigned-url/?object_name=${encodeURIComponent(
+            photo.objectName
+          )}`
         );
+  
         if (!response?.url) {
           throw new Error("URL presignada no disponible");
         }
-        triggerFileDownload(response.url, buildPhotoFilename(photo));
+  
+        await triggerFileDownload(
+          response.url,
+          buildPhotoFilename(photo)
+        );
       }
-
+  
       toast({
-        title: "Descargas iniciadas",
-        description: `${photosToDownload.length} foto${photosToDownload.length === 1 ? "" : "s"} en proceso`,
+        title: "Descarga iniciada",
+        description: `${photosToDownload.length} archivo${
+          photosToDownload.length === 1 ? "" : "s"
+        }`,
       });
-    } catch (downloadError) {
-      console.error(downloadError);
+    } catch (error) {
+      console.error(error);
       toast({
-        title: "Error al descargar fotos",
-        description: "Reintenta en unos instantes",
+        title: "Error al descargar",
+        description: "Intentá nuevamente en unos instantes",
         variant: "destructive",
       });
+    } finally {
+      setIsDownloading(false);
     }
   };
+  
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadAllPhotos = async () => {
     await handleDownloadMultiple(allOrderPhotos, "No hay fotos en este pedido");
@@ -273,6 +310,7 @@ export default function OrderDetailPage() {
   const statusInfo = getStatusBadge(order.order_status);
   const createdAtLabel = order.created_at ? formatDateTime(order.created_at) : "";
 
+  
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -338,22 +376,37 @@ export default function OrderDetailPage() {
               <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle>Fotos del Pedido ({allOrderPhotos.length})</CardTitle>
-                  <CardDescription>Miniaturas separadas por digital e impresión</CardDescription>
+                  <CardDescription>
+                    Miniaturas separadas por digital e impresión
+                    {isLegacyOrder && (
+                      <span className="mt-1 block text-sm text-destructive">
+                        Pedido legacy – no se pudo determinar qué fotos son para impresión.
+                      </span>
+                    )}
+                  </CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button size="sm" className="rounded-xl" onClick={handleDownloadAllPhotos}>
-                    Descargar todas
+                <Button
+                    size="sm"
+                    onClick={handleDownloadAllPhotos}
+                    disabled={isDownloading}
+                  >
+                    {isDownloading ? "Descargando…" : "Descargar todas"}
                   </Button>
-                  <Button size="sm" variant="outline" className="rounded-xl" onClick={handleDownloadDigitalPhotos}>
-                    Descargar fotos
+
+                  <Button size="sm" variant="outline" className="rounded-xl" onClick={handleDownloadDigitalPhotos} disabled={isDownloading}>
+                  {isDownloading ? "Descargando…" : "Descargar fotos"}
                   </Button>
+                  
                   <Button
                     size="sm"
                     variant="outline"
                     className="rounded-xl"
                     onClick={handleDownloadPrintPhotos}
+                    disabled={isLegacyOrder || isDownloading}
+                    title={isLegacyOrder ? "Pedido legacy sin metadata de impresión" : undefined}
                   >
-                    Descargar imprimir
+                    {isDownloading ? "Descargando…" : "Descargar imprimir"}
                   </Button>
                 </div>
               </CardHeader>
@@ -372,7 +425,11 @@ export default function OrderDetailPage() {
                     <p className="text-sm text-muted-foreground">No hay fotos digitales en este pedido.</p>
                   )}
 
-                  {printOrderPhotos.length > 0 ? (
+                  {isLegacyOrder ? (
+                    <p className="text-sm text-muted-foreground">
+                      Pedido legacy – no se pudo determinar qué fotos son para impresión. Acciones de impresión deshabilitadas.
+                    </p>
+                  ) : printOrderPhotos.length > 0 ? (
                     <div className="space-y-3">
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-2">

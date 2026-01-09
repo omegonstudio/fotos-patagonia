@@ -3,7 +3,7 @@ from typing import List, Optional
 from enum import Enum
 from datetime import datetime, timezone, timedelta
 import uuid
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Enum as SQLAlchemyEnum, DateTime
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Enum as SQLAlchemyEnum, DateTime, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from db.base import Base
@@ -59,6 +59,7 @@ class OrderBaseSchema(BaseModel):
     payment_status: PaymentStatus = PaymentStatus.PENDING
     order_status: OrderStatus = OrderStatus.PENDING
     external_payment_id: Optional[str] = None
+    metadata: Optional[dict] = None
 
 class OrderCreateSchema(OrderBaseSchema):
     user_id: Optional[int] = None
@@ -112,6 +113,7 @@ class Order(Base):
     order_status = Column(SQLAlchemyEnum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
     external_payment_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone(timedelta(hours=-3))), nullable=True)
+    metadata = Column(JSON, nullable=True)
 
     user = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order")
@@ -129,6 +131,3 @@ class OrderItem(Base):
 
     order = relationship("Order", back_populates="items")
     photo = relationship("Photo", back_populates="order_items")
-
-# TODO(print-metadata): agregar columna JSON opcional para persistir datos de impresión
-# (formato, packSize, channel) sin romper órdenes existentes.

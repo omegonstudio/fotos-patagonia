@@ -77,6 +77,15 @@ export interface OrderDraftItem {
   packSize?: number;
 }
 
+export interface OrderMetadata {
+  channel?: "web" | "local";
+  items?: OrderDraftItem[];
+}
+
+export type OrderWithMetadata = Order & {
+  metadata?: OrderMetadata;
+};
+
 export interface PrintSelection {
   id: string;
   format: PrintFormat;
@@ -188,6 +197,7 @@ export interface Order {
   createdAt?: string;
   editableUntil?: string;
   photos?: string[];
+  metadata?: OrderMetadata;
   // Común
   total: number;
   items?: OrderItem[];

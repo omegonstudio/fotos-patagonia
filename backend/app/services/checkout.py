@@ -175,7 +175,8 @@ class CheckoutService(BaseService):
             payment_status=order_in.payment_status,
             order_status=order_in.order_status,
             external_payment_id=order_in.external_payment_id,
-            discount_id=order_in.discount_id
+            discount_id=order_in.discount_id,
+            metadata=order_in.metadata
         )
         self.db.add(db_order)
         self.db.flush()  # Flush to get the order ID
