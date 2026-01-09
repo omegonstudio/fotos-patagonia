@@ -185,7 +185,8 @@ class CheckoutService(BaseService):
                 order_id=db_order.id,
                 photo_id=item_in.photo_id,
                 price=item_in.price,
-                quantity=item_in.quantity
+                quantity=item_in.quantity,
+                format=item_in.format
             )
             self.db.add(db_order_item)
         

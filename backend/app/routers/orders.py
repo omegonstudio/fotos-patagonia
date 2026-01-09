@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, status, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from deps import get_db, get_current_user, PermissionChecker
 from services.orders import OrderService
@@ -10,6 +11,9 @@ router = APIRouter(
     prefix="/orders",
     tags=["orders"],
 )
+
+class ResendEmailPayload(BaseModel):
+    email: str | None = None
 
 @router.get("/")
 def list_all_orders(
@@ -64,10 +68,11 @@ def edit_order(
 @router.post("/{order_id}/send-email")
 def send_order_email(
     order_id: int,
+    payload: ResendEmailPayload,
     db: Session = Depends(get_db),
     current_user: User = Depends(PermissionChecker([Permissions.UPDATE_ORDER_STATUS]))
 ):
-    return OrderService(db).send_order_email(order_id)
+    return OrderService(db).send_order_email(order_id=order_id, email_to=payload.email)
 
 @router.get("/{order_id}/qr-code")
 def generate_qr_code(

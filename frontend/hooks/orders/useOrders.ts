@@ -77,10 +77,11 @@ export function useOrders(orderId?: string) {
   /**
    * Envía email con la orden - OpenAPI: POST /orders/{order_id}/send-email
    */
-  async function sendOrderEmail(id: string) {
+  async function sendOrderEmail(id: string, email: string) {
     try {
       return await apiFetch(`/orders/${id}/send-email`, {
         method: "POST",
+        body: JSON.stringify({ email }),
       });
     } catch (err: any) {
       setError(err.message);

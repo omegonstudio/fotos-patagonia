@@ -103,7 +103,7 @@ class OrderService(BaseService):
     def get_order_by_public_id(self, public_id: str) -> Order:
         order = self.db.query(Order).options(
             joinedload(Order.user),
-            joinedload(Order.items).joinedload(OrderItem.photo),
+            joinedload(Order.items).options(joinedload(OrderItem.photo)),
             joinedload(Order.discount)
         ).filter(Order.public_id == public_id).first()
         if not order:
@@ -210,9 +210,27 @@ class OrderService(BaseService):
         self._save_and_refresh(order)
         return order
 
-    def send_order_email(self, order_id: int):
-        # Business logic for sending a custom email for an order
-        return {"message": f"OrderService: Send order {order_id} email logic"}
+    def send_order_email(self, order_id: int, email_to: str | None = None):
+        order = self.get_order_details(order_id)
+        
+        recipient = email_to or order.customer_email or (order.user and order.user.email)
+        
+        if not recipient:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No email recipient found for this order."
+            )
+            
+        subject, email_body = self._build_order_confirmation_email_content(order)
+        
+        send_email(
+            to_email=recipient,
+            subject=subject,
+            body=email_body,
+            html=True
+        )
+        
+        return {"message": f"Email successfully sent to {recipient}"}
 
     def generate_qr_code(self, order_id: int):
         # Business logic for generating QR code for an order
