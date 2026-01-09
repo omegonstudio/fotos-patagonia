@@ -100,6 +100,9 @@ export interface CartState {
   total: number;
   savedSessionId?: string;
   channel: "web" | "local"; // affects checkout flow
+  subtotalImpresasOverride?: number
+  subtotalFotosOverride?: number
+  totalOverride?: number
 }
 
 export interface Filters {

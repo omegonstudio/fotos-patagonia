@@ -59,6 +59,11 @@ export default function CarritoPage() {
     loadSession,
     clearCart,
     updateTotals,
+    setEditableTotals,
+    clearEditableTotals,
+    subtotalImpresasOverride,
+    subtotalFotosOverride,
+    totalOverride,
   } = useCartStore()
 
   const { user, isAuthenticated } = useAuthStore()
@@ -73,12 +78,7 @@ export default function CarritoPage() {
   const [sessionIdInput, setSessionIdInput] = useState("")
   const [isLoadingSession, setIsLoadingSession] = useState(false)
   
-  // Estados para montos editables (solo para staff)
-  const [editableSubtotalImpresas, setEditableSubtotalImpresas] = useState(0)
-  const [editableSubtotalFotos, setEditableSubtotalFotos] = useState(0)
-  const [editableTotal, setEditableTotal] = useState(0)
-
-  // Estados para el modal de formato de impresión
+   // Estados para el modal de formato de impresión
   const [isFormatModalOpen, setIsFormatModalOpen] = useState(false)
   const [photosForFormatSelection, setPhotosForFormatSelection] = useState<string[]>([])
   const [viewerPhoto, setViewerPhoto] = useState<Photo | null>(null)
@@ -159,15 +159,6 @@ export default function CarritoPage() {
     () => printerPhotos.filter((item) => !printSelectionMap.has(item.photo.id)),
     [printerPhotos, printSelectionMap],
   )
-
-  // Actualizar montos editables cuando cambien los subtotales
-  useEffect(() => {
-    if (isStaffUser) {
-      setEditableSubtotalImpresas(subtotalImpresas)
-      setEditableSubtotalFotos(subtotalFotosDigitales)
-      setEditableTotal(subtotalImpresas + subtotalFotosDigitales)
-    }
-  }, [isStaffUser, subtotalImpresas, subtotalFotosDigitales])
 
   const favoriteCount = favoritePhotos.length
   const printerCount = printerPhotos.length
@@ -268,12 +259,16 @@ export default function CarritoPage() {
 
   const hasPrinterWithoutSelection = unassignedPrinterPhotos.length > 0
 
-  const calculatedTotal = useMemo(() => {
-    return (
-      Number(editableSubtotalImpresas || 0) +
-      Number(editableSubtotalFotos || 0)
-    )
-  }, [editableSubtotalImpresas, editableSubtotalFotos])
+    const effectiveSubtotalImpresas =
+    subtotalImpresasOverride ?? subtotalImpresas
+
+    const effectiveSubtotalFotos =
+      subtotalFotosOverride ?? subtotalFotosDigitales
+
+    const effectiveTotal =
+      totalOverride ??
+      effectiveSubtotalImpresas + effectiveSubtotalFotos
+
   
   if (items.length === 0) {
     return (
@@ -603,10 +598,18 @@ export default function CarritoPage() {
                             <span className="text-sm">$</span>
                             <Input
                               type="number"
-                              value={editableSubtotalImpresas}
-                              onChange={(e) => setEditableSubtotalImpresas(Number(e.target.value))}
+                              value={effectiveSubtotalImpresas}
+                              onChange={(e) =>
+                                setEditableTotals({
+                                  subtotalImpresas: Number(e.target.value),
+                                  total:
+                                    Number(e.target.value) +
+                                    (subtotalFotosOverride ?? subtotalFotosDigitales),
+                                })
+                              }
                               className="rounded-lg h-8 text-sm font-medium"
                             />
+
                           </div>
                         </div>
                         
@@ -627,10 +630,18 @@ export default function CarritoPage() {
                           <span className="text-sm">$</span>
                           <Input
                             type="number"
-                            value={editableSubtotalFotos}
-                            onChange={(e) => setEditableSubtotalFotos(Number(e.target.value))}
+                            value={effectiveSubtotalFotos}
+                            onChange={(e) =>
+                              setEditableTotals({
+                                subtotalFotos: Number(e.target.value),
+                                total:
+                                  Number(e.target.value) +
+                                  (subtotalImpresasOverride ?? subtotalImpresas),
+                              })
+                            }
                             className="rounded-lg h-8 text-sm font-medium"
                           />
+
                         </div>
                       </div>
                     </div>
@@ -643,13 +654,14 @@ export default function CarritoPage() {
                           <span className="text-lg font-bold text-primary">$</span>
                           <Input
                             type="number"
-                            value={calculatedTotal}
+                            value={effectiveTotal}
                             readOnly
                             className="
                               rounded-lg h-10 text-lg font-bold text-primary
                               bg-muted cursor-not-allowed
                             "
                           />
+
                         </div>
                       </div>
                     </div>

@@ -50,6 +50,13 @@ interface CartStore extends CartState {
   loadSession: (sessionId: string) => Promise<void>
   clearCart: () => void
   updateTotals: (photos: Photo[]) => void
+  setEditableTotals: (data: {
+    subtotalImpresas?: number
+    subtotalFotos?: number
+    total?: number
+  }) => void
+
+  clearEditableTotals: () => void
 }
 
 export const useCartStore = create<CartStore>()(
@@ -64,6 +71,9 @@ export const useCartStore = create<CartStore>()(
       total: 0,
       savedSessionId: undefined,
       channel: "web",
+      subtotalImpresasOverride: undefined,
+      subtotalFotosOverride: undefined,
+      totalOverride: undefined,
 
       addItem: (photoId: string) => {
         const { items } = get()
@@ -275,7 +285,11 @@ export const useCartStore = create<CartStore>()(
           set({
             ...state,
             printSelections: state.printSelections ?? [],
+            subtotalImpresasOverride: undefined,
+            subtotalFotosOverride: undefined,
+            totalOverride: undefined,
           })
+          
         }
       },
 
@@ -288,8 +302,31 @@ export const useCartStore = create<CartStore>()(
           discountInfo: undefined,
           subtotal: 0,
           total: 0,
+      
+          // 🔥 limpiar overrides
+          subtotalImpresasOverride: undefined,
+          subtotalFotosOverride: undefined,
+          totalOverride: undefined,
         })
       },
+      
+
+      setEditableTotals: (data) =>
+        set((state) => ({
+          subtotalImpresasOverride:
+            data.subtotalImpresas ?? state.subtotalImpresasOverride,
+          subtotalFotosOverride:
+            data.subtotalFotos ?? state.subtotalFotosOverride,
+          totalOverride: data.total ?? state.totalOverride,
+        })),
+      
+      clearEditableTotals: () =>
+        set({
+          subtotalImpresasOverride: undefined,
+          subtotalFotosOverride: undefined,
+          totalOverride: undefined,
+        }),
+      
 
       updateTotals: (photos: Photo[]) => {
         const { items, printSelections, discountInfo } = get()
@@ -325,7 +362,23 @@ export const useCartStore = create<CartStore>()(
           }
         }
 
+        const {
+          subtotalImpresasOverride,
+          subtotalFotosOverride,
+          totalOverride,
+        } = get()
+        
+        // Si hay override (staff), NO recalcular
+        if (
+          subtotalImpresasOverride !== undefined ||
+          subtotalFotosOverride !== undefined ||
+          totalOverride !== undefined
+        ) {
+          return
+        }
+        
         set({ subtotal, total })
+        
       },
     }),
     {

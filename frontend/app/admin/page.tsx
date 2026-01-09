@@ -91,7 +91,7 @@ export default function AdminDashboard() {
     };
   }, [filteredOrders, photos, photosLoading, ordersLoading, userIsAdmin, photographerId]);
 
-  const recentOrders = useMemo(() => filteredOrders.slice(-5).reverse(), [filteredOrders]);
+  const recentOrders = useMemo(() => filteredOrders.slice(-5), [filteredOrders]);
 
   // Textos dinámicos según el rol
   const isPhotographer = !userIsAdmin && !!photographerId;
