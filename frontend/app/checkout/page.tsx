@@ -77,7 +77,20 @@ function CheckoutPhotoThumbnail({ photo }: { photo: Photo }) {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, printSelections, email, total, channel, clearCart } = useCartStore();
+  const {
+    items,
+    printSelections,
+    email,
+    total,
+    totalOverride, 
+    subtotalImpresasOverride,
+    subtotalFotosOverride,
+    channel,
+    clearCart,
+  } = useCartStore();
+  
+  const effectiveTotal = totalOverride ?? total;
+
   const { user, isAuthenticated } = useAuthStore();
   const { photos } = usePhotos();
   const { createOrder, createMercadoPagoPreference } = useCheckout();
@@ -247,31 +260,28 @@ export default function CheckoutPage() {
       format: it.printFormatLabel,
     }));
 
-    const computedTotal = orderItemsForBackend.reduce(
-      (sum, it) => sum + (it.price ?? 0) * (it.quantity ?? 1),
-      0,
-    );
-
+    
     // Payload para backend (ajustar si el backend espera campos distintos)
   // Payload para backend (ajustado al esquema real)
-const orderPayload = {
-  customer_email: email, // <--- CORREGIDO AQUÍ
-  total: computedTotal, // suma de digital + impresión (sin rely en estado previo)
-  payment_method: paymentMethod, // 'mp' ya es un valor válido en el backend
-  payment_status: "pending",
-  order_status: "pending",
-  external_payment_id: null,
-  user_id: isAuthenticated ? user?.id ?? null : null,
-  discount_id: null,
-
-  items: orderItemsForBackend,
-
-  // EXTRA — metadata aún no persistida en backend (TODO backend: guardar JSON)
-  metadata: {
-    channel: orderChannel,
-    items: orderDraftItems,
-  },
-};
+  const orderPayload = {
+    customer_email: email,
+    total: effectiveTotal, 
+    payment_method: paymentMethod,
+    payment_status: "pending",
+    order_status: "pending",
+    external_payment_id: null,
+    user_id: isAuthenticated ? user?.id ?? null : null,
+    discount_id: null,
+  
+    items: orderItemsForBackend,
+  
+    metadata: {
+      channel: orderChannel,
+      items: orderDraftItems,
+      overrideTotal: totalOverride ?? null, 
+    },
+  };
+  
 
 
 
@@ -546,7 +556,8 @@ const orderPayload = {
                         )}
                       </div>
                       <p className="text-sm font-semibold">
-                        ${perPhotoPrice.toFixed(0)}
+                        ${subtotalImpresasOverride ?? selectionTotal}
+
                       </p>
                     </div>
                   )})}
@@ -559,18 +570,18 @@ const orderPayload = {
               )}
 
               {/* Fotos Digitales */}
-              {digitalPhotos.length > 0 && (
+              {digitalPhotos.length+printPhotos.length > 0 && (
                 <div className="mb-4 space-y-3 border-b border-gray-200 pb-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-muted-foreground">
                       FOTOS DIGITALES
                     </h3>
                     <span className="text-xs text-muted-foreground">
-                      {digitalPhotos.length}{" "}
-                      {digitalPhotos.length === 1 ? "foto" : "fotos"}
+                      {digitalPhotos.length+printPhotos.length}{" "}
+                      {digitalPhotos.length+printPhotos.length === 1 ? "foto" : "fotos"}
                     </span>
                   </div>
-                  {digitalPhotos.slice(0, 3).map(({ photo }) => (
+                  {(digitalPhotos.concat(printPhotos)).slice(0, 3).map(({ photo }) => (
                     <div
                       key={photo.id}
                       className="flex items-center gap-3"
@@ -585,7 +596,7 @@ const orderPayload = {
                         </p>
                       </div>
                       <p className="text-sm font-semibold">
-                        ${photo.price}
+                        ${subtotalFotosOverride ?? photo.price}
                       </p>
                     </div>
                   ))}
@@ -606,7 +617,7 @@ const orderPayload = {
                   <span className="text-muted-foreground">
                     Total ({items.length} fotos)
                   </span>
-                  <span className="font-medium">${total}</span>
+                  <span className="font-medium">${totalOverride??total}</span>
                 </div>
                 {printPhotos.length > 0 && (
                   <div className="text-xs text-muted-foreground pt-2 space-y-1">
@@ -616,14 +627,14 @@ const orderPayload = {
                           • {summary.format.name} ({summary.format.size}) × {summary.packs} pack
                           {summary.packs > 1 ? "s" : ""}
                         </span>
-                        <span>${summary.totalPrice}</span>
+                        <span>${subtotalImpresasOverride ?? summary.totalPrice}</span>
                       </div>
                     ))}
                   </div>
                 )}
                 <div className="flex justify-between border-t border-gray-200 pt-2 text-lg font-bold">
                   <span>Total</span>
-                  <span className="text-primary">${total}</span>
+                  <span className="text-primary">${totalOverride??total}</span>
                 </div>
               </div>
 
