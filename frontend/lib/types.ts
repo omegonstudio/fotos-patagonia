@@ -24,6 +24,14 @@ export interface Photo {
   // };
 }
 
+// Modelo sólo frontend para UI optimista de subidas
+export interface UploadingPhoto {
+  tempId: string;
+  previewUrl: string;
+  status: "uploading" | "success" | "error";
+  progress?: number;
+}
+
 // IDs válidos para formatos de impresión
 export type PrintFormatId =
   | "polaroid-large"
@@ -92,6 +100,9 @@ export interface CartState {
   total: number;
   savedSessionId?: string;
   channel: "web" | "local"; // affects checkout flow
+  subtotalImpresasOverride?: number
+  subtotalFotosOverride?: number
+  totalOverride?: number
 }
 
 export interface Filters {
@@ -129,10 +140,9 @@ export interface OrderItem {
   price?: number;
   quantity?: number;
   photo?: OrderItemPhoto;
+  format?: string;
   // Campos legacy (localStorage)
   photoId?: string;
-  forPrint?: boolean;
-  printFormat?: PrintFormat;
   priceAtPurchase?: number;
 }
 

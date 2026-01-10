@@ -104,12 +104,13 @@ export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
 
-  const { data: orderData, loading, error } = useOrders(orderId);
+  const { data: orderData, loading, error, sendOrderEmail } = useOrders(orderId);
   const order = useMemo(() => (Array.isArray(orderData) ? null : orderData), [orderData]);
 
   const { toast } = useToast();
   const { photos } = usePhotos();
   const [email, setEmail] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const { Canvas } = useQRCode();
   const QRCanvas = Canvas as (props: any) => ReactElement;
 
@@ -118,6 +119,34 @@ export default function OrderDetailPage() {
       setEmail(order.customer_email);
     }
   }, [order]);
+
+  const handleResendEmail = async () => {
+    if (!email) {
+      toast({
+        title: "Email no válido",
+        description: "Por favor, introduce una dirección de correo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      await sendOrderEmail(orderId, email);
+      toast({
+        title: "Correo reenviado",
+        description: `El correo de la orden se ha reenviado a ${email}.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "No se pudo reenviar el correo. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
 
   const photosMap = useMemo(() => {
     const map = new Map<string, Photo>();
@@ -137,6 +166,7 @@ export default function OrderDetailPage() {
 
   const orderPhotoItems = useMemo(() => {
     if (!order?.items || order.items.length === 0) return [];
+
     return order.items.flatMap((item: OrderItem) => {
       const id = item.photo_id;
       if (id == null) return [];
@@ -160,7 +190,7 @@ export default function OrderDetailPage() {
   const digitalOrderPhotos = useMemo(() => {
     const seen = new Set<string>();
     return orderPhotoItems
-      .filter(({ item }) => !(item.forPrint || item.printFormat))
+      .filter(({ item }) => !item.format)
       .filter(({ photo }) => {
         if (seen.has(photo.id)) return false;
         seen.add(photo.id);
@@ -172,7 +202,7 @@ export default function OrderDetailPage() {
   const printOrderPhotos = useMemo(() => {
     const seen = new Set<string>();
     return orderPhotoItems
-      .filter(({ item }) => item.forPrint || item.printFormat)
+      .filter(({ item }) => !!item.format)
       .filter(({ photo }) => {
         if (seen.has(photo.id)) return false;
         seen.add(photo.id);
@@ -325,9 +355,9 @@ export default function OrderDetailPage() {
                 <div className="flex-1">
                   <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="rounded-xl" />
                 </div>
-                <Button onClick={() => toast({ title: "Función no implementada" })} className="gap-2 rounded-xl bg-primary text-foreground">
+                <Button onClick={handleResendEmail} disabled={isSendingEmail} className="gap-2 rounded-xl bg-primary text-foreground">
                   <Send className="h-4 w-4" />
-                  Reenviar
+                  {isSendingEmail ? "Enviando..." : "Reenviar"}
                 </Button>
               </div>
             </CardContent>

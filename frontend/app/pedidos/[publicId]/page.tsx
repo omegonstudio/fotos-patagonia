@@ -29,35 +29,20 @@ const buildPhotoFilename = (photo: OrderItemPhoto) => {
 
 // Heurística para separar ítems digitales vs impresión sin romper pedidos existentes.
 const splitOrderItems = (items: OrderItem[]) => {
-  const grouped = new Map<number, OrderItem[]>()
-  items.forEach((item) => {
-    const pid = item.photo_id || item.photo?.id
-    if (!pid) return
-    grouped.set(pid, [...(grouped.get(pid) ?? []), item])
-  })
+  const digital: OrderItem[] = [];
+  const print: OrderItem[] = [];
 
-  const digital: OrderItem[] = []
-  const print: OrderItem[] = []
-  const isApproxEqual = (a = 0, b = 0, tol = 0.01) => Math.abs(a - b) <= tol
+  items.forEach(item => {
 
-  grouped.forEach((list) => {
-    if (list.length === 1) {
-      const item = list[0]
-      const base = item.photo?.price ?? item.price
-      if (base !== undefined && !isApproxEqual(item.price ?? 0, base)) {
-        print.push(item)
-      } else {
-        digital.push(item)
-      }
-      return
+    if (item.format) {
+      print.push(item);
+    } else {
+      digital.push(item);
     }
-    const sorted = [...list].sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
-    digital.push(sorted[0])
-    print.push(...sorted.slice(1))
-  })
+  });
 
-  return { digital, print }
-}
+  return { digital, print };
+};
 
 /* const triggerFileDownload = (url: string, filename: string) => {
   if (!url || typeof document === "undefined") return
@@ -135,6 +120,7 @@ export default function PublicOrderDetailPage() {
           setLoading(true)
           // Usar el endpoint público que devuelve el PublicOrderSchema
           const fetchedOrder = await apiFetch<OrderWithPublicPhotoItems>(`/orders/public/${publicId}`)
+
           setOrder(fetchedOrder)
         } catch (err) {
           setError("No pudimos encontrar un pedido con este código. Verifica el link o contacta con soporte.")
@@ -322,8 +308,7 @@ export default function PublicOrderDetailPage() {
                     {printItems.map((item) => (
                       <li key={item.id} className="flex justify-between">
                         <span>
-                          {item.photo?.description || `Foto ${item.photo_id}`} • Formato no especificado
-                          <span className="text-muted-foreground"> (TODO backend: persistir formato)</span>
+                          {item.photo?.description || `Foto ${item.photo_id}`}{item.format && ` • Formato: ${item.format}`}
                         </span>
                         <span className="font-semibold">${item.price}</span>
                       </li>

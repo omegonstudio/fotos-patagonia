@@ -37,10 +37,12 @@ class OrderItemBaseSchema(BaseModel):
 
 class OrderItemCreateSchema(OrderItemBaseSchema):
     photo_id: int
+    format: Optional[str] = None
 
 class OrderItemSchema(OrderItemBaseSchema):
     id: int
     photo: PhotoSchema
+    format: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -48,6 +50,7 @@ class OrderItemSchema(OrderItemBaseSchema):
 class PublicOrderItemSchema(OrderItemBaseSchema):
     id: int
     photo: PublicPhotoSchema
+    format: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -126,6 +129,7 @@ class OrderItem(Base):
     photo_id = Column(Integer, ForeignKey("photos.id"))
     price = Column(Float, nullable=False)
     quantity = Column(Integer, default=1)
+    format = Column(String, nullable=True)
 
     order = relationship("Order", back_populates="items")
     photo = relationship("Photo", back_populates="order_items")
