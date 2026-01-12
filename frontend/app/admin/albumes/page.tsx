@@ -49,9 +49,17 @@ export default function AdminAlbumesPage() {
 
   // Convertir datos del backend
   const albums = Array.isArray(albumsData) ? albumsData : []
-  const filteredAlbums = albums.filter((album: any) => 
+
+  const sortedAlbums = [...albums].sort((a: any, b: any) => {
+    const da = new Date(a.created_at ?? a.createdAt ?? 0).getTime()
+    const db = new Date(b.created_at ?? b.createdAt ?? 0).getTime()
+    return db - da // 🔽 más reciente primero
+  })
+  
+  const filteredAlbums = sortedAlbums.filter((album: any) =>
     album.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
+  
 
   // Filtrar sesiones del álbum seleccionado
   const availableSessions = selectedAlbum 
