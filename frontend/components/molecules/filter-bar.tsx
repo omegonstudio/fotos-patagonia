@@ -3,103 +3,96 @@
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, Calendar, MapPin, Clock, X } from "lucide-react"
+import { Search, Calendar, Clock, X } from "lucide-react"
+import { buildHourRanges } from "@/lib/time-slots"
 
 interface FilterBarProps {
-  onFilterChange?: (filters: { date?: string; place?: string; time?: string }) => void
+  onFilterChange?: (filters: {
+    date?: string
+    place?: string
+    time?: string // "06".."22"
+  }) => void
 }
+
+const HOURS = buildHourRanges(6, 22)
 
 export function FilterBar({ onFilterChange }: FilterBarProps) {
   const [date, setDate] = useState("")
-  const [place, setPlace] = useState("")
-  const [time, setTime] = useState("")
+  const [time, setTime] = useState("") // "06".."22"
 
-  const handleSearch = () => {
+  const emit = (next: { date?: string; time?: string }) => {
     onFilterChange?.({
-      date: date || undefined,
-      place: place || undefined,
-      time: time || undefined,
+      date: next.date || undefined,
+      time: next.time || undefined,
     })
   }
 
   const handleClear = () => {
     setDate("")
-    setPlace("")
     setTime("")
     onFilterChange?.({})
   }
 
-  const handleDateChange = (value: string) => {
-    setDate(value)
-    onFilterChange?.({ date: value || undefined, place: place || undefined, time: time || undefined })
-  }
-
-  const handlePlaceChange = (value: string) => {
-    setPlace(value)
-    onFilterChange?.({ date: date || undefined, place: value || undefined, time: time || undefined })
-  }
-
-  const handleTimeChange = (value: string) => {
-    setTime(value)
-    onFilterChange?.({ date: date || undefined, place: place || undefined, time: value || undefined })
-  }
+  
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl bg-card p-6 shadow-md md:flex-row md:items-end">
+      {/* Fecha */}
       <div className="flex-1">
         <label className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <Calendar className="w-4 h-4" />
+          <Calendar className="h-4 w-4" />
           Fecha
         </label>
         <Input
           type="date"
           value={date}
-          className="rounded-xl border-gray-200"
-          onChange={(e) => handleDateChange(e.target.value)}
+          className="rounded-xl"
+          onChange={(e) => {
+            setDate(e.target.value)
+            emit({ date: e.target.value, time })
+          }}
         />
       </div>
 
-   {/*    <div className="flex-1">
-        <label className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <MapPin className="w-4 h-4" />
-          Lugar
-        </label>
-        <Input
-          type="text"
-          value={place}
-          placeholder="Ej: Bariloche"
-          className="rounded-xl border-gray-200"
-          onChange={(e) => handlePlaceChange(e.target.value)}
-        />
-      </div> */}
-
+      {/* Hora (dropdown por bloque horario) */}
       <div className="flex-1">
         <label className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <Clock className="w-4 h-4" />
+          <Clock className="h-4 w-4" />
           Hora
         </label>
-        <Input
-          type="time"
+
+        <select
           value={time}
-          className="rounded-xl border-gray-200"
-          onChange={(e) => handleTimeChange(e.target.value)}
-        />
+          onChange={(e) => {
+            setTime(e.target.value)
+            emit({ date, time: e.target.value })
+          }}
+          className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm"
+        >
+          <option value="">Cualquier horario</option>
+          {HOURS.map((h) => (
+            <option key={h.key} value={h.key}>
+              {h.label}
+            </option>
+          ))}
+        </select>
       </div>
 
+      {/* Acciones */}
       <div className="flex gap-2">
         <Button
-          onClick={handleSearch}
-          className="rounded-xl bg-primary px-6 font-semibold text-foreground hover:bg-primary-hover md:mb-0"
+          onClick={() => emit({ date, time })}
+          className="rounded-xl bg-primary px-6 font-semibold"
         >
-          <Search className="mr-2 w-4 h-4" />
+          <Search className="mr-2 h-4 w-4" />
           Buscar
         </Button>
         <Button
           onClick={handleClear}
           variant="outline"
-          className="rounded-xl px-6 font-semibold md:mb-0 bg-transparent"
+          className="rounded-xl px-6"
         >
-          <X className="mr-2 w-4 h-4" />
+          <X className="mr-2 h-4 w-4" />
           Limpiar
         </Button>
       </div>

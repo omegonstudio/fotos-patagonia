@@ -1,40 +1,46 @@
+import { Photo } from "./types"
+
 const ARG_LOCALE = "es-AR"
 const ARG_TIME_ZONE = "America/Argentina/Buenos_Aires"
-const FRACTION_REGEX = /\.(\d{3})\d+/
 
 type DateInput = string | Date | null | undefined
 
-const buildFormatter = (options: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat(ARG_LOCALE, { timeZone: ARG_TIME_ZONE, ...options })
-
-const normalizeFraction = (value: string) => value.replace(FRACTION_REGEX, ".$1")
-
-const ensureUtcString = (value: string) => {
-  const trimmed = value.trim()
-  if (!trimmed) return trimmed
-
-  const normalized = normalizeFraction(trimmed)
-  const hasZone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(normalized)
-  if (hasZone) return normalized.replace(/z$/, "Z")
-
-  return `${normalized}Z`
-}
-
+/* ======================================================
+   Parser simple y seguro
+   - Backend envía UTC (aunque no tenga Z)
+   - NO tocamos el string
+   - Date lo interpreta como UTC
+====================================================== */
 export function parseUtcNaiveDate(value: DateInput): Date | null {
   if (!value) return null
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
 
-  const normalized = ensureUtcString(value)
-  const parsed = new Date(normalized)
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  // Si ya tiene zona horaria (Z o +hh:mm o -hh:mm), no tocamos nada
+  const hasZone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed)
+
+  // Si NO tiene zona -> asumimos que viene en UTC naive -> le agregamos Z
+  const iso = hasZone ? trimmed.replace(/z$/, "Z") : `${trimmed}Z`
+
+  const parsed = new Date(iso)
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
-const formatWith = (value: DateInput, options: Intl.DateTimeFormatOptions) => {
-  const parsed = parseUtcNaiveDate(value)
-  if (!parsed) return ""
-  return buildFormatter(options).format(parsed)
-}
 
+/* ======================================================
+   Formatter centralizado con TZ Argentina
+====================================================== */
+const buildFormatter = (options: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat(ARG_LOCALE, {
+    timeZone: ARG_TIME_ZONE,
+    ...options,
+  })
+
+/* ======================================================
+   Fecha + hora (para UI de fotos)
+====================================================== */
 export function formatPhotoDate(value: DateInput): string {
   const parsed = parseUtcNaiveDate(value)
   if (!parsed) return ""
@@ -44,9 +50,12 @@ export function formatPhotoDate(value: DateInput): string {
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   }).formatToParts(parsed)
 
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? ""
+  const get = (t: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === t)?.value ?? ""
+
   const day = get("day")
   const month = get("month").toLowerCase()
   const hour = get("hour")
@@ -56,22 +65,30 @@ export function formatPhotoDate(value: DateInput): string {
   return `${day} ${month} · ${hour}:${minute}`
 }
 
+/* ======================================================
+   Solo fecha
+====================================================== */
 export function formatDateOnly(
   value: DateInput,
   { month = "long", includeYear = true }: { month?: "short" | "long"; includeYear?: boolean } = {},
 ): string {
+  const parsed = parseUtcNaiveDate(value)
+  if (!parsed) return ""
+
   const options: Intl.DateTimeFormatOptions = {
-    month,
     day: "numeric",
+    month,
+    timeZone: ARG_TIME_ZONE,
   }
 
-  if (includeYear) {
-    options.year = "numeric"
-  }
+  if (includeYear) options.year = "numeric"
 
-  return formatWith(value, options)
+  return new Intl.DateTimeFormat(ARG_LOCALE, options).format(parsed)
 }
 
+/* ======================================================
+   Fecha + hora genérica
+====================================================== */
 export function formatDateTime(
   value: DateInput,
   {
@@ -80,21 +97,58 @@ export function formatDateTime(
     includeSeconds = false,
   }: { month?: "short" | "long"; includeYear?: boolean; includeSeconds?: boolean } = {},
 ): string {
+  const parsed = parseUtcNaiveDate(value)
+  if (!parsed) return ""
+
   const options: Intl.DateTimeFormatOptions = {
-    month,
     day: "numeric",
+    month,
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
+    timeZone: ARG_TIME_ZONE,
   }
 
-  if (includeYear) {
-    options.year = "numeric"
-  }
+  if (includeYear) options.year = "numeric"
+  if (includeSeconds) options.second = "2-digit"
 
-  if (includeSeconds) {
-    options.second = "2-digit"
-  }
-
-  return formatWith(value, options)
+  return new Intl.DateTimeFormat(ARG_LOCALE, options).format(parsed)
 }
 
+/* ======================================================
+   Helpers de hora (para filtro)
+====================================================== */
+export const timeToMinutes = (time?: string | null) => {
+  if (!time) return null
+  const [hh, mm] = time.split(":")
+  const h = Number(hh)
+  const m = Number(mm ?? "0")
+  if (Number.isNaN(h) || Number.isNaN(m)) return null
+  return h * 60 + m
+}
+
+/* ======================================================
+   🔑 CLAVE DEL FILTRO HORARIO
+   - Siempre en horario Argentina
+====================================================== */
+export const photoHourKey = (photo: Photo) => {
+  // 1️⃣ Si viene explícito del backend
+  const mins = timeToMinutes(photo.timeSlot)
+  if (mins !== null) {
+    const hour = Math.floor(mins / 60)
+    return String(hour).padStart(2, "0")
+  }
+
+  // 2️⃣ Fallback: takenAt (UTC → Argentina)
+  const date = parseUtcNaiveDate(photo.takenAt)
+  if (!date) return null
+
+  const parts = new Intl.DateTimeFormat(ARG_LOCALE, {
+    timeZone: ARG_TIME_ZONE,
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(date)
+
+  const hour = parts.find((p) => p.type === "hour")?.value
+  return hour ?? null
+}
