@@ -35,7 +35,7 @@ export function useAlbums(albumId?: string) {
   }, [albumId]);
 
   const createAlbum = async (
-    albumData: Partial<Album>
+    albumData: Partial<Album> & { default_photo_price?: number | null }
   ): Promise<BackendAlbum> => {
     try {
       // Enviar solo los campos que el backend acepta
@@ -44,6 +44,7 @@ export function useAlbums(albumId?: string) {
         description: albumData.description || null,
         session_ids: albumData.sessionIds ?? [],
         tag_ids: albumData.tagIds ?? [],
+        default_photo_price: albumData.default_photo_price,
       };
 
       console.log("Creating album with data:", backendData);
@@ -64,7 +65,7 @@ export function useAlbums(albumId?: string) {
 
   const updateAlbum = async (
     id: number | string,
-    albumData: Partial<Album>
+    albumData: Partial<Album> & { default_photo_price?: number | null }
   ): Promise<BackendAlbum> => {
     try {
       // Enviar solo los campos que el backend acepta
@@ -73,6 +74,7 @@ export function useAlbums(albumId?: string) {
         description: albumData.description || null,
         session_ids: albumData.sessionIds,
         tag_ids: albumData.tagIds,
+        default_photo_price: albumData.default_photo_price,
       };
 
       console.log(`Updating album ${id} with data:`, backendData);

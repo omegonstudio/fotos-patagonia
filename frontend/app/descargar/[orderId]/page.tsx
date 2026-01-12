@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { Download, AlertCircle, Calendar } from "lucide-react"
+import { Download, AlertCircle, Calendar, Loader2 } from "lucide-react"
 import { Header } from "@/components/organisms/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,7 @@ import type { Order, OrderItem } from "@/lib/types"
 import { apiFetch } from "@/lib/api"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
 import { formatDateOnly } from "@/lib/datetime"
+import { useToast } from "@/hooks/use-toast"
 
 // Define a type for the fetched order that includes photo details in items
 type OrderWithPhotoItems = Omit<Order, "items"> & {
@@ -52,10 +53,13 @@ const splitOrderItems = (items: OrderItem[]) => {
 
 export default function DescargarPage() {
   const params = useParams()
+  const { toast } = useToast()
   const publicId = params.orderId as string // The param is the public_id (UUID)
   const [order, setOrder] = useState<OrderWithPhotoItems | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false)
+  const [downloadingPhotoId, setDownloadingPhotoId] = useState<string | null>(null)
 
   useEffect(() => {
     if (publicId) {
@@ -130,16 +134,58 @@ export default function DescargarPage() {
     return formatted || "Fecha inválida";
   };
 
-  const handleDownload = (photoUrl?: string) => {
-    if (!photoUrl) {
-      alert("Link de descarga no disponible para esta foto.")
-      return
+  const handleDownload = async (photoId: string) => {
+    if (downloadingPhotoId) return
+    setDownloadingPhotoId(photoId)
+    try {
+      const response = await apiFetch<{ download_url: string }>(
+        `/orders/public/${publicId}/download-photo/${photoId}`,
+      )
+      if (response.download_url) {
+        toast({
+          title: "Iniciando descarga",
+          description: "Tu foto se está descargando.",
+        })
+        window.open(response.download_url, "_blank")
+      } else {
+        throw new Error("No se recibió un link de descarga.")
+      }
+    } catch (err) {
+      console.error("Failed to download photo:", err)
+      toast({
+        title: "Error de descarga",
+        description: "No se pudo descargar la foto. Intenta de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadingPhotoId(null)
     }
-    window.open(photoUrl, "_blank")
   }
 
-  const handleDownloadAll = () => {
-    alert("En una aplicación real, esto descargaría todas las fotos en un archivo ZIP")
+  const handleDownloadAll = async () => {
+    if (isDownloadingAll) return
+    setIsDownloadingAll(true)
+    try {
+      const response = await apiFetch<{ download_url: string }>(`/orders/public/${publicId}/download-all`)
+      if (response.download_url) {
+        toast({
+          title: "Iniciando descarga",
+          description: "Tus fotos se están preparando. La descarga comenzará en breve.",
+        })
+        window.open(response.download_url, "_blank")
+      } else {
+        throw new Error("No se recibió un link de descarga.")
+      }
+    } catch (err) {
+      console.error("Failed to download all photos:", err)
+      toast({
+        title: "Error de descarga",
+        description: "No se pudieron descargar las fotos. Intenta de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDownloadingAll(false)
+    }
   }
 
   return (
@@ -236,10 +282,20 @@ export default function DescargarPage() {
             <div className="mb-6">
               <Button
                 onClick={handleDownloadAll}
+                disabled={isDownloadingAll}
                 className="w-full rounded-xl bg-primary py-6 text-lg font-semibold text-foreground hover:bg-primary-hover"
               >
-                <Download className="mr-2 h-5 w-5" />
-                Descargar Todas las Fotos ({orderPhotos.length})
+                {isDownloadingAll ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Preparando Descarga...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-5 w-5" />
+                    Descargar Todas las Fotos ({orderPhotos.length})
+                  </>
+                )}
               </Button>
             </div>
           )}
@@ -279,12 +335,22 @@ export default function DescargarPage() {
                       </div>
                       {canDownload && (
                         <Button
-                          onClick={() => handleDownload(photo.url)}
+                          onClick={() => handleDownload(photo.id)}
                           size="sm"
+                          disabled={!!downloadingPhotoId}
                           className="mt-3 w-full rounded-lg bg-primary text-foreground hover:bg-primary-hover"
                         >
-                          <Download className="mr-2 h-3 w-3" />
-                          Descargar
+                          {downloadingPhotoId === photo.id ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Descargando...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="mr-2 h-3 w-3" />
+                              Descargar
+                            </>
+                          )}
                         </Button>
                       )}
                     </div>
