@@ -36,6 +36,7 @@ export interface AlbumModalFormValues extends Partial<Album> {
 export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalProps) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [defaultPhotoPrice, setDefaultPhotoPrice] = useState<string>("")
 
   // ⬇ MULTIPLE SELECTION
   const [selectedSessionIds, setSelectedSessionIds] = useState<number[]>([])
@@ -50,6 +51,7 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
     if (!isOpen) {
       setName("")
       setDescription("")
+      setDefaultPhotoPrice("")
       setSelectedSessionIds([])
       setSelectedTagIds([])
       return
@@ -58,6 +60,7 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
     if (album) {
       setName(album.name)
       setDescription(album.description ?? "")
+      setDefaultPhotoPrice(album.default_photo_price?.toString() ?? "")
 
       /// backend → array
       setSelectedSessionIds(album.sessions?.map((s: any) => s.id) ?? [])
@@ -66,10 +69,12 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
   }, [album, isOpen])
 
   const handleSave = async () => {
+    const priceValue = defaultPhotoPrice.trim()
     const payload: AlbumModalFormValues = {
       id: album?.id,
       name: name.trim(),
       description: description.trim(),
+      default_photo_price: priceValue ? Number(priceValue) : null,
       sessionIds: selectedSessionIds,
       tagIds: selectedTagIds,
     }
@@ -115,6 +120,18 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              className="mt-1 rounded-lg border-gray-200"
+            />
+          </div>
+
+          {/* Precio por defecto */}
+          <div>
+            <Label>Precio por defecto de las fotos</Label>
+            <Input
+              type="number"
+              value={defaultPhotoPrice}
+              onChange={(e) => setDefaultPhotoPrice(e.target.value)}
+              placeholder="Ej: 1500"
               className="mt-1 rounded-lg border-gray-200"
             />
           </div>
