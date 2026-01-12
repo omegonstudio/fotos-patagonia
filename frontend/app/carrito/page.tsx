@@ -81,7 +81,7 @@ export default function CarritoPage() {
    // Estados para el modal de formato de impresión
   const [isFormatModalOpen, setIsFormatModalOpen] = useState(false)
   const [photosForFormatSelection, setPhotosForFormatSelection] = useState<string[]>([])
-  const [viewerPhoto, setViewerPhoto] = useState<Photo | null>(null)
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
 
   useEffect(() => {
     const sessionParam = searchParams.get("session")
@@ -269,6 +269,31 @@ export default function CarritoPage() {
       totalOverride ??
       effectiveSubtotalImpresas + effectiveSubtotalFotos
 
+      const cartPhotoList = useMemo(
+        () => cartPhotos.map((item) => item.photo),
+        [cartPhotos]
+      )
+      
+      const viewerPhoto =
+      viewerIndex !== null ? cartPhotoList[viewerIndex] : null
+
+
+      const handleNext = () => {
+        setViewerIndex((prev) =>
+          prev === null
+            ? null
+            : (prev + 1) % cartPhotoList.length
+        )
+      }
+      
+      const handlePrev = () => {
+        setViewerIndex((prev) =>
+          prev === null
+            ? null
+            : (prev - 1 + cartPhotoList.length) % cartPhotoList.length
+        )
+      }
+      
   
   if (items.length === 0) {
     return (
@@ -388,7 +413,10 @@ export default function CarritoPage() {
                     onToggleFavorite={() => toggleFavorite(item.photo.id)}
                     onTogglePrinter={() => togglePrinter(item.photo.id)}
                     onRemove={() => removeItem(item.photo.id)}
-                    onPreview={() => setViewerPhoto(item.photo)}
+                    onPreview={() =>
+                      setViewerIndex(cartPhotoList.findIndex((p) => p.id === item.photo.id))
+                    }
+                    
                     onEditPrintFormat={item.cartItem.printer ? () => handleEditFormatForPhoto(item.photo.id) : undefined}
                   />
                 ))}
@@ -415,8 +443,10 @@ export default function CarritoPage() {
                       onToggleFavorite={() => toggleFavorite(item.photo.id)}
                       onTogglePrinter={() => togglePrinter(item.photo.id)}
                       onRemove={() => removeItem(item.photo.id)}
-                      onPreview={() => setViewerPhoto(item.photo)}
-                    />
+                      onPreview={() =>
+                        setViewerIndex(cartPhotoList.findIndex((p) => p.id === item.photo.id))
+                      }
+                                          />
                   ))
                 )}
               </TabsContent>
@@ -441,8 +471,9 @@ export default function CarritoPage() {
                       onToggleFavorite={() => toggleFavorite(item.photo.id)}
                       onTogglePrinter={() => togglePrinter(item.photo.id)}
                       onRemove={() => removeItem(item.photo.id)}
-                      onPreview={() => setViewerPhoto(item.photo)}
-                    />
+                      onPreview={() =>
+                        setViewerIndex(cartPhotoList.findIndex((p) => p.id === item.photo.id))
+                      }                    />
                   ))
                 )}
               </TabsContent>
@@ -729,13 +760,14 @@ export default function CarritoPage() {
         defaultSelectedPhotoIds={photosForFormatSelection}
       />
       {viewerPhoto && (
-        <PhotoViewerModal
-          photo={viewerPhoto}
-          onClose={() => setViewerPhoto(null)}
-          onNext={() => {}}
-          onPrev={() => {}}
-        />
-      )}
+  <PhotoViewerModal
+    photo={viewerPhoto}
+    onClose={() => setViewerIndex(null)}
+    onNext={handleNext}
+    onPrev={handlePrev}
+  />
+)}
+
     </div>
   )
 }
