@@ -257,6 +257,7 @@ export default function CheckoutPage() {
       price: it.price,
       quantity: it.quantity,
       photo_id: Number(it.photoId),
+      format: it.printFormatLabel,
     }));
 
     

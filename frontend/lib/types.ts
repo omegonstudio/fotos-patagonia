@@ -140,10 +140,9 @@ export interface OrderItem {
   price?: number;
   quantity?: number;
   photo?: OrderItemPhoto;
+  format?: string;
   // Campos legacy (localStorage)
   photoId?: string;
-  forPrint?: boolean;
-  printFormat?: PrintFormat;
   priceAtPurchase?: number;
 }
 
