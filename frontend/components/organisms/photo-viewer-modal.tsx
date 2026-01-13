@@ -8,9 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useCartStore } from "@/lib/store"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
-import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
-import { buildThumbObjectName } from "@/lib/photo-thumbnails"
 import { formatPhotoDate } from "@/lib/datetime"
+import { usePhotoViewerImage } from "@/hooks/photos/usePhotoViewerImage"
 
 interface PhotoViewerModalProps {
   photo: Photo
@@ -22,11 +21,17 @@ interface PhotoViewerModalProps {
 export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewerModalProps) {
   const { items, removeItem, toggleSelected, toggleFavorite, togglePrinter } = useCartStore()
 
-  const previewObjectName =
-    photo.previewObjectName ?? buildThumbObjectName(photo.objectName)
+  const {
+    displayUrl,
+    previewUrl,
+    originalUrl,
+    previewLoading,
+    originalLoading,
+    error: imageError,
+  } = usePhotoViewerImage(photo)
 
-  const { url: imageUrl, loading: imageLoading, error: imageError } =
-    usePresignedUrl(previewObjectName)
+  const isInitialLoading = (previewLoading || originalLoading) && !displayUrl
+  const showError = !!imageError || (!displayUrl && !previewLoading && !originalLoading)
 
   const cartItem = items.find((item) => item.photoId === photo.id)
   const isInCart = !!cartItem
@@ -88,24 +93,37 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
 
       <div className="flex h-full w-full max-w-7xl flex-col gap-4 lg:flex-row">
         <div className="relative flex-1 overflow-hidden rounded-2xl bg-black aspect-[3/4] md:aspect-[3/2] m-10 max-h-[90vh]">
-          {imageLoading ? (
+          {isInitialLoading ? (
             <div className="flex h-full w-full animate-pulse items-center justify-center bg-gray-800">
               <ImageIcon className="h-24 w-24 text-gray-600" />
             </div>
-          ) : imageError ? (
+          ) : showError ? (
             <div className="flex h-full w-full items-center justify-center bg-red-900 text-red-300">
               Error al cargar la imagen
             </div>
           ) : (
-            <WatermarkedImage
-              src={imageUrl}
-              alt={`Foto de ${photo.place || "Patagonia"}`}
-              fill
-              objectFit="contain"
-              sizes="(max-width: 1024px) 100vw, 70vw"
-              priority
-              className="transition-opacity duration-300"
-            />
+            <>
+              <WatermarkedImage
+                src={displayUrl}
+                alt={`Foto de ${photo.place || "Patagonia"}`}
+                fill
+                objectFit="contain"
+                sizes="(max-width: 1024px) 100vw, 70vw"
+                priority
+                className="transition-opacity duration-300"
+              />
+
+              {originalLoading && (
+                <div className="absolute right-4 bottom-4 rounded-full bg-black/70 px-3 py-1 text-xs text-white">
+                  Cargando alta resolución...
+                </div>
+              )}
+              {!originalLoading && originalUrl && previewUrl && (
+                <div className="absolute right-4 bottom-4 rounded-full bg-black/70 px-3 py-1 text-[10px] text-white">
+                  Alta resolución cargada
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -113,7 +131,7 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-2xl font-heading">
-              <span className="text-white">{photo.place || "Patagonia"}</span>
+                  <span className="text-white">{photo.place || "Patagonia"}</span>
               </h2>
               {photo.price && (
                 <Badge className="mt-2 bg-primary text-foreground">

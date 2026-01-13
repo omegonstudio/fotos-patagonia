@@ -6,19 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { X } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
 import type { Album, Tag } from "@/lib/types"
 import { useSessions } from "@/hooks/sessions/useSessions"
 import { useTags } from "@/hooks/tags/useTags"
 import { MultiSelectDropdown } from "./MultiSelectDropdown"
+import { useCombos } from "@/hooks/combos/useCombos"
+
 
 interface AlbumModalProps {
   isOpen: boolean
@@ -30,12 +23,15 @@ interface AlbumModalProps {
 
 export interface AlbumModalFormValues extends Partial<Album> {
   sessionIds?: number[]
+  comboIds?: number[]
   tagIds?: number[]
 }
+
 
 export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalProps) {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const { combos, loading: combosLoading } = useCombos()
   const [defaultPhotoPrice, setDefaultPhotoPrice] = useState<string>("")
 
   // ⬇ MULTIPLE SELECTION
@@ -46,6 +42,7 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
 
   const { sessions, loading: sessionsLoading } = useSessions()
   const { tags, loading: tagsLoading } = useTags()
+  const [selectedComboIds, setSelectedComboIds] = useState<number[]>([])
 
   useEffect(() => {
     if (!isOpen) {
@@ -53,9 +50,11 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
       setDescription("")
       setDefaultPhotoPrice("")
       setSelectedSessionIds([])
-      setSelectedTagIds([])
+       setSelectedComboIds([]) 
+       setSelectedTagIds([])
       return
     }
+    
 
     if (album) {
       setName(album.name)
@@ -64,7 +63,8 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
 
       /// backend → array
       setSelectedSessionIds(album.sessions?.map((s: any) => s.id) ?? [])
-      setSelectedTagIds(album.tags?.map((t: Tag) => Number(t.id)) ?? [])
+      setSelectedComboIds(album.combos?.map((c: any) => c.id) ?? [])
+       setSelectedTagIds(album.tags?.map((t: Tag) => Number(t.id)) ?? [])
     }
   }, [album, isOpen])
 
@@ -76,8 +76,10 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
       description: description.trim(),
       default_photo_price: priceValue ? Number(priceValue) : null,
       sessionIds: selectedSessionIds,
+      comboIds: selectedComboIds,
       tagIds: selectedTagIds,
     }
+    
 
     await onSave(payload)
     onClose()
@@ -176,6 +178,45 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
               })}
             </div>
           </div>
+
+            {/* Combos */}
+              <div>
+             <Label>Agregar Combo</Label>
+
+                <MultiSelectDropdown
+                  items={combos}
+                  loading={combosLoading}
+                  placeholder="Selecciona combo"
+                  getKey={(c) => c.id}
+                  getLabel={(c) => c.name}
+                  onSelect={(id) =>
+                    setSelectedComboIds((prev) =>
+                      prev.includes(id) ? prev : [...prev, id]
+                    )
+                  }
+                /> 
+
+                {/* Chips de combos */}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedComboIds.map((id) => {
+                    const combo = combos.find((c) => c.id === id)
+                    return (
+                      <div
+                        key={id}
+                        className="px-3 py-1 bg-purple-200 text-sm rounded-full flex items-center gap-2"
+                      >
+                        {combo?.name}
+                        <X
+                          className="h-4 w-4 cursor-pointer"
+                          onClick={() =>
+                            setSelectedComboIds((prev) => prev.filter((x) => x !== id))
+                          }
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
 
           {/* Tags */}
           <div>

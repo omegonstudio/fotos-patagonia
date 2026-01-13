@@ -91,7 +91,17 @@ export default function AdminDashboard() {
     };
   }, [filteredOrders, photos, photosLoading, ordersLoading, userIsAdmin, photographerId]);
 
-  const recentOrders = useMemo(() => filteredOrders.slice(-5), [filteredOrders]);
+  const toMillis = (value?: string | null) =>
+    value ? new Date(value).getTime() : 0
+  
+  const recentOrders = [...orders]
+  .sort((a, b) => {
+    const da = toMillis(a.created_at ?? a.createdAt)
+    const db = toMillis(b.created_at ?? b.createdAt)
+    return db - da // más reciente primero
+  })
+  .slice(0, 5)
+
 
   // Textos dinámicos según el rol
   const isPhotographer = !userIsAdmin && !!photographerId;
