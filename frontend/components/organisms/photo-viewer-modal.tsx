@@ -103,15 +103,17 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
             </div>
           ) : (
             <>
-              <WatermarkedImage
-                src={displayUrl}
-                alt={`Foto de ${photo.place || "Patagonia"}`}
-                fill
-                objectFit="contain"
-                sizes="(max-width: 1024px) 100vw, 70vw"
-                priority
-                className="transition-opacity duration-300"
-              />
+              {displayUrl && (
+                <WatermarkedImage
+                  src={displayUrl}
+                  alt={`Foto de ${photo.place || "Patagonia"}`}
+                  fill
+                  objectFit="contain"
+                  sizes="(max-width: 1024px) 100vw, 70vw"
+                  priority
+                  className="transition-opacity duration-300"
+                />
+              )}
 
               {originalLoading && (
                 <div className="absolute right-4 bottom-4 rounded-full bg-black/70 px-3 py-1 text-xs text-white">
