@@ -74,7 +74,7 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
       id: album?.id,
       name: name.trim(),
       description: description.trim(),
-      default_photo_price: priceValue ? Number(priceValue) : null,
+      default_photo_price: priceValue ? Number(priceValue) : undefined,
       sessionIds: selectedSessionIds,
       comboIds: selectedComboIds,
       tagIds: selectedTagIds,
