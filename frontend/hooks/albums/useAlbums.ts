@@ -5,11 +5,19 @@ import { apiFetch } from "@/lib/api";
 import { Album } from "@/lib/types";
 
 interface BackendAlbum {
+
   id: number;
+
   name: string;
+
   description?: string | null;
+
+  default_photo_price?: number;
+
   sessions?: any[];
+
   tags?: any[];
+
 }
 
 export function useAlbums(albumId?: string) {
