@@ -246,6 +246,7 @@ export interface Album {
   // Backend fields (from PhotoSession, populated in responses)
   sessions?: any[]; // PhotoSession[]
   tags?: Tag[];
+  combos?: PhotoCombo[];
   // Legacy frontend fields (optional)
   filters?: Filters;
   photographerIds?: string[];
