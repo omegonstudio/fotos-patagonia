@@ -335,7 +335,7 @@ export default function DescargarPage() {
                       </div>
                       {canDownload && (
                         <Button
-                          onClick={() => handleDownload(photo.id)}
+                          onClick={() => handleDownload(photo.id.toString())}
                           size="sm"
                           disabled={!!downloadingPhotoId}
                           className="mt-3 w-full rounded-lg bg-primary text-foreground hover:bg-primary-hover"
