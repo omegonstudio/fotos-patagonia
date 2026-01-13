@@ -340,7 +340,7 @@ export default function DescargarPage() {
                           disabled={!!downloadingPhotoId}
                           className="mt-3 w-full rounded-lg bg-primary text-foreground hover:bg-primary-hover"
                         >
-                          {downloadingPhotoId === photo.id ? (
+                          {downloadingPhotoId === photo.id.toString() ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               Descargando...
