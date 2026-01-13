@@ -16,6 +16,9 @@ import type { BackendPhoto } from "@/hooks/photos/usePhotos"
 import type { Photo } from "@/lib/types"
 import { PhotoModal } from "@/components/organisms/photo-modal"
 import { formatDateOnly, parseUtcNaiveDate } from "@/lib/datetime"
+import { photoHourKey } from "@/lib/datetime"
+import { findClosestHourWithPhotos } from "@/lib/time-slots"
+
 
 export default function AlbumDetailPage() {
   const params = useParams()
@@ -163,29 +166,35 @@ export default function AlbumDetailPage() {
   }, [album])
   
 
-  const filteredPhotos = useMemo(() => {
-    const normalizedPlaceFilter = filters.place?.trim().toLowerCase()
-
+  const baseFilteredPhotos = useMemo(() => {
     return albumPhotos.filter((photo) => {
       const photoDate = photo.takenAt?.split("T")[0]
-      const matchDate = filters.date ? photoDate === filters.date : true
-
-      const photoPlace = photo.place?.toLowerCase() ?? ""
-      const matchPlace = normalizedPlaceFilter ? photoPlace.includes(normalizedPlaceFilter) : true
-
-      const matchTime = filters.time ? photo.timeSlot === filters.time : true
-
-      return matchDate && matchPlace && matchTime
+      return filters.date ? photoDate === filters.date : true
     })
-  }, [albumPhotos, filters])
-
+  }, [albumPhotos, filters.date])
+  
+  const effectiveHourKey = useMemo(() => {
+    if (!filters.time) return null
+    return findClosestHourWithPhotos(baseFilteredPhotos, filters.time)
+  }, [filters.time, baseFilteredPhotos])
+ 
+  
   const hasActiveFilters = Boolean(filters.date || filters.place || filters.time)
   const handleFilterChange = (newFilters: { date?: string; place?: string; time?: string }) => {
     setFilters(newFilters)
   }
 
-  const photosToDisplay = filteredPhotos
+  const photosToDisplay = useMemo(() => {
+    if (!filters.time) return baseFilteredPhotos
   
+    // si no hay ninguna hora con fotos, volvemos al base
+    if (!effectiveHourKey) return baseFilteredPhotos
+  
+    return baseFilteredPhotos.filter(
+      (photo) => photoHourKey(photo) === effectiveHourKey
+    )
+  }, [baseFilteredPhotos, filters.time, effectiveHourKey])
+    
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return
 
@@ -287,6 +296,8 @@ export default function AlbumDetailPage() {
   ? photosToDisplay.find((p) => p.id === currentPhotoId)
   : null
 
+  
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -339,18 +350,13 @@ export default function AlbumDetailPage() {
           <div className="py-20 text-center">
             <p className="text-lg text-muted-foreground">Este álbum aún no tiene fotos</p>
           </div>
-        ) : photosToDisplay.length === 0 ? (
+        ) : photosToDisplay.length === 0 && !filters.time ? (
           <div className="py-20 text-center">
             <p className="text-lg text-muted-foreground">
               {hasActiveFilters
                 ? "No encontramos fotos que coincidan con los filtros seleccionados."
                 : "Este álbum aún no tiene fotos disponibles."}
             </p>
-            {hasActiveFilters && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Ajusta los filtros o limpia la búsqueda para ver más resultados.
-              </p>
-            )}
           </div>
         ) : (
           <>

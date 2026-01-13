@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException, status
 from models.photo import Photo, PhotoCreateSchema, PhotoUpdateSchema, PhotoSchema
+from models.photo_session import PhotoSession
 from models.tag import Tag
 from services.base import BaseService
 from services.storage import storage_service
@@ -22,11 +23,21 @@ class PhotoCompletionRequest(BaseModel):
     photographer_id: int
 
 class PhotoService(BaseService):
+    def _apply_album_default_price(self, photo: Photo) -> Photo:
+        """
+        Si la foto no tiene precio propio, hereda el del álbum.
+        """
+        if photo.price is None:
+            if photo.session and photo.session.album and photo.session.album.default_photo_price is not None:
+                photo.price = photo.session.album.default_photo_price
+        return photo
+
     def _generate_presigned_urls(self, photo: Photo) -> PhotoSchema:
         """
         Validates a Photo object against the PhotoSchema. 
         URL generation is now a front-end concern using the object_name.
         """
+        photo = self._apply_album_default_price(photo)
         return PhotoSchema.model_validate(photo)
 
     def _is_thumbnail_object(self, object_name: str) -> bool:
@@ -84,14 +95,20 @@ class PhotoService(BaseService):
 
     def list_photos(self) -> List[PhotoSchema]:
         """Returns a list of all photos with presigned URLs."""
-        photos = self.db.query(Photo).options(joinedload(Photo.photographer), joinedload(Photo.session)).all()
+        photos = self.db.query(Photo).options(
+            joinedload(Photo.photographer),
+            joinedload(Photo.session).joinedload(PhotoSession.album)
+        ).all()
         return [self._generate_presigned_urls(p) for p in photos]
 
     def get_photo(self, photo_id: int) -> PhotoSchema:
         """Returns a specific photo by its ID with presigned URLs."""
         photo = (
             self.db.query(Photo)
-            .options(joinedload(Photo.photographer), joinedload(Photo.session))
+            .options(
+                joinedload(Photo.photographer),
+                joinedload(Photo.session).joinedload(PhotoSession.album)
+            )
             .filter(Photo.id == photo_id)
             .first()
         )

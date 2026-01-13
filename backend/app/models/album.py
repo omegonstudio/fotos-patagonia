@@ -12,10 +12,10 @@ class AlbumBaseSchema(BaseModel):
     description: Optional[str] = None
     session_ids: Optional[List[int]] = None
     tag_ids: Optional[List[int]] = None
+    default_photo_price: Optional[int] = None
 
 class AlbumCreateSchema(AlbumBaseSchema):
     pass
-
 class AlbumUpdateSchema(AlbumBaseSchema):
     pass
 
@@ -47,6 +47,7 @@ class Album(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), index=True, nullable=False)
     description = Column(String(255))
+    default_photo_price = Column(Integer, nullable=True)
 
     sessions = relationship("PhotoSession", back_populates="album")
     tags = relationship("Tag", secondary="album_tags", back_populates="albums")

@@ -11,7 +11,7 @@ export interface Photo {
   price?: number; // visible only where appropriate
   description?: string;
   tags?: string[]; // Added tags field for photo categorization
-  objectName: string;
+  objectName: string; // Nombre del objeto ORIGINAL en S3 (alta calidad)
   // Thumbnail generado en frontend y subido a storage con prefijo `thumb_`
   thumbnailObjectName?: string;
   // Objeto a usar para previsualizaciones ligeras (thumb)

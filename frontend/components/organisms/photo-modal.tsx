@@ -137,7 +137,13 @@ export function PhotoModal({
 
   const handleAlbumChange = useCallback((value: string) => {
     setSelectedAlbum(value);
-  }, []);
+    const album = albums.find((a) => a.id.toString() === value);
+    if (album && album.default_photo_price !== undefined && album.default_photo_price !== null) {
+      setPrice(album.default_photo_price.toString());
+    } else {
+      setPrice(DEFAULT_PRICE);
+    }
+  }, [albums]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();

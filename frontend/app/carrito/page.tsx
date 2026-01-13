@@ -81,7 +81,7 @@ export default function CarritoPage() {
    // Estados para el modal de formato de impresión
   const [isFormatModalOpen, setIsFormatModalOpen] = useState(false)
   const [photosForFormatSelection, setPhotosForFormatSelection] = useState<string[]>([])
-  const [viewerPhoto, setViewerPhoto] = useState<Photo | null>(null)
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
 
   useEffect(() => {
     const sessionParam = searchParams.get("session")
@@ -269,6 +269,50 @@ export default function CarritoPage() {
       totalOverride ??
       effectiveSubtotalImpresas + effectiveSubtotalFotos
 
+      const cartPhotoList = useMemo(
+        () => cartPhotos.map((item) => item.photo),
+        [cartPhotos]
+      )
+      
+
+      // movimiento de fotos en el modal de preview
+      
+      const [activeTab, setActiveTab] = useState<"all" | "favorites" | "printer">("all")
+
+      const navigablePhotos = useMemo(() => {
+        switch (activeTab) {
+          case "favorites":
+            return favoritePhotos.map((i) => i.photo)
+          case "printer":
+            return printerPhotos.map((i) => i.photo)
+          default:
+            return cartPhotos.map((i) => i.photo)
+        }
+      }, [activeTab, cartPhotos, favoritePhotos, printerPhotos])
+      
+      const viewerPhoto =
+      viewerIndex !== null ? navigablePhotos[viewerIndex] : null
+    
+
+      const handleNext = () => {
+        setViewerIndex((prev) =>
+          prev === null
+            ? null
+            : (prev + 1) % navigablePhotos.length
+        )
+      }
+      
+      const handlePrev = () => {
+        setViewerIndex((prev) =>
+          prev === null
+            ? null
+            : (prev - 1 + navigablePhotos.length) % navigablePhotos.length
+        )
+      }
+      
+      
+      // movimiento de fotos segun el tab activo en el modal de preview
+    
   
   if (items.length === 0) {
     return (
@@ -360,7 +404,9 @@ export default function CarritoPage() {
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Cart Items */}
           <div className="lg:col-span-2">
-            <Tabs defaultValue="all" className="w-full">
+            <Tabs defaultValue="all" className="w-full" onValueChange={(value) =>
+                    setActiveTab(value as "all" | "favorites" | "printer")
+                  }>
               <TabsList className="mb-6 grid w-full grid-cols-3 rounded-xl">
                 <TabsTrigger value="all" className="rounded-lg data-[state=active]:bg-[#ffecce]">
                   Todas ({totalCount})
@@ -388,7 +434,13 @@ export default function CarritoPage() {
                     onToggleFavorite={() => toggleFavorite(item.photo.id)}
                     onTogglePrinter={() => togglePrinter(item.photo.id)}
                     onRemove={() => removeItem(item.photo.id)}
-                    onPreview={() => setViewerPhoto(item.photo)}
+                    onPreview={() =>
+                      setViewerIndex(
+                        navigablePhotos.findIndex((p) => p.id === item.photo.id)
+                      )
+                    }
+                    
+                    
                     onEditPrintFormat={item.cartItem.printer ? () => handleEditFormatForPhoto(item.photo.id) : undefined}
                   />
                 ))}
@@ -405,7 +457,8 @@ export default function CarritoPage() {
                     </div>
                   </div>
                 ) : (
-                  favoritePhotos.map((item) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {favoritePhotos.map((item) => (
                     <CartItem
                       key={item.photo.id}
                       photo={item.photo}
@@ -415,10 +468,16 @@ export default function CarritoPage() {
                       onToggleFavorite={() => toggleFavorite(item.photo.id)}
                       onTogglePrinter={() => togglePrinter(item.photo.id)}
                       onRemove={() => removeItem(item.photo.id)}
-                      onPreview={() => setViewerPhoto(item.photo)}
+                      onPreview={() =>
+                        setViewerIndex(
+                          navigablePhotos.findIndex((p) => p.id === item.photo.id)
+                        )
+                      }
+                      
                     />
-                  ))
-                )}
+                  ))}
+                </div>  
+              )}
               </TabsContent>
 
               <TabsContent value="printer" className="space-y-4">
@@ -431,20 +490,27 @@ export default function CarritoPage() {
                     </div>
                   </div>
                 ) : (
-                  printerPhotos.map((item) => (
-                    <CartItem
-                      key={item.photo.id}
-                      photo={item.photo}
-                      isFavorite={item.cartItem.favorite}
-                      isPrinter={item.cartItem.printer}
-                      printFormat={printSelectionMap.get(item.photo.id)?.format}
-                      onToggleFavorite={() => toggleFavorite(item.photo.id)}
-                      onTogglePrinter={() => togglePrinter(item.photo.id)}
-                      onRemove={() => removeItem(item.photo.id)}
-                      onPreview={() => setViewerPhoto(item.photo)}
-                    />
-                  ))
-                )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {printerPhotos.map((item) => (
+                        <CartItem
+                          key={item.photo.id}
+                          photo={item.photo}
+                          isFavorite={item.cartItem.favorite}
+                          isPrinter={item.cartItem.printer}
+                          printFormat={printSelectionMap.get(item.photo.id)?.format}
+                          onToggleFavorite={() => toggleFavorite(item.photo.id)}
+                          onTogglePrinter={() => togglePrinter(item.photo.id)}
+                          onRemove={() => removeItem(item.photo.id)}
+                          onPreview={() =>
+                            setViewerIndex(
+                              navigablePhotos.findIndex((p) => p.id === item.photo.id)
+                            )
+                          }
+                          
+                        />
+                      ))}
+                    </div>
+                  )}
               </TabsContent>
             </Tabs>
 
@@ -729,13 +795,15 @@ export default function CarritoPage() {
         defaultSelectedPhotoIds={photosForFormatSelection}
       />
       {viewerPhoto && (
-        <PhotoViewerModal
-          photo={viewerPhoto}
-          onClose={() => setViewerPhoto(null)}
-          onNext={() => {}}
-          onPrev={() => {}}
-        />
-      )}
+      <PhotoViewerModal
+        photo={viewerPhoto}
+        onClose={() => setViewerIndex(null)}
+        onNext={handleNext}
+        onPrev={handlePrev}
+      />
+    )}
+
+
     </div>
   )
 }

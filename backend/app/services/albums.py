@@ -59,7 +59,7 @@ class AlbumService(BaseService):
      db_album = self.get_album(album_id) # get_album now populates URLs, which is fine
      data = album_in.model_dump(exclude_unset=True)
 
-     for field in ["name", "description", "cover_photo_id"]:
+     for field in ["name", "description", "cover_photo_id", "default_photo_price"]:
         if field in data:
             setattr(db_album, field, data[field])
 

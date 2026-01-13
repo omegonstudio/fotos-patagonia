@@ -13,6 +13,10 @@ import { useOrders } from "@/hooks/orders/useOrders";
 import { Order, OrderStatus } from "@/lib/types";
 import { OrderStatusSelector } from "@/components/molecules/OrderStatusSelector";
 import { formatDateTime, parseUtcNaiveDate } from "@/lib/datetime";
+import { FilterBar } from "@/components/molecules/filter-bar"
+import { photoHourKey } from "@/lib/datetime"
+
+
 
 export default function PedidosPage() {
   const { data: ordersData, loading, error, refetch } = useOrders();
@@ -28,35 +32,82 @@ export default function PedidosPage() {
   //pagination
   const PAGE_SIZE = 10;
   const [currentPage, setCurrentPage] = useState(1);
+  const [dateFilter, setDateFilter] = useState<string | undefined>()
+  const [timeFilter, setTimeFilter] = useState<string | undefined>() // "00".."23"
+
   useEffect(() => {
-    let filtered = [...orders];
+    let filtered = [...orders]
   
+    // 🔎 búsqueda por ID / email
     if (searchTerm) {
       filtered = filtered.filter(
         (order) =>
-          (order.id && order.id.toString().toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (order.user?.email && order.user.email.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
+          order.id?.toString().includes(searchTerm) ||
+          order.user?.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
     }
   
+    // 📌 estado
     if (statusFilter !== "all") {
-      filtered = filtered.filter((order) => order.order_status === statusFilter);
+      filtered = filtered.filter(
+        (order) => order.order_status === statusFilter
+      )
     }
   
+    // 💳 pago
     if (paymentFilter !== "all") {
-      filtered = filtered.filter((order) => order.payment_method === paymentFilter);
+      filtered = filtered.filter(
+        (order) => order.payment_method === paymentFilter
+      )
     }
   
-    // 👉 ORDEN: última orden primero
-    filtered.sort((a, b) => {
-      const da = toMillis(a.created_at ?? a.createdAt ?? null);
-      const db = toMillis(b.created_at ?? b.createdAt ?? null);
-      return db - da;
-    });
+    // 📅 FECHA (local Argentina)
+    if (dateFilter) {
+      filtered = filtered.filter((order) => {
+        const rawDate = order.created_at ?? order.createdAt
+        const date = parseUtcNaiveDate(rawDate)
+        if (!date) return false
   
-    setFilteredOrders(filtered);
-    setCurrentPage(1); // reset al filtrar
-  }, [searchTerm, statusFilter, channelFilter, paymentFilter, orders]);
+        const localDate = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/Argentina/Buenos_Aires",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(date)
+  
+        return localDate === dateFilter
+      })
+    }
+  
+   // ⏰ HORA (franja)
+if (timeFilter) {
+  filtered = filtered.filter(
+    (order) =>
+      photoHourKey({
+        timeSlot: undefined,
+        takenAt: order.created_at ?? order.createdAt,
+      } as any) === timeFilter
+  )
+}
+
+  
+    // ⬇️ ordenar: última orden primero
+    filtered.sort((a, b) => {
+      const da = toMillis(a.created_at ?? a.createdAt)
+      const db = toMillis(b.created_at ?? b.createdAt)
+      return db - da
+    })
+  
+    setFilteredOrders(filtered)
+    setCurrentPage(1)
+  }, [
+    orders,
+    searchTerm,
+    statusFilter,
+    paymentFilter,
+    dateFilter,
+    timeFilter,
+  ])
   
   const totalPages = Math.ceil(filteredOrders.length / PAGE_SIZE);
 
@@ -107,14 +158,30 @@ const paginatedOrders = filteredOrders.slice(
     return formatted || "Fecha inválida";
   };
 
+
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="mb-2 text-4xl font-heading">Gestión de Pedidos</h1>
         <p className="text-muted-foreground">Administra y actualiza el estado de los pedidos</p>
+       
       </div>
+{(dateFilter || timeFilter) && (
+  <div className="mb-2 flex gap-2">
+    {dateFilter && <Badge>Fecha: {dateFilter}</Badge>}
+    {timeFilter && <Badge>Hora: {timeFilter}:00</Badge>}
+  </div>
+)}
 
       <Card className="mb-6 rounded-2xl border-gray-200">
+      <FilterBar
+  onFilterChange={({ date, time }) => {
+    setDateFilter(date)
+    setTimeFilter(time)
+  }}
+/>
+
         <CardContent className="pt-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div className="relative">
@@ -252,3 +319,5 @@ const paginatedOrders = filteredOrders.slice(
     </div>
   )
 }
+
+

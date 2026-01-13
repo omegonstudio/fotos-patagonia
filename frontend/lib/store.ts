@@ -738,7 +738,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       scheduleExpirationCheck(snapshot.expiresAt ?? null, get().logout)
     }
 
-    registerStorageSync()
+    // TODO: Implementar un mecanismo más robusto para la sincronización entre pestañas
+    // que distinga entre un cierre de sesión local y un nuevo inicio de sesión en otro dispositivo.
+    // Para más detalles, revisar la conversación con el asistente de desarrollo.
+    // registerStorageSync() // Deshabilitado para evitar cierres de sesión inesperados en múltiples dispositivos.
     set({ initialized: true })
   },
 }))
