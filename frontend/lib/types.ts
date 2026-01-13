@@ -242,6 +242,7 @@ export interface Album {
   id: string | number;
   name: string;
   description?: string | null;
+  default_photo_price?: number;
   // Backend fields (from PhotoSession, populated in responses)
   sessions?: any[]; // PhotoSession[]
   tags?: Tag[];
