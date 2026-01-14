@@ -85,18 +85,23 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
     onClose()
   }
 
-  const handleSelectSession = (value: string) => {
+  /* const handleSelectSession = (value: string) => {
     const id = Number(value)
     setSelectedSessionIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
     setSessionPopoverOpen(false)
-  }
+  } */
 
-  const handleSelectTag = (value: string) => {
+/*   const handleSelectTag = (value: string) => {
     const id = Number(value)
     setSelectedTagIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
     setTagPopoverOpen(false)
-  }
+  } */
 
+  const priceNumber = Number(defaultPhotoPrice)
+  const isPriceValid =
+    defaultPhotoPrice.trim() &&
+    !Number.isNaN(priceNumber) &&
+    priceNumber > 0
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md rounded-2xl bg-[#f2f2e4]">
@@ -269,16 +274,16 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
 
           {/* Botones */}
           <div className="flex gap-2 pt-4">
-            <Button variant="outline" onClick={onClose} className="flex-1">
-              Cancelar
-            </Button>
+
+
             <Button
               onClick={handleSave}
-              disabled={!name.trim()}
+              disabled={!name.trim() || (mode === "add" && !isPriceValid)}
               className="flex-1 bg-[#f9a01b] text-foreground"
             >
               {mode === "add" ? "Crear" : "Guardar"}
             </Button>
+
           </div>
         </div>
       </DialogContent>

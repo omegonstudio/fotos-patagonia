@@ -569,8 +569,8 @@ export function PhotoModal({
             )}
           </div>
 
-          <div className="space-y-2">
-          {/*   <Label htmlFor="price" className="text-base font-semibold">
+          {/*  <div className="space-y-2">
+           <Label htmlFor="price" className="text-base font-semibold">
               Precio <span className="text-destructive">*</span>
             </Label>
             <Input
