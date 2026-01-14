@@ -258,6 +258,7 @@ export interface Album {
   isPublic?: boolean;
   sessionIds?: number[];
   tagIds?: number[];
+  comboIds?: number[];
 }
 
 export interface Photographer {
