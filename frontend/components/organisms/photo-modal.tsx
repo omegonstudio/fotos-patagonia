@@ -44,7 +44,7 @@ interface PhotoModalProps {
   onUploadError?: (tempIds: string[]) => void;
 }
 
-const DEFAULT_PRICE = "1500";
+//const DEFAULT_PRICE = "15000";
 
 export function PhotoModal({
   open,
@@ -61,7 +61,7 @@ export function PhotoModal({
   const isAddMode = mode === "add";
   const [selectedAlbum, setSelectedAlbum] = useState<string>("");
   const [selectedPhotographer, setSelectedPhotographer] = useState<string>("");
-  const [price, setPrice] = useState<string>(DEFAULT_PRICE);
+  //const [price, setPrice] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -118,7 +118,7 @@ export function PhotoModal({
       setSelectedAlbum(albumId?.toString() ?? "");
       setSelectedPhotographer("");
       setDescription("");
-      setPrice(DEFAULT_PRICE);
+      //setPrice(DEFAULT_PRICE);
       setSelectedTagIds([]);
       setUploadedFiles([]);
       setPreviewUrls([]);
@@ -128,14 +128,12 @@ export function PhotoModal({
     if (photo) {
       setSelectedPhotographer(photo.photographer_id?.toString() ?? "");
       setDescription(photo.description || "");
-      setPrice(
-        photo.price !== undefined ? photo.price.toString() : DEFAULT_PRICE
-      );
+      //setPrice(photo.price?.toString());
       setSelectedTagIds(photo.tags?.map((tag) => tag.id.toString()) ?? []);
     }
   }, [open, photo, isAddMode, albumId]);
 
-  const handleAlbumChange = useCallback((value: string) => {
+ /*  const handleAlbumChange = useCallback((value: string) => {
     setSelectedAlbum(value);
     const album = albums.find((a) => a.id.toString() === value);
     if (album && album.default_photo_price !== undefined && album.default_photo_price !== null) {
@@ -143,7 +141,12 @@ export function PhotoModal({
     } else {
       setPrice(DEFAULT_PRICE);
     }
-  }, [albums]);
+  }, [albums]); */
+
+  const handleAlbumChange = useCallback((value: string) => {
+    setSelectedAlbum(value);
+  }, []);
+  
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -218,7 +221,7 @@ export function PhotoModal({
   const handleSave = async () => {
     if (uploading) return;
 
-    const numericPrice = parseFloat(price);
+    /* const numericPrice = parseFloat(price);
     if (Number.isNaN(numericPrice)) {
       toast({
         title: "Precio inválido",
@@ -226,7 +229,7 @@ export function PhotoModal({
         variant: "destructive",
       });
       return;
-    }
+    } */
 
     if (isAddMode) {
       if (!selectedAlbum) {
@@ -289,7 +292,7 @@ export function PhotoModal({
         {
           files: uploadedFiles,
           photographer_id: parseInt(selectedPhotographer),
-          price: numericPrice,
+          //price: numericPrice,
           description: description || undefined,
           album_id: Number(selectedAlbum),
         },
@@ -429,7 +432,7 @@ export function PhotoModal({
         body: JSON.stringify({
           filename: photo.filename,
           description: description || "",
-          price: numericPrice,
+          //price: numericPrice,
           photographer_id: selectedPhotographer
             ? parseInt(selectedPhotographer)
             : undefined,
@@ -567,7 +570,7 @@ export function PhotoModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="price" className="text-base font-semibold">
+          {/*   <Label htmlFor="price" className="text-base font-semibold">
               Precio <span className="text-destructive">*</span>
             </Label>
             <Input
@@ -581,7 +584,7 @@ export function PhotoModal({
               disabled={uploading}
               className="rounded-xl border-gray-200 bg-white"
             />
-          </div>
+          </div> */}
 
           <div className="space-y-2">
             <Label htmlFor="description" className="text-base font-semibold">
@@ -691,7 +694,7 @@ export function PhotoModal({
               className="rounded-xl bg-primary font-semibold text-foreground hover:bg-primary/90"
               disabled={
                 uploading ||
-                !price ||
+                //!price ||
                 (isAddMode && (!selectedPhotographer || uploadedFiles.length === 0))
               }
             >

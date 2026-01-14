@@ -60,7 +60,7 @@ interface PhotoCompletionData {
   object_name: string;
   original_filename: string;
   description?: string;
-  price: number;
+  price?: number;
   photographer_id: number;
 }
 
@@ -68,7 +68,7 @@ interface UploadPhotoParams {
   files: File[];
   photographer_id: number;
   session_id?: number; // opcional según flujo
-  price: number;
+  price?: number;
   description?: string;
   album_id?: number;
 }
