@@ -35,6 +35,11 @@ export default function AlbumsManagementPage() {
 
   const albums = Array.isArray(albumsData) ? albumsData : []
 
+  const sortedAlbums = [...albums].sort((a, b) => {
+    return Number(b.id) - Number(a.id) // ID más alto primero
+  })
+  
+
   const handleSaveAlbum = async (albumPayload: AlbumModalFormValues) => {
     try {
       if (editingAlbum) {
@@ -103,7 +108,7 @@ export default function AlbumsManagementPage() {
 
       {/* LISTADO */}
       <div className="grid gap-4">
-        {albums.map((album) => (
+      {sortedAlbums.map((album) => (
           <Card key={album.id} className="rounded-2xl border-gray-200">
             <CardHeader className="flex flex-row justify-between">
               <div>
