@@ -9,6 +9,7 @@ from models.user import User
 from core.permissions import Permissions
 from models.photo_session import PhotoSession
 from models.tag import Tag
+from models.combo import Combo
 from models.photo import Photo, PhotoSchema
 from services.photos import PhotoService # Import PhotoService
 from services.storage import storage_service # Import storage_service for direct use
@@ -45,7 +46,7 @@ class AlbumService(BaseService):
         return self._populate_photo_urls(album)
 
     def create_album(self, album_in: AlbumCreateSchema) -> Album:
-     data = album_in.model_dump(exclude={"session_ids", "tag_ids"})
+     data = album_in.model_dump(exclude={"session_ids", "tag_ids", "combo_ids"})
      db_album = Album(**data)
      if album_in.session_ids:
         sessions = self.db.query(PhotoSession).filter(PhotoSession.id.in_(album_in.session_ids)).all()
@@ -53,6 +54,9 @@ class AlbumService(BaseService):
      if album_in.tag_ids:
         tags = self.db.query(Tag).filter(Tag.id.in_(album_in.tag_ids)).all()
         db_album.tags = tags
+     if album_in.combo_ids:
+        combos = self.db.query(Combo).filter(Combo.id.in_(album_in.combo_ids)).all()
+        db_album.combos = combos
      return self._save_and_refresh(db_album)
 
     def update_album(self, album_id: int, album_in: AlbumUpdateSchema) -> Album:
@@ -70,6 +74,10 @@ class AlbumService(BaseService):
      if "tag_ids" in data:
         tags = self.db.query(Tag).filter(Tag.id.in_(data["tag_ids"])).all()
         db_album.tags = tags
+    
+     if "combo_ids" in data:
+        combos = self.db.query(Combo).filter(Combo.id.in_(data["combo_ids"])).all()
+        db_album.combos = combos
 
      updated_album = self._save_and_refresh(db_album)
      return self._populate_photo_urls(updated_album)
