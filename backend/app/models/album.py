@@ -1,10 +1,10 @@
 from pydantic import BaseModel, field_validator
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 from typing import List, Optional
 from db.base import Base
-from models.photographer import PhotographerSchema
 from .tag import TagSchema
+from .combo import ComboSchema, album_combos
 
 # Pydantic models (Schemas)
 class AlbumBaseSchema(BaseModel):
@@ -12,6 +12,7 @@ class AlbumBaseSchema(BaseModel):
     description: Optional[str] = None
     session_ids: Optional[List[int]] = None
     tag_ids: Optional[List[int]] = None
+    combo_ids: Optional[List[int]] = None
     default_photo_price: Optional[int] = None
 
 class AlbumCreateSchema(AlbumBaseSchema):
@@ -31,6 +32,7 @@ class AlbumInSessionSchema(AlbumInDBBaseSchema):
 class AlbumSchema(AlbumInDBBaseSchema):
     sessions: list['PhotoSessionSchema'] = []
     tags: List[TagSchema] = []
+    combos: List[ComboSchema] = []
 
     @field_validator('sessions', mode='before')
     @classmethod
@@ -51,6 +53,7 @@ class Album(Base):
 
     sessions = relationship("PhotoSession", back_populates="album")
     tags = relationship("Tag", secondary="album_tags", back_populates="albums")
+    combos = relationship("Combo", secondary=album_combos, back_populates="albums")
 
 # Import schemas for forward references and rebuild
 from .photo_session import PhotoSessionSchema

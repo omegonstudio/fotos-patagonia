@@ -1,7 +1,16 @@
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, String, Text, Float, Boolean
+from sqlalchemy import Column, Integer, String, Text, Float, Boolean, Table, ForeignKey
+from sqlalchemy.orm import relationship
 from db.base import Base
 from typing import Optional
+
+# Association table for Albums and Combos
+album_combos = Table(
+    "album_combos",
+    Base.metadata,
+    Column("album_id", Integer, ForeignKey("albums.id"), primary_key=True),
+    Column("combo_id", Integer, ForeignKey("combos.id"), primary_key=True),
+)
 
 # --- Pydantic Schemas ---
 class ComboBaseSchema(BaseModel):
@@ -40,3 +49,9 @@ class Combo(Base):
     totalPhotos = Column(Integer, nullable=False)
     isFullAlbum = Column(Boolean, nullable=False)
     active = Column(Boolean, default=True, nullable=False)
+
+    albums = relationship(
+        "Album",
+        secondary=album_combos,
+        back_populates="combos"
+    )

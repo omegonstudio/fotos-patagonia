@@ -52,6 +52,7 @@ export function useAlbums(albumId?: string) {
         description: albumData.description || null,
         session_ids: albumData.sessionIds ?? [],
         tag_ids: albumData.tagIds ?? [],
+        combo_ids: albumData.comboIds ?? [],
         default_photo_price: albumData.default_photo_price,
       };
 
@@ -82,6 +83,7 @@ export function useAlbums(albumId?: string) {
         description: albumData.description || null,
         session_ids: albumData.sessionIds,
         tag_ids: albumData.tagIds,
+        combo_ids: albumData.comboIds ?? [],
         default_photo_price: albumData.default_photo_price,
       };
 
