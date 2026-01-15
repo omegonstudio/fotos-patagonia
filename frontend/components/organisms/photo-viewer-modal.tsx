@@ -10,6 +10,7 @@ import { useCartStore } from "@/lib/store"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
 import { formatPhotoDate } from "@/lib/datetime"
 import { usePhotoViewerImage } from "@/hooks/photos/usePhotoViewerImage"
+import { useState } from "react"
 
 interface PhotoViewerModalProps {
   photo: Photo
@@ -37,17 +38,43 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
   const isInCart = !!cartItem
   const isFavorite = cartItem?.favorite || false
   const isPrinter = cartItem?.printer || false
+  
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   useEffect(() => {
+    if (isFullscreen) return
+  
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose()
       if (e.key === "ArrowLeft") onPrev()
       if (e.key === "ArrowRight") onNext()
     }
-
+  
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [onClose, onNext, onPrev])
+  }, [onClose, onNext, onPrev, isFullscreen])
+  useEffect(() => {
+    if (!isFullscreen) return
+  
+    const handleFullscreenKeys = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsFullscreen(false)
+        return
+      }
+  
+      if (e.key === "ArrowLeft") {
+        onPrev()
+      }
+  
+      if (e.key === "ArrowRight") {
+        onNext()
+      }
+    }
+  
+    window.addEventListener("keydown", handleFullscreenKeys)
+    return () => window.removeEventListener("keydown", handleFullscreenKeys)
+  }, [isFullscreen, onNext, onPrev])
+  
 
   const handleToggleCart = () => {
     if (isInCart) {
@@ -64,6 +91,8 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
   const handleTogglePrinter = () => {
     togglePrinter(photo.id)
   }
+
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
@@ -144,6 +173,14 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
 
             <div className="flex gap-2">
               <button
+                onClick={() => setIsFullscreen(true)}
+                className="rounded-full bg-muted p-2 text-muted-foreground transition-colors hover:bg-muted/80"
+                aria-label="Ver en pantalla completa"
+              >
+                <ImageIcon className="h-5 w-5" />
+              </button>
+
+              <button
                 onClick={handleToggleFavorite}
                 className={cn(
                   "rounded-full p-2 transition-colors",
@@ -219,6 +256,47 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
           </div>
         </div>
       </div>
+      {isFullscreen && (
+  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black">
+    {/* Cerrar */}
+    <button
+      onClick={() => setIsFullscreen(false)}
+      className="absolute right-6 top-6 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+      aria-label="Cerrar pantalla completa"
+    >
+      <X className="h-6 w-6" />
+    </button>
+
+    {/* Heart */}
+    <button
+      onClick={handleToggleFavorite}
+      className={cn(
+        "absolute left-6 top-6 rounded-full p-2 transition-colors",
+        isFavorite
+          ? "bg-primary text-foreground"
+          : "bg-white/10 text-white hover:bg-white/20"
+      )}
+      aria-label="Agregar a favoritos"
+    >
+      <Heart className={cn("h-6 w-6", isFavorite && "fill-current")} />
+    </button>
+
+    {/* Imagen alta calidad */}
+    {originalUrl && (
+      <img
+        src={originalUrl}
+        alt={`Foto en alta resolución de ${photo.place || "Patagonia"}`}
+        className="max-h-screen max-w-screen object-contain"
+        draggable={false}
+      />
+    )}
+
+    {!originalUrl && (
+      <div className="text-white">Cargando alta resolución…</div>
+    )}
+  </div>
+)}
+
     </div>
   )
 }

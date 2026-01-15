@@ -292,7 +292,7 @@ export function PhotoModal({
         {
           files: uploadedFiles,
           photographer_id: parseInt(selectedPhotographer),
-          //price: numericPrice,
+          price: albums.find((a) => a.id.toString() === selectedAlbum)?.default_photo_price ?? 15000,
           description: description || undefined,
           album_id: Number(selectedAlbum),
         },
