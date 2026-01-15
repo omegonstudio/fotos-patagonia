@@ -232,6 +232,12 @@ class OrderService(BaseService):
         
         return {"message": f"Email successfully sent to {recipient}"}
 
+    def delete_order(self, order_id: int):
+        order = self.get_order_details(order_id)
+        self.db.delete(order)
+        self.db.commit()
+        return {"message": "Order deleted successfully"}
+
     def generate_qr_code(self, order_id: int):
         # Business logic for generating QR code for an order
         return {"message": f"OrderService: Generate QR code for order {order_id} logic"}
