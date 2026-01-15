@@ -23,6 +23,7 @@ import type {
   PrintSelection,
 } from "./types"
 import { getPackSize } from "./print-formats"
+import { apiFetch } from "./api"
 
 const generateSelectionId = () => `sel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
@@ -46,8 +47,8 @@ interface CartStore extends CartState {
   clearNonFavorites: () => void
   setEmail: (email: string) => void
   applyDiscount: (code: string) => Promise<void>
-  saveSession: () => Promise<string>
-  loadSession: (sessionId: string) => Promise<void>
+  setSavedSessionId: (sessionId: string | undefined) => void;
+  loadCartData: (cartState: CartState, shortId?: string) => void
   clearCart: () => void
   updateTotals: (photos: Photo[]) => void
   setEditableTotals: (data: {
@@ -266,34 +267,23 @@ export const useCartStore = create<CartStore>()(
         } else {
           throw new Error("Código de descuento inválido")
         }
-      },
-
-      saveSession: async () => {
-        const state = get()
-        const sessionId = `session-${Date.now()}`
-        // In real app, save to backend
-        localStorage.setItem(`cart-session-${sessionId}`, JSON.stringify(state))
-        set({ savedSessionId: sessionId })
-        return sessionId
-      },
-
-      loadSession: async (sessionId: string) => {
-        // In real app, load from backend
-        const saved = localStorage.getItem(`cart-session-${sessionId}`)
-        if (saved) {
-          const state = JSON.parse(saved)
-          set({
-            ...state,
-            printSelections: state.printSelections ?? [],
-            subtotalImpresasOverride: undefined,
-            subtotalFotosOverride: undefined,
-            totalOverride: undefined,
-          })
-          
-        }
-      },
-
-      clearCart: () => {
+                  },
+      
+                  setSavedSessionId: (sessionId: string | undefined) => {
+                          set({ savedSessionId: sessionId });
+                        },
+      
+                        loadCartData: (cartState: CartState, shortId?: string) => {
+                          set({
+                            ...cartState,
+                            savedSessionId: shortId,
+                            subtotalImpresasOverride: undefined,
+                            subtotalFotosOverride: undefined,
+                            totalOverride: undefined,
+                          });
+                        },
+      
+                  clearCart: () => {
         set({
           items: [],
           printSelections: [],

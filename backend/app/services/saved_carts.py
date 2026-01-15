@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException, status
+import nanoid
 from models.saved_cart import SavedCart, SavedCartCreateSchema
 from services.base import BaseService
 
@@ -20,9 +21,22 @@ class SavedCartService(BaseService):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Saved cart not found")
         return saved_cart
 
+    def get_saved_cart_by_short_id(self, short_id: str) -> SavedCart:
+        """Returns a specific saved cart by its short_id with its associated cart eagerly loaded."""
+        saved_cart = (
+            self.db.query(SavedCart)
+            .options(joinedload(SavedCart.cart))
+            .filter(SavedCart.short_id == short_id)
+            .first()
+        )
+        if not saved_cart:
+            raise HTTPException(status_code=status.HTTP_44_NOT_FOUND, detail="Saved cart not found")
+        return saved_cart
+
     def create_saved_cart(self, saved_cart_in: SavedCartCreateSchema) -> SavedCart:
         """Creates a new saved cart."""
-        db_saved_cart = SavedCart(**saved_cart_in.model_dump())
+        short_id = nanoid.generate(size=7)
+        db_saved_cart = SavedCart(**saved_cart_in.model_dump(), short_id=short_id)
         return self._save_and_refresh(db_saved_cart)
 
     def delete_saved_cart(self, saved_cart_id: int):
