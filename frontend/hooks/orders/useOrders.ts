@@ -106,6 +106,17 @@ export function useOrders(orderId?: string) {
   // - GET /orders/by-email/{email} (usa getMyOrders para usuario actual)
   // - GET /orders/{id}/download (debe implementarse en el backend si se necesita)
 
+  async function deleteOrder(id: string) {
+    try {
+      await apiFetch(`/orders/${id}`, {
+        method: "DELETE",
+      });
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  }
+
   useEffect(() => {
     fetchOrders();
   }, [orderId]);
@@ -116,6 +127,7 @@ export function useOrders(orderId?: string) {
     error,
     refetch: fetchOrders,
     updateOrder,
+    deleteOrder, // Añadir deleteOrder
     updateOrderStatus,
     getMyOrders,
     sendOrderEmail,

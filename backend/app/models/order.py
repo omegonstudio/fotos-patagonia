@@ -117,9 +117,9 @@ class Order(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone(timedelta(hours=-3))), nullable=True)
 
     user = relationship("User", back_populates="orders")
-    items = relationship("OrderItem", back_populates="order")
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     discount = relationship("Discount", back_populates="orders")
-    earnings = relationship("Earning", back_populates="order")
+    earnings = relationship("Earning", back_populates="order", cascade="all, delete-orphan")
 
 class OrderItem(Base):
     __tablename__ = "order_items"
