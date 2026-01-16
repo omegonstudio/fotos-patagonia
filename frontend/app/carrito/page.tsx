@@ -22,12 +22,14 @@ import type { Photo, PrintFormat } from "@/lib/types"
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 import { getPackSize } from "@/lib/print-formats"
 import { apiFetch } from "@/lib/api"
+import { useCart } from "@/hooks/cart/useCart"
 
 export default function CarritoPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const { photos } = usePhotos()
+  const { photos, refetch } = usePhotos()
+  const { getSavedCartByShortId, syncCartWithBackend, createSavedCart } = useCart()
 
   const mappedPhotos = useMemo(() => photos.map((photo) => mapBackendPhotoToPhoto(photo)), [photos])
 
@@ -62,8 +64,6 @@ export default function CarritoPage() {
     clearNonFavorites,
     setEmail,
     applyDiscount,
-    saveSession,
-    loadSession,
     clearCart,
     updateTotals,
     selectedCombo,
@@ -72,6 +72,8 @@ export default function CarritoPage() {
     setManualDigitalSubtotal,
     resetManualPrintsSubtotal,
     resetManualDigitalSubtotal,
+    setSavedSessionId,
+    channel,
   } = useCartStore()
 
   const { user, isAuthenticated } = useAuthStore()
@@ -140,9 +142,6 @@ export default function CarritoPage() {
         setIsLoadingAlbumCombos(true)
         const album = await apiFetch<any>(`/albums/${activeAlbumId}`)
 
-        console.log("[Cart Debug] album raw:", album)
-console.log("[Cart Debug] album.combo_ids:", album?.combo_ids)
-console.log("[Cart Debug] album.combos:", album?.combos)
         if (isCancelled) return
 
         const idsFromAlbum =
@@ -254,7 +253,6 @@ console.log("[Cart Debug] album.combos:", album?.combos)
     })
   }, [printSelections])
 
-  // Calcular subtotales para usuarios staff
   const subtotalImpresas = useMemo(
     () => printSelectionSummary.reduce((sum, selection) => sum + selection.totalPrice, 0),
     [printSelectionSummary],
@@ -380,44 +378,59 @@ console.log("[Cart Debug] album.combos:", album?.combos)
     }
   }
 
-  const handleSaveSession = async () => {
+   const handleSaveSession = async () => {
     try {
-      const sessionId = await saveSession()
+      const backendCart = await syncCartWithBackend({ items, email, discountCode, channel });
+      if (!backendCart?.id) {
+        throw new Error("No se pudo sincronizar el carrito con el servidor.");
+      }
+      const savedCart = await createSavedCart(Number(backendCart.id));
+      if (!savedCart?.short_id) {
+        throw new Error("No se pudo obtener el ID corto de la sesión guardada.");
+      }
+      setSavedSessionId(savedCart.short_id)
+
       toast({
         title: "Sesión guardada",
-        description: `ID de sesión: ${sessionId}`,
-      })
-    } catch (error) {
+        description: `ID de sesión: ${savedCart.short_id}`,
+      });
+      clearCart();
+    } catch (error: any) {
       toast({
-        title: "Error",
-        description: "No se pudo guardar la sesión",
+        title: "Error al guardar",
+        description: error.message || "No se pudo guardar la sesión. Intenta de nuevo.",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleLoadSession = async (sessionId?: string) => {
-    const idToLoad = sessionId || sessionIdInput
-    if (!idToLoad) return
-
-    setIsLoadingSession(true)
+    const idToLoad = sessionId || sessionIdInput;
+    if (!idToLoad) return;
+    setIsLoadingSession(true);
     try {
-      await loadSession(idToLoad)
-      setSessionIdInput("")
-      toast({
-        title: "Sesión cargada",
-        description: "Se restauró tu carrito guardado",
-      })
+      const savedCartData = await getSavedCartByShortId(idToLoad);
+      if (savedCartData && savedCartData.cart) {
+        // loadCartData(savedCartData.cart, savedCartData.short_id);
+        await refetch();
+        setSessionIdInput("");
+        toast({
+          title: "Sesión cargada",
+          description: "Se restauró tu carrito guardado",
+        });
+      } else {
+        throw new Error("El carrito guardado no tiene el formato esperado.");
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "No se pudo cargar la sesión",
+        description: "No se pudo cargar la sesión. Verifica el ID.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoadingSession(false)
+      setIsLoadingSession(false);
     }
-  }
+  };
 
   const handleClearNonFavorites = () => {
     clearNonFavorites()
@@ -435,10 +448,10 @@ console.log("[Cart Debug] album.combos:", album?.combos)
     setIsFormatModalOpen(true)
   }
 
-    const handleEditFormatForPhoto = (photoId: string) => {
-        setPhotosForFormatSelection([photoId])
-        setIsFormatModalOpen(true)
-      }
+  const handleEditFormatForPhoto = (photoId: string) => {
+    setPhotosForFormatSelection([photoId])
+    setIsFormatModalOpen(true)
+  }
 
   const handleSelectFormat = (format: PrintFormat, photoIds: string[]) => {
     addPrintSelection(format, photoIds)
@@ -448,14 +461,17 @@ console.log("[Cart Debug] album.combos:", album?.combos)
         photoIds.length === 1 ? "foto" : "fotos"
       }`,
     })
-
     setIsFormatModalOpen(false)
     setPhotosForFormatSelection([])
   }
 
   const isEmailValid = localEmail.includes("@") && localEmail.includes(".")
-
   const hasPrinterWithoutSelection = unassignedPrinterPhotos.length > 0
+  // const effectiveSubtotalImpresas = subtotalImpresasOverride ?? subtotalImpresas
+  // const effectiveSubtotalFotos = subtotalFotosOverride ?? subtotalFotosDigitales
+  // const effectiveTotal = totalOverride ?? effectiveSubtotalImpresas + effectiveSubtotalFotos
+  // const cartPhotoList = useMemo(() => cartPhotos.map((item) => item.photo), [cartPhotos])
+  // const [activeTab, setActiveTab] = useState<"all" | "favorites" | "printer">("all")
 
   const effectiveSubtotalImpresas = printsSubtotalEffective
   const effectiveSubtotalFotos = digitalSubtotalEffective
@@ -511,10 +527,46 @@ useEffect(() => {
       }
       
       
-      // movimiento de fotos segun el tab activo en el modal de preview
-    
-  
+
   if (items.length === 0) {
+    if (savedSessionId) {
+      return (
+        <div className="min-h-screen bg-background">
+          <Header />
+          <div className="container mx-auto px-4 py-16">
+            <div className="mx-auto flex max-w-md flex-col items-center text-center">
+              <h1 className="mb-4 text-3xl font-heading">¡Venta guardada con éxito!</h1>
+              <p className="mb-6 text-muted-foreground">Usa el siguiente ID para recuperar esta venta más tarde:</p>
+              
+              <div className="mb-8 w-full rounded-xl bg-muted p-6 text-center">
+                <p className="text-sm font-medium text-muted-foreground">ID de Sesión</p>
+                <div className="flex items-center justify-center gap-4 mt-2">
+                  <span className="text-4xl font-bold font-mono tracking-widest text-primary">{savedSessionId}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(savedSessionId);
+                      toast({ title: "Copiado", description: "ID de sesión copiado al portapapeles." });
+                    }}
+                  >
+                    Copiar
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                onClick={() => setSavedSessionId(undefined)}
+                 className="rounded-xl bg-primary px-8 font-semibold text-foreground hover:bg-primary-hover"
+              >
+                Iniciar nueva venta
+              </Button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -556,7 +608,7 @@ useEffect(() => {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -566,10 +618,6 @@ useEffect(() => {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="mb-2 text-4xl font-heading text-balance">Revisá tus fotos antes de descargar</h1>
-            {/* <p className="text-muted-foreground">
-              {favoriteCount} / {totalCount} {totalCount === 1 ? "foto" : "fotos"} marcadas como favoritas
-              {printerCount > 0 && ` • ${printerCount} para imprimir`}
-            </p> */}
           </div>
           <div className="flex gap-3">
             {printerCount > 0 && (
@@ -602,7 +650,6 @@ useEffect(() => {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-3">
-          {/* Cart Items */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="all" className="w-full" onValueChange={(value) =>
                     setActiveTab(value as "all" | "favorites" | "printer")
@@ -630,7 +677,7 @@ useEffect(() => {
                     photo={item.photo}
                     isFavorite={item.cartItem.favorite}
                     isPrinter={item.cartItem.printer}
-                      printFormat={printSelectionMap.get(item.photo.id)?.format}
+                    printFormat={printSelectionMap.get(item.photo.id)?.format}
                     onToggleFavorite={() => toggleFavorite(item.photo.id)}
                     onTogglePrinter={() => togglePrinter(item.photo.id)}
                     onRemove={() => removeItem(item.photo.id)}
@@ -639,8 +686,6 @@ useEffect(() => {
                         navigablePhotos.findIndex((p) => p.id === item.photo.id)
                       )
                     }
-                    
-                    
                     onEditPrintFormat={item.cartItem.printer ? () => handleEditFormatForPhoto(item.photo.id) : undefined}
                   />
                 ))}
@@ -673,7 +718,6 @@ useEffect(() => {
                           navigablePhotos.findIndex((p) => p.id === item.photo.id)
                         )
                       }
-                      
                     />
                   ))}
                 </div>  
@@ -706,7 +750,6 @@ useEffect(() => {
                               navigablePhotos.findIndex((p) => p.id === item.photo.id)
                             )
                           }
-                          
                         />
                       ))}
                     </div>
@@ -715,7 +758,6 @@ useEffect(() => {
             </Tabs>
 
             <div className="mt-6 flex gap-3">
-             
               {favoriteCount > 0 && favoriteCount < totalCount && (
             <Button variant="outline" onClick={handleClearNonFavorites}  
             className="flex-1 rounded-xl border-destructive text-destructive hover:bg-[#ffecce] bg-transparent"
@@ -742,7 +784,6 @@ useEffect(() => {
             )}
           </div>
 
-          {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-6 rounded-2xl bg-card p-6 shadow-lg">
               <h2 className="text-2xl font-heading">Resumen</h2>
@@ -886,9 +927,7 @@ useEffect(() => {
               {/* Price Breakdown */}
               <div className="space-y-3 border-t border-gray-200 pt-6">
                 {isStaffUser ? (
-                  // Vista para usuarios staff con montos editables
                   <>
-                    {/* Fotos Impresas */}
                     {printerCount > 0 && (
                       <div className="space-y-2 pb-3 border-b border-gray-200">
                         <div className="flex items-center justify-between">
@@ -961,7 +1000,6 @@ useEffect(() => {
                         </div>
                     )}
 
-                    {/* Fotos Digitales */}
                     <div className="space-y-2 pb-3 border-b border-gray-200">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-muted-foreground">FOTOS</span>
@@ -999,7 +1037,6 @@ useEffect(() => {
                       )}
                     </div>
 
-                   {/* Total calculado automáticamente */}
                     <div className="space-y-2 pt-3">
                       <div className="flex items-center gap-2">
                         <Label className="text-lg font-bold whitespace-nowrap">Total:</Label>
@@ -1020,7 +1057,6 @@ useEffect(() => {
                     </div>
                   </>
                 ) : (
-                  // Vista para visitantes (sin cambios)
                   <>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Subtotal</span>
@@ -1073,7 +1109,6 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Modal de selección de formato */}
       <PrintFormatModal
         isOpen={isFormatModalOpen}
         onClose={() => setIsFormatModalOpen(false)}
@@ -1089,7 +1124,6 @@ useEffect(() => {
         onPrev={handlePrev}
       />
     )}
-
 
     </div>
   )

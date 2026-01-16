@@ -66,6 +66,15 @@ def edit_order(
 ):
     return OrderService(db).edit_order(order_id, order_in)
 
+@router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(PermissionChecker([Permissions.EDIT_ORDER]))
+):
+    OrderService(db).delete_order(order_id)
+    return
+
 @router.post("/{order_id}/send-email")
 def send_order_email(
     order_id: int,

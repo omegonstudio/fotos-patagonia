@@ -535,10 +535,6 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
         failedFiles,
       };
 
-      if (refetchPhotos) {
-        refetchPhotos();
-      }
-
       listeners?.onComplete?.(createdPhotos, batchResult);
       listeners?.onSettle?.(batchResult);
 

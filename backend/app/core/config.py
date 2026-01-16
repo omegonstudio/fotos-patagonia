@@ -39,11 +39,9 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3001"
 
     # Email settings
-    EMAIL_HOST: str | None = None
-    EMAIL_PORT: int = 1025
-    EMAIL_USER: str | None = None
-    EMAIL_PASSWORD: str | None = None
-    EMAIL_FROM: str = "noreply@fotopatagonia.com"
+    EMAIL_FROM: str = "hola@somosfotospatagonia.com"
+
+    RESEND_API_KEY: str = ""
 
     @property
     def storage_allowed_origins(self) -> list[str]:

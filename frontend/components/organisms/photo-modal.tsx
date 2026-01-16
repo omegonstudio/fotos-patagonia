@@ -40,7 +40,11 @@ interface PhotoModalProps {
   albumId?: number; // Nueva prop para el ID del álbum
   onUploadStart?: (photos: UploadingPhoto[]) => void;
   onUploadProgress?: (tempIds: string[], progress: number) => void;
-  onUploadComplete?: (result: { success: string[]; failed: string[] }) => void;
+  onUploadComplete?: (result: {
+    success: string[];
+    failed: string[];
+    createdPhotos?: BackendPhoto[];
+  }) => void;
   onUploadError?: (tempIds: string[]) => void;
 }
 
@@ -368,6 +372,7 @@ export function PhotoModal({
             onUploadComplete?.({
               success: dedupSuccess,
               failed: dedupFailed,
+              createdPhotos: Array.isArray(createdPhotos) ? createdPhotos : [],
             });
             if (selectedTagNames.length && Array.isArray(createdPhotos)) {
               const newPhotoIds = createdPhotos

@@ -97,7 +97,8 @@ export interface CartItem {
   printer: boolean;
 }
 
-export interface CartState {
+export interface CartState {  
+  id?: string;
   items: CartItem[];
   printSelections: PrintSelection[];
   email?: string;

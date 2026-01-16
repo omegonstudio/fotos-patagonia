@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, ForeignKey
+from sqlalchemy import Column, Integer, ForeignKey, String
 from sqlalchemy.orm import relationship
 from db.base import Base
 from .cart import CartSchema
@@ -13,6 +13,7 @@ class SavedCartCreateSchema(SavedCartBaseSchema):
 
 class SavedCartSchema(SavedCartBaseSchema):
     id: int
+    short_id: str
     cart: CartSchema
 
     class Config:
@@ -23,6 +24,7 @@ class SavedCart(Base):
     __tablename__ = "saved_carts"
 
     id = Column(Integer, primary_key=True, index=True)
+    short_id = Column(String, unique=True, index=True)
     cart_id = Column(Integer, ForeignKey("carts.id"))
 
     cart = relationship("Cart", back_populates="saved_cart")

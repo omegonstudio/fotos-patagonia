@@ -26,6 +26,13 @@ class CheckoutService(BaseService):
         # 2. Dynamically build the items list for Mercado Pago
         preference_items = []
         for item in order.items:
+            # VALIDATION: Ensure price is valid before sending to Mercado Pago
+            if not item.price or item.price <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cannot create payment for photo ID {item.photo.id} with a zero or invalid price."
+                )
+
             preference_items.append({
                 "title": item.photo.description or f"Foto ID: {item.photo.id}",
                 "description": "Foto digital descargable de alta resolución",
@@ -169,6 +176,7 @@ class CheckoutService(BaseService):
     def create_order(self, order_in: OrderCreateSchema) -> Order:
         db_order = Order(
             user_id=order_in.user_id,
+            guest_id=order_in.guest_id,
             customer_email=order_in.customer_email,
             total=order_in.total,
             payment_method=order_in.payment_method,

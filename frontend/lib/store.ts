@@ -24,6 +24,7 @@ import type {
   CartComboSelection,
 } from "./types"
 import { getPackSize } from "./print-formats"
+import { apiFetch } from "./api"
 
 const generateSelectionId = () => `sel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
@@ -73,6 +74,9 @@ interface CartStore extends CartState {
   setManualDigitalSubtotal: (value: number) => void
   resetManualPrintsSubtotal: () => void
   resetManualDigitalSubtotal: () => void
+
+  savedSessionId: string | undefined
+  setSavedSessionId: (id: string | undefined) => void
 }
 
 export const useCartStore = create<CartStore>()(
@@ -101,6 +105,7 @@ export const useCartStore = create<CartStore>()(
       totalEffective: 0,
 
       savedSessionId: undefined,
+      setSavedSessionId: (id: string | undefined) => set({ savedSessionId: id }),
       channel: "web",
       selectedCombo: null,
 
