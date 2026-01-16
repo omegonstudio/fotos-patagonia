@@ -65,6 +65,7 @@ class OrderBaseSchema(BaseModel):
 
 class OrderCreateSchema(OrderBaseSchema):
     user_id: Optional[int] = None
+    guest_id: Optional[str] = None
     discount_id: Optional[int] = None
     items: List[OrderItemCreateSchema]
 
@@ -76,6 +77,7 @@ class OrderUpdateSchema(OrderBaseSchema):
     order_status: Optional[OrderStatus] = None
     external_payment_id: Optional[str] = None
     user_id: Optional[int] = None
+    guest_id: Optional[str] = None
     discount_id: Optional[int] = None
 
 class OrderSchema(OrderBaseSchema):
@@ -83,12 +85,12 @@ class OrderSchema(OrderBaseSchema):
     public_id: uuid.UUID
     created_at: Optional[datetime] = None
     user: Optional[UserSchema] = None # User can be optional
+    guest_id: Optional[str] = None
     items: List[OrderItemSchema] = []
     discount: Optional[DiscountSchema] = None
 
     class Config:
         from_attributes = True
-
 class PublicOrderSchema(OrderBaseSchema):
     id: int
     public_id: uuid.UUID
@@ -107,6 +109,7 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), default=uuid.uuid4, index=True, unique=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Allow user_id to be null
+    guest_id = Column(String, nullable=True, index=True)
     customer_email = Column(String(100), nullable=True)
     discount_id = Column(Integer, ForeignKey("discounts.id"), nullable=True)
     total = Column(Float, nullable=False)

@@ -26,17 +26,24 @@ class CheckoutService(BaseService):
         # 2. Dynamically build the items list for Mercado Pago
         preference_items = []
         for item in order.items:
+            # VALIDATION: Ensure price is valid before sending to Mercado Pago
+            if not item.price or item.price <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cannot create payment for photo ID {item.photo.id} with a zero or invalid price."
+                )
+
             preference_items.append({
                 "title": item.photo.description or f"Foto ID: {item.photo.id}",
                 "description": "Foto digital descargable de alta resolución",
-                "quantity": item.quantity,
+                "quantity": item.quantity,\
                 "unit_price": item.price,
                 "currency_id": "ARS" # Assuming ARS, could be dynamic in the future
             })
         
-        # Ensure there's at least one item
+        # Ensure there\'s at least one item
         if not preference_items:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot create payment for an empty order.")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=\"Cannot create payment for an empty order.\")
 
         try:
             sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
@@ -169,6 +176,7 @@ class CheckoutService(BaseService):
     def create_order(self, order_in: OrderCreateSchema) -> Order:
         db_order = Order(
             user_id=order_in.user_id,
+            guest_id=order_in.guest_id,
             customer_email=order_in.customer_email,
             total=order_in.total,
             payment_method=order_in.payment_method,
