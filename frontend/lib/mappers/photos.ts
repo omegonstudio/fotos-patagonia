@@ -8,10 +8,17 @@ interface PhotoMappingOptions {
 }
 
 export function mapBackendPhotoToPhoto(photo: BackendPhoto, options?: PhotoMappingOptions): Photo {
+  console.log("[DEBUG photo raw]", photo)
+  console.log("[DEBUG options raw]", options)
+  
   const session = options?.session ?? photo.session
 
   const albumIdValue =
-    options?.session?.album_id ?? session?.album_id ?? null
+  photo.album_id ??
+  options?.session?.album_id ??
+  session?.album_id ??
+  null
+
 
   const sessionIdValue = options?.session?.id ?? session?.id ?? null
   const photographerName =
