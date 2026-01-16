@@ -5,45 +5,89 @@ interface PresignedUrlResponse {
   url: string
 }
 
-export function usePresignedUrl(objectName?: string | null) {
-  const [url, setUrl] = useState<string>("/placeholder.svg") // Default to a placeholder
-  const [loading, setLoading] = useState(true)
+type UsePresignedUrlOptions = {
+  enabled?: boolean
+}
+
+const PLACEHOLDER_URL = "/placeholder.svg"
+const urlCache = new Map<string, string>()
+const pendingCache = new Map<string, Promise<string>>()
+
+export function usePresignedUrl(
+  objectName?: string | null,
+  options?: UsePresignedUrlOptions
+) {
+  const enabled = options?.enabled ?? true
+  const [url, setUrl] = useState<string>(PLACEHOLDER_URL)
+  const [loading, setLoading] = useState<boolean>(enabled)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!objectName) {
+      setUrl(PLACEHOLDER_URL)
       setLoading(false)
-      setUrl("/placeholder.svg")
+      setError(null)
+      return
+    }
+
+    if (!enabled) {
+      const cachedUrl = urlCache.get(objectName)
+      setUrl(cachedUrl ?? PLACEHOLDER_URL)
+      setLoading(false)
+      setError(null)
       return
     }
 
     let isCancelled = false
-    setLoading(true)
 
-    const fetchUrl = async () => {
-      try {
-        const response = await apiFetch<PresignedUrlResponse>(`/photos/presigned-url/?object_name=${encodeURIComponent(objectName)}`)
+    const cachedUrl = urlCache.get(objectName)
+    if (cachedUrl) {
+      setUrl(cachedUrl)
+      setLoading(false)
+      setError(null)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    const existingPromise = pendingCache.get(objectName)
+    const fetchPromise =
+      existingPromise ??
+      apiFetch<PresignedUrlResponse>(
+        `/photos/presigned-url/?object_name=${encodeURIComponent(objectName)}`
+      ).then((response) => {
+        urlCache.set(objectName, response.url)
+        pendingCache.delete(objectName)
+        return response.url
+      })
+
+    if (!existingPromise) {
+      pendingCache.set(objectName, fetchPromise)
+    }
+
+    fetchPromise
+      .then((fetchedUrl) => {
         if (!isCancelled) {
-          setUrl(response.url)
+          setUrl(fetchedUrl)
         }
-      } catch (e) {
+      })
+      .catch((e) => {
         if (!isCancelled) {
           setError("Failed to fetch image URL")
           console.error(e)
         }
-      } finally {
+      })
+      .finally(() => {
         if (!isCancelled) {
           setLoading(false)
         }
-      }
-    }
-
-    fetchUrl()
+      })
 
     return () => {
       isCancelled = true
     }
-  }, [objectName])
+  }, [objectName, enabled])
 
   return { url, loading, error }
 }
