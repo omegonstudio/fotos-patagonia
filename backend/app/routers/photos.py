@@ -61,8 +61,8 @@ def complete_upload(
         )
 
 @router.get("/", response_model=List[PhotoSchema])
-def list_photos(db: Session = Depends(get_db)):
-    return PhotoService(db).list_photos()
+def list_photos(offset: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+    return PhotoService(db).list_photos(offset=offset, limit=limit)
 
 @router.get("/{photo_id}", response_model=PhotoSchema)
 def get_photo(photo_id: int, db: Session = Depends(get_db)):

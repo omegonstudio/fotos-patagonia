@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 
 export interface BackendPhotoSession {
@@ -42,7 +42,7 @@ export interface BackendPhoto {
 
 export function usePhotos() {
   const [photos, setPhotos] = useState<BackendPhoto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPhotos = useCallback(async () => {
@@ -58,6 +58,19 @@ export function usePhotos() {
       setLoading(false);
     }
   }, []);
+
+  const fetchPhotosPage = async ({
+    offset,
+    limit,
+  }: {
+    offset: number;
+    limit: number;
+  }): Promise<BackendPhoto[]> => {
+    return apiFetch<BackendPhoto[]>(
+      `/photos/?offset=${offset}&limit=${limit}`
+    );
+  };
+  
 
   const getPhoto = async (photoId: number): Promise<BackendPhoto> => {
     const data = await apiFetch<BackendPhoto>(`/photos/${photoId}`);
@@ -106,10 +119,6 @@ export function usePhotos() {
     return data;
   };
 
-  useEffect(() => {
-    fetchPhotos();
-  }, [fetchPhotos]);
-
   return {
     photos,
     loading,
@@ -119,5 +128,6 @@ export function usePhotos() {
     updatePhoto,
     deletePhoto,
     setPhotoTags,
+    fetchPhotosPage,
   };
 }
