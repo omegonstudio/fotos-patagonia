@@ -63,7 +63,7 @@ interface CartStore extends CartState {
   clearPrintSelections: () => void
   clearNonFavorites: () => void
   setEmail: (email: string) => void
-  applyDiscount: (code: string) => Promise<void>
+  applyDiscount: (discount: { id: number; code: string; type: "percent"; value: number }) => void
   saveSession: () => Promise<string>
   loadSession: (sessionId: string) => Promise<void>
   clearCart: () => void
@@ -281,20 +281,22 @@ export const useCartStore = create<CartStore>()(
         set({ email })
       },
 
-      applyDiscount: async (code: string) => {
-        // Mock discount validation
-        const validDiscounts: Record<string, { type: "percent" | "fixed"; value: number }> = {
-          PATAGONIA10: { type: "percent", value: 10 },
-          VERANO2024: { type: "percent", value: 15 },
-          DESCUENTO500: { type: "fixed", value: 500 },
-        }
-
-        const discount = validDiscounts[code.toUpperCase()]
-        if (discount) {
-          set({ discountCode: code, discountInfo: discount })
-        } else {
-          throw new Error("Código de descuento inválido")
-        }
+      applyDiscount: (discount) => {
+        set((state) => {
+          const totalEffective = state.printsSubtotalEffective + state.digitalSubtotalEffective
+          const total = computeDiscountedTotal(totalEffective, {
+            type: discount.type,
+            value: discount.value,
+          })
+      
+          return {
+            discountCode: discount.code,
+            discountInfo: { type: discount.type, value: discount.value },
+            subtotal: totalEffective,
+            totalEffective,
+            total,
+          }
+        })
       },
 
       saveSession: async () => {

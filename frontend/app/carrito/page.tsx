@@ -83,6 +83,7 @@ export default function CarritoPage() {
   const [localEmail, setLocalEmail] = useState(email || "")
   const [localDiscountCode, setLocalDiscountCode] = useState("")
   const [discountError, setDiscountError] = useState("")
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false)
   const [sessionIdInput, setSessionIdInput] = useState("")
   const [isLoadingSession, setIsLoadingSession] = useState(false)
   const { combos, loading: combosLoading } = useCombos()
@@ -306,15 +307,59 @@ console.log("[Cart Debug] album.combos:", album?.combos)
   }
 
   const handleApplyDiscount = async () => {
+    const code = localDiscountCode.trim()
+    if (!code) return
+
+    setIsApplyingDiscount(true)
     try {
-      await applyDiscount(localDiscountCode)
+      const discount = await apiFetch<{
+        id: number
+        code: string
+        percentage: number
+        expires_at: string
+        is_active: boolean
+      }>(`/discounts/validate?code=${encodeURIComponent(code)}`)
+
+      if (!discount) {
+        throw new Error("Código de descuento inválido")
+      }
+
+      if (!discount.is_active) {
+        throw new Error("El descuento no está activo")
+      }
+
+      if (discount.expires_at) {
+        const expiresAt = new Date(discount.expires_at)
+        if (Number.isNaN(expiresAt.getTime())) {
+          throw new Error("La fecha de expiración del descuento es inválida")
+        }
+        if (expiresAt.getTime() < Date.now()) {
+          throw new Error("El descuento ya venció")
+        }
+      }
+
+      applyDiscount({
+        id: discount.id,
+        code: discount.code,
+        type: "percent",
+        value: discount.percentage,
+      })
       setDiscountError("")
       toast({
         title: "Descuento aplicado",
-        description: `Se aplicó el código ${localDiscountCode.toUpperCase()}`,
+        description: `Se aplicó el código ${discount.code.toUpperCase()}`,
       })
     } catch (error) {
-      setDiscountError((error as Error).message)
+      const message =
+        error instanceof Error ? error.message : "No pudimos validar el descuento. Intenta nuevamente."
+      setDiscountError(message)
+      toast({
+        title: "No pudimos aplicar el descuento",
+        description: message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsApplyingDiscount(false)
     }
   }
 
@@ -750,10 +795,10 @@ useEffect(() => {
                     ) : (
                       <Button
                         onClick={handleApplyDiscount}
-                        disabled={!localDiscountCode}
+                        disabled={!localDiscountCode || isApplyingDiscount}
                         className="rounded-xl bg-primary text-foreground"
                       >
-                        Aplicar
+                        {isApplyingDiscount ? "Validando..." : "Aplicar"}
                       </Button>
                     )}
                   </div>
