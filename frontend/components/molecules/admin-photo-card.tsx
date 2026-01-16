@@ -7,7 +7,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
-import { useInViewOnce } from "@/hooks/useInViewOnce";
 import { buildThumbObjectName } from "@/lib/photo-thumbnails";
 import type { BackendPhoto } from "@/hooks/photos/usePhotos"; // Ajusta la ruta si es necesario
 
@@ -28,23 +27,18 @@ export function AdminPhotoCard({
 }: AdminPhotoCardProps) {
   const previewObjectName =
     photo.thumbnail_object_name ?? buildThumbObjectName(photo.object_name);
-  const { ref, inView } = useInViewOnce<HTMLDivElement>();
-  const { url: imageUrl, loading: imageLoading } = usePresignedUrl(
-    previewObjectName,
-    { enabled: inView }
-  );
-  const showSkeleton = !inView || imageLoading;
+  const { url: imageUrl, loading: imageLoading } =
+    usePresignedUrl(previewObjectName);
 
   return (
     <Card
-      ref={ref}
       className={cn(
         "group relative overflow-hidden rounded-2xl bg-muted transition-all hover:shadow-xl",
         isSelected && "ring-2 ring-destructive/70"
       )}
     >
       <div className="relative aspect-square overflow-hidden">
-        {showSkeleton ? (
+        {imageLoading ? (
           <div className="flex h-full w-full animate-pulse items-center justify-center bg-gray-200">
             <ImageIcon className="h-12 w-12 text-gray-400" />
           </div>
@@ -53,9 +47,6 @@ export function AdminPhotoCard({
             src={imageUrl}
             alt={photo.filename}
             fill
-            loading="lazy"
-            priority={false}
-            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         )}
