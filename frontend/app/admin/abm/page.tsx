@@ -51,18 +51,22 @@ export default function ContentManagementPage() {
 
   const userIsAdmin = isAdmin(user)
 
+  const photographerAllowedItems = ["albums", "tags", "discounts"]
+
+
   // Filtrar contentItems según el rol del usuario
   const visibleItems = contentItems.filter((item) => {
-    // Si es admin, puede ver todo
-    if (userIsAdmin) {
-      return true
+    // Admin ve todo
+    if (userIsAdmin) return true
+  
+    // Fotógrafo / Vendedor
+    if (roleName === "fotógrafo" || roleName === "vendedor") {
+      return photographerAllowedItems.includes(item.id)
     }
-    // Si es vendedor/fotógrafo, solo puede ver tags
-    if (roleName === "vendedor" || roleName === "fotógrafo") {
-      return item.id === "tags"
-    }
+  
     return false
   })
+  
 
   return (
     <div className="container mx-auto px-4 py-8">

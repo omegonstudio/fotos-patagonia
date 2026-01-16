@@ -24,6 +24,7 @@ import { useAuthStore } from "@/lib/store";
 import { usePhotographers } from "@/hooks/photographers/usePhotographers";
 import { useEarningsSummaryAll } from "@/hooks/earnings/useEarningsSummaryAll";
 import { useOrders } from "@/hooks/orders/useOrders";
+import { PhotographerDashboard } from "@/components/organisms/PhotographerDashboard";
 
 export default function AdminDashboard() {
   const user = useAuthStore((state) => state.user);
@@ -349,44 +350,46 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Recent Orders */}
-      <Card className="rounded-2xl border-gray-200">
-        <CardHeader>
-          <CardTitle>{texts.recentOrdersTitle}</CardTitle>
-          <CardDescription>{texts.recentOrdersDesc}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {recentOrders.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              {isPhotographer
-                ? "No hay pedidos con tus fotos"
-                : "No hay pedidos registrados"}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recentOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="flex items-center justify-between rounded-xl border border-gray-200 p-4"
-                >
-                  <div className="flex-1">
-                    <p className="font-semibold">Pedido #{order.id}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {order.customer_email || "Sin email"}
-                    </p>
+      {/* Recent Orders or Photographer Dashboard */}
+      {isPhotographer && photographerId ? (
+        <PhotographerDashboard photographerId={photographerId} />
+      ) : (
+        <Card className="rounded-2xl border-gray-200">
+          <CardHeader>
+            <CardTitle>{texts.recentOrdersTitle}</CardTitle>
+            <CardDescription>{texts.recentOrdersDesc}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {recentOrders.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                No hay pedidos registrados
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="flex items-center justify-between rounded-xl border border-gray-200 p-4"
+                  >
+                    <div className="flex-1">
+                      <p className="font-semibold">Pedido #{order.id}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {order.customer_email || "Sin email"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">${order.total}</p>
+                      <p className="text-sm capitalize text-muted-foreground">
+                        {order.order_status?.replace("_", " ") || "Sin estado"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold">${order.total}</p>
-                    <p className="text-sm capitalize text-muted-foreground">
-                      {order.order_status?.replace("_", " ") || "Sin estado"}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

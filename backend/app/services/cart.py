@@ -1,11 +1,69 @@
 from sqlalchemy.orm import Session, joinedload
-from models.cart import Cart, CartItem, CartItemCreateSchema
+from models.cart import Cart, CartItem, CartItemCreateSchema, CartUpdateSchema
 from fastapi import HTTPException
 
 class CartService:
     def __init__(self, db: Session):
         self.db = db
 
+    def get_cart_by_id(self, cart_id: int) -> Cart:
+        cart = self.db.query(Cart).options(joinedload(Cart.items).joinedload(CartItem.photo)).filter(Cart.id == cart_id).first()
+        if not cart:
+            raise HTTPException(status_code=404, detail="Cart not found")
+        return cart
+
+    def update_cart(self, cart_id: int, cart_in: CartUpdateSchema):
+        cart = self.get_cart_by_id(cart_id)
+
+        # Actualizar campos simples
+        cart.user_email = cart_in.user_email
+        cart.discount_code = cart_in.discount_code
+        
+        # Vaciar items existentes
+        for item in cart.items:
+            self.db.delete(item)
+        self.db.flush()
+
+        # Añadir nuevos items
+        for item_in in cart_in.items:
+            new_item = CartItem(
+                cart_id=cart.id,
+                photo_id=item_in.photo_id,
+                quantity=item_in.quantity
+            )
+            self.db.add(new_item)
+        
+        self.db.commit()
+        self.db.refresh(cart)
+        return self.get_cart_by_id(cart_id)
+        
+    def create_cart_with_items(self, cart_in: CartUpdateSchema, user_id: int | None = None, guest_id: str | None = None) -> Cart:
+        if user_id is None and guest_id is None:
+            raise ValueError("Se requiere user_id o guest_id")
+
+        # Crear el carrito
+        new_cart = Cart(
+            user_id=user_id,
+            guest_id=guest_id,
+            user_email=cart_in.user_email,
+            discount_code=cart_in.discount_code
+        )
+        self.db.add(new_cart)
+        self.db.flush() # Para obtener el ID del nuevo carrito
+
+        # Añadir items
+        for item_in in cart_in.items:
+            new_item = CartItem(
+                cart_id=new_cart.id,
+                photo_id=item_in.photo_id,
+                quantity=item_in.quantity
+            )
+            self.db.add(new_item)
+        
+        self.db.commit()
+        self.db.refresh(new_cart)
+        return self.get_cart_by_id(new_cart.id)
+        
     def get_or_create_cart(self, user_id: int | None = None, guest_id: str | None = None) -> Cart:
         if user_id is None and guest_id is None:
             raise ValueError("Se requiere user_id o guest_id")
@@ -105,3 +163,4 @@ class CartService:
         
         self.db.delete(guest_cart)
         self.db.commit()
+

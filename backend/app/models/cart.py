@@ -21,6 +21,15 @@ class CartItemSchema(CartItemBaseSchema):
     class Config:
         from_attributes = True
 
+class CartItemUpdateSchema(BaseModel):
+    photo_id: int
+    quantity: int
+
+class CartUpdateSchema(BaseModel):
+    items: List[CartItemUpdateSchema] = []
+    user_email: Optional[str] = None
+    discount_code: Optional[str] = None
+
 class CartBaseSchema(BaseModel):
     pass
 
@@ -47,6 +56,8 @@ class Cart(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, unique=True)
     guest_id = Column(String, nullable=True, unique=True, index=True)
+    user_email = Column(String, nullable=True)
+    discount_code = Column(String, nullable=True)
     photo_session_id = Column(Integer, ForeignKey("photo_sessions.id"), nullable=True)
 
     user = relationship("User", back_populates="carts")

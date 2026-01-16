@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
-from deps import get_db, PermissionChecker
+from deps import get_db, PermissionChecker, get_current_user_or_guest
 from services.saved_carts import SavedCartService
 from models.saved_cart import SavedCartSchema, SavedCartCreateSchema
 from core.permissions import Permissions
@@ -23,9 +23,16 @@ def list_saved_carts(
 def create_saved_cart(
     saved_cart_in: SavedCartCreateSchema,
     db: Session = Depends(get_db),
-    current_user: User = Depends(PermissionChecker([Permissions.LIST_ALL_ORDERS]))
+    current_user: User = Depends(get_current_user_or_guest) # Permitir invitados
 ):
     return SavedCartService(db).create_saved_cart(saved_cart_in=saved_cart_in)
+
+@router.get("/by-short-id/{short_id}", response_model=SavedCartSchema)
+def get_saved_cart_by_short_id(
+    short_id: str,
+    db: Session = Depends(get_db)
+):
+    return SavedCartService(db).get_saved_cart_by_short_id(short_id=short_id)
 
 @router.get("/{saved_cart_id}", response_model=SavedCartSchema)
 def get_saved_cart(
