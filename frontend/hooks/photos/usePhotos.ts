@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 
 export interface BackendPhotoSession {
@@ -42,7 +42,7 @@ export interface BackendPhoto {
 
 export function usePhotos() {
   const [photos, setPhotos] = useState<BackendPhoto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPhotos = useCallback(async () => {
@@ -58,6 +58,25 @@ export function usePhotos() {
       setLoading(false);
     }
   }, []);
+
+  const fetchPhotosPage = useCallback(
+    async ({ page, limit }: { page: number; limit: number }) => {
+      try {
+        setLoading(true);
+        const data = await apiFetch<BackendPhoto[]>(
+          `/photos/?page=${page}&limit=${limit}`
+        );
+        setError(null);
+        return data;
+      } catch (err: any) {
+        setError(err?.message ?? "Error fetching paginated photos");
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   const getPhoto = async (photoId: number): Promise<BackendPhoto> => {
     const data = await apiFetch<BackendPhoto>(`/photos/${photoId}`);
@@ -106,10 +125,6 @@ export function usePhotos() {
     return data;
   };
 
-  useEffect(() => {
-    fetchPhotos();
-  }, [fetchPhotos]);
-
   return {
     photos,
     loading,
@@ -119,5 +134,6 @@ export function usePhotos() {
     updatePhoto,
     deletePhoto,
     setPhotoTags,
+    fetchPhotosPage,
   };
 }

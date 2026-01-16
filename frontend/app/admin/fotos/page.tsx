@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Check, Search, Plus, Loader2, Trash, Pencil } from "lucide-react";
+import { Search, Plus, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -40,12 +39,18 @@ export default function FotosPage() {
   const [deleteTargetIds, setDeleteTargetIds] = useState<number[]>([]);
   const [deleting, setDeleting] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState<UploadingPhoto[]>([]);
+  const [newPhotos, setNewPhotos] = useState<BackendPhoto[]>([]);
+  const [oldPhotos, setOldPhotos] = useState<BackendPhoto[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   // Obtener fotos y sesiones del backend
-  const { photos, loading, refetch, deletePhoto } = usePhotos();
+  const { loading, deletePhoto, fetchPhotosPage, getPhoto } = usePhotos();
   const { sessions } = useSessions();
 
-  const filteredPhotos = photos.filter((photo) => {
+  const combinedPhotos = [...newPhotos, ...oldPhotos];
+
+  const filteredPhotos = combinedPhotos.filter((photo) => {
     const searchLower = searchTerm.toLowerCase();
     return (
       photo.filename?.toLowerCase().includes(searchLower) ||
@@ -91,10 +96,15 @@ export default function FotosPage() {
     try {
       // Eliminar en paralelo
       await Promise.all(deleteTargetIds.map((id) => deletePhoto(id)));
-      // Refrescar y limpiar selección
-      await refetch();
+      // Limpiar selección y actualizar listas locales
       setSelectedPhotoIds((prev) =>
         prev.filter((id) => !deleteTargetIds.includes(id))
+      );
+      setNewPhotos((prev) =>
+        prev.filter((photo) => !deleteTargetIds.includes(photo.id))
+      );
+      setOldPhotos((prev) =>
+        prev.filter((photo) => !deleteTargetIds.includes(photo.id))
       );
       setDeleteTargetIds([]);
       setIsConfirmOpen(false);
@@ -103,9 +113,19 @@ export default function FotosPage() {
     }
   };
 
-  const handlePhotoSaved = () => {
-    // Refrescar la lista de fotos después de guardar
-    refetch();
+  const handlePhotoSaved = async () => {
+    if (!selectedPhoto) return;
+    try {
+      const updated = await getPhoto(selectedPhoto.id);
+      setNewPhotos((prev) =>
+        prev.map((photo) => (photo.id === updated.id ? updated : photo))
+      );
+      setOldPhotos((prev) =>
+        prev.map((photo) => (photo.id === updated.id ? updated : photo))
+      );
+    } catch (error) {
+      console.error("Error actualizando foto editada", error);
+    }
   };
 
   const toggleSelect = (id: number) => {
@@ -159,7 +179,11 @@ export default function FotosPage() {
     );
   };
 
-  const handleUploadComplete = (result: { success: string[]; failed: string[] }) => {
+  const handleUploadComplete = (result: {
+    success: string[];
+    failed: string[];
+    createdPhotos?: BackendPhoto[];
+  }) => {
     const successSet = new Set(result.success);
     const failedSet = new Set(result.failed);
     setUploadingPhotos((prev) =>
@@ -171,7 +195,18 @@ export default function FotosPage() {
             : photo
         )
     );
-    void refetch();
+    const created = result.createdPhotos ?? [];
+    if (created.length > 0) {
+      const createdIds = new Set(created.map((p) => p.id));
+      setNewPhotos((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        const unique = created.filter((p) => !existingIds.has(p.id));
+        return [...unique, ...prev];
+      });
+      setOldPhotos((prev) =>
+        prev.filter((photo) => !createdIds.has(photo.id))
+      );
+    }
   };
 
   const handleUploadError = (tempIds: string[]) => {
@@ -183,6 +218,26 @@ export default function FotosPage() {
           : photo
       )
     );
+  };
+
+  const handleLoadMore = async () => {
+    if (!hasMore || loading) return;
+    try {
+      const data =
+        (await fetchPhotosPage({ page, limit: 10 })) ?? [];
+      const filtered = data.filter(
+        (photo) =>
+          !newPhotos.some((p) => p.id === photo.id) &&
+          !oldPhotos.some((p) => p.id === photo.id)
+      );
+      setOldPhotos((prev) => [...prev, ...filtered]);
+      setPage((prev) => prev + 1);
+      if (data.length < 10) {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error("Error cargando más fotos", error);
+    }
   };
   
   return (
@@ -310,6 +365,19 @@ export default function FotosPage() {
               );
             })}
           </div>
+
+          {hasMore && (
+            <div className="mt-8 flex justify-center">
+              <Button
+                variant="outline"
+                onClick={handleLoadMore}
+                disabled={loading}
+                className="rounded-xl"
+              >
+                Ver más
+              </Button>
+            </div>
+          )}
 
           {filteredPhotos.length === 0 && !loading && (
             <Card className="rounded-2xl border-gray-200">
