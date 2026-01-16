@@ -36,14 +36,14 @@ class CheckoutService(BaseService):
             preference_items.append({
                 "title": item.photo.description or f"Foto ID: {item.photo.id}",
                 "description": "Foto digital descargable de alta resolución",
-                "quantity": item.quantity,\
+                "quantity": item.quantity,
                 "unit_price": item.price,
                 "currency_id": "ARS" # Assuming ARS, could be dynamic in the future
             })
         
-        # Ensure there\'s at least one item
+        # Ensure there's at least one item
         if not preference_items:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=\"Cannot create payment for an empty order.\")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot create payment for an empty order.")
 
         try:
             sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)

@@ -16,3 +16,4 @@ pytest-asyncio
 alembic
 asyncpg
 nanoid
+resend
