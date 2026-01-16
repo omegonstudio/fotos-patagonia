@@ -59,24 +59,18 @@ export function usePhotos() {
     }
   }, []);
 
-  const fetchPhotosPage = useCallback(
-    async ({ page, limit }: { page: number; limit: number }) => {
-      try {
-        setLoading(true);
-        const data = await apiFetch<BackendPhoto[]>(
-          `/photos/?page=${page}&limit=${limit}`
-        );
-        setError(null);
-        return data;
-      } catch (err: any) {
-        setError(err?.message ?? "Error fetching paginated photos");
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+  const fetchPhotosPage = async ({
+    offset,
+    limit,
+  }: {
+    offset: number;
+    limit: number;
+  }): Promise<BackendPhoto[]> => {
+    return apiFetch<BackendPhoto[]>(
+      `/photos/?offset=${offset}&limit=${limit}`
+    );
+  };
+  
 
   const getPhoto = async (photoId: number): Promise<BackendPhoto> => {
     const data = await apiFetch<BackendPhoto>(`/photos/${photoId}`);

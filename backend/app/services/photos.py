@@ -93,12 +93,12 @@ class PhotoService(BaseService):
         self.ensure_object_belongs_to_photo(object_name)
         return storage_service.generate_presigned_get_url(object_name)
 
-    def list_photos(self) -> List[PhotoSchema]:
+    def list_photos(self, offset: int = 0, limit: int = 10) -> List[PhotoSchema]:
         """Returns a list of all photos with presigned URLs."""
         photos = self.db.query(Photo).options(
             joinedload(Photo.photographer),
             joinedload(Photo.session).joinedload(PhotoSession.album)
-        ).all()
+        ).order_by(Photo.created_at.desc(), Photo.id.desc()).offset(offset).limit(limit).all()
         return [self._generate_presigned_urls(p) for p in photos]
 
     def get_photo(self, photo_id: int) -> PhotoSchema:

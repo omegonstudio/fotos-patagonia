@@ -41,7 +41,8 @@ export default function FotosPage() {
   const [uploadingPhotos, setUploadingPhotos] = useState<UploadingPhoto[]>([]);
   const [newPhotos, setNewPhotos] = useState<BackendPhoto[]>([]);
   const [oldPhotos, setOldPhotos] = useState<BackendPhoto[]>([]);
-  const [page, setPage] = useState(1);
+  const [offset, setOffset] = useState(0);
+  const LIMIT = 10;
   const [hasMore, setHasMore] = useState(true);
 
   // Obtener fotos y sesiones del backend
@@ -222,23 +223,29 @@ export default function FotosPage() {
 
   const handleLoadMore = async () => {
     if (!hasMore || loading) return;
+  
     try {
       const data =
-        (await fetchPhotosPage({ page, limit: 10 })) ?? [];
+        (await fetchPhotosPage({ offset, limit: LIMIT })) ?? [];
+  
+      // evitar duplicados
       const filtered = data.filter(
         (photo) =>
           !newPhotos.some((p) => p.id === photo.id) &&
           !oldPhotos.some((p) => p.id === photo.id)
       );
+  
       setOldPhotos((prev) => [...prev, ...filtered]);
-      setPage((prev) => prev + 1);
-      if (data.length < 10) {
+      setOffset((prev) => prev + LIMIT);
+  
+      if (data.length < LIMIT) {
         setHasMore(false);
       }
     } catch (error) {
       console.error("Error cargando más fotos", error);
     }
   };
+  
   
   return (
     <div className="container mx-auto px-4 py-8">
