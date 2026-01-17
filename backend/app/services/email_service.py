@@ -1,7 +1,4 @@
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-
+import resend
 from core.config import settings
 
 
@@ -11,26 +8,38 @@ def send_email(
     body: str,
     html: bool = False
 ):
-    if not settings.EMAIL_HOST:
-        print("Email host not configured. Skipping email sending.")
+    print("--- Attempting to send email via Resend API ---")
+    print(f"To: {to_email}")
+    print(f"Subject: {subject}")
+
+    if not settings.RESEND_API_KEY:
+        print("CRITICAL: RESEND_API_KEY is not configured. Skipping email sending.")
         return
 
-    msg = MIMEMultipart("alternative")
-    msg["From"] = settings.EMAIL_FROM
-    msg["To"] = to_email
-    msg["Subject"] = subject
-
-    if html:
-        msg.attach(MIMEText(body, "html"))
-    else:
-        msg.attach(MIMEText(body, "plain"))
+    if not settings.EMAIL_FROM:
+        print("CRITICAL: EMAIL_FROM is not configured. Skipping email sending.")
+        return
 
     try:
-        with smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT) as server:
-            if settings.EMAIL_USER and settings.EMAIL_PASSWORD:
-                server.starttls()
-                server.login(settings.EMAIL_USER, settings.EMAIL_PASSWORD)
-            server.sendmail(settings.EMAIL_FROM, to_email, msg.as_string())
-        print(f"Email sent to {to_email} with subject {subject}")
+        resend.api_key = settings.RESEND_API_KEY
+        params = {
+            "from": settings.EMAIL_FROM,
+            "to": [to_email],
+            "subject": subject,
+        }
+
+        if html:
+            params["html"] = body
+        else:
+            params["text"] = body
+
+        print("DEBUG: Sending email with params:", {"from": params["from"], "to": params["to"], "subject": params["subject"]})
+
+        email = resend.Emails.send(params)
+
+        print(f"SUCCESS: Email sent successfully to {to_email}. Resend ID: {email['id']}")
+
     except Exception as e:
-        print(f"Error sending email to {to_email}: {e}")
+        print(f"CRITICAL: Failed to send email to {to_email} via Resend. Error: {e}")
+        # Opcional: podrías relanzar la excepción si quieres que el proceso que llama se entere del error.
+        # raise e
