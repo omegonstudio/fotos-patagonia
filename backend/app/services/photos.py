@@ -98,7 +98,7 @@ class PhotoService(BaseService):
         photos = self.db.query(Photo).options(
             joinedload(Photo.photographer),
             joinedload(Photo.session).joinedload(PhotoSession.album)
-        ).order_by(Photo.created_at.desc(), Photo.id.desc()).offset(offset).limit(limit).all()
+        ).order_by(Photo.id.desc()).offset(offset).limit(limit).all()
         return [self._generate_presigned_urls(p) for p in photos]
 
     def get_photo(self, photo_id: int) -> PhotoSchema:
