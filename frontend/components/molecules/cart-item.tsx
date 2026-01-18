@@ -99,8 +99,9 @@ export function CartItem({
         </div>
         {/* Info del formato si está seleccionado */}
 
-        <button
-           type="button"
+        {isPrinter && printFormat && (
+          <button
+            type="button"
             onClick={onEditPrintFormat}
             className={cn(
               "text-left text-xs text-muted-foreground rounded-lg px-2 py-1 -mx-2",
@@ -112,12 +113,13 @@ export function CartItem({
           >
             <div className="flex justify-between items-center">
               <span className="font-medium inline-flex items-center gap-1">
-                {printFormat?.name}
+                {printFormat.name}
                 <Pencil className="h-3.5 w-3.5 opacity-70" />
               </span>
-              <span className="font-semibold text-primary">${printFormat?.price}</span>
+              <span className="font-semibold text-primary">${printFormat.price}</span>
             </div>
           </button>
+        )}
        {/*  {isPrinter && printFormat && (
           <div className="text-xs text-muted-foreground">
             <div className="flex justify-between items-center">
