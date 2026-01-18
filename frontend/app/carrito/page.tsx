@@ -20,12 +20,24 @@ import { isAdmin } from "@/lib/types"
 import type { Photo, PrintFormat } from "@/lib/types"
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 import { getPackSize } from "@/lib/print-formats"
+import Loading from "./loading"
 
 export default function CarritoPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const { photos } = usePhotos()
+  const { photos, refetch: fetchPhotos, loading: isLoadingPhotos } = usePhotos()
+  const [isStoreHydrated, setIsStoreHydrated] = useState(false)
+
+  useEffect(() => {
+    fetchPhotos()
+  }, [fetchPhotos]);
+  
+  useEffect(() => {
+    // El store de zustand persistido se hidrata después del montaje inicial.
+    // Este efecto se asegura de que sepamos cuándo está listo.
+    setIsStoreHydrated(true)
+  }, [])
 
   const mappedPhotos = useMemo(() => photos.map((photo) => mapBackendPhotoToPhoto(photo)), [photos])
 
@@ -95,13 +107,15 @@ export default function CarritoPage() {
   }, [items, printSelections, discountInfo, updateTotals, mappedPhotos])
 
   const cartPhotos = useMemo(() => {
+    // No calcular hasta que las fotos y el carrito estén listos
+    if (isLoadingPhotos || !isStoreHydrated) return []
     return items
       .map((item) => {
         const photo = photosMap.get(item.photoId)
         return photo ? { photo, cartItem: item } : null
       })
-      .filter((item) => item !== null)
-  }, [items, photosMap])
+      .filter((item): item is { photo: Photo; cartItem: typeof items[0] } => item !== null)
+  }, [items, photosMap, isLoadingPhotos, isStoreHydrated])
 
   const favoritePhotos = useMemo(() => {
     return cartPhotos.filter((item) => item.cartItem.favorite)
@@ -313,6 +327,9 @@ export default function CarritoPage() {
       
       // movimiento de fotos segun el tab activo en el modal de preview
     
+  if (isLoadingPhotos || !isStoreHydrated) {
+    return <Loading />
+  }
   
   if (items.length === 0) {
     return (
