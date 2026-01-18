@@ -116,6 +116,25 @@ class PhotoService(BaseService):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found")
         return self._generate_presigned_urls(photo)
 
+    def get_photos_by_ids(self, photo_ids: List[int]) -> List[PhotoSchema]:
+        """
+        Returns a list of photos by their specific IDs.
+        """
+        if not photo_ids:
+            return []
+        
+        photos = (
+            self.db.query(Photo)
+            .options(
+                joinedload(Photo.photographer),
+                joinedload(Photo.session).joinedload(PhotoSession.album),
+            )
+            .filter(Photo.id.in_(photo_ids))
+            .all()
+        )
+        return [self._generate_presigned_urls(p) for p in photos]
+
+
     def create_photo(self, photo_in: PhotoCreateSchema) -> Photo:
         """Creates a new photo record in the database."""
         db_photo = Photo(**photo_in.model_dump())

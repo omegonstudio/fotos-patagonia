@@ -26,28 +26,8 @@ export default function CarritoPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const { photos, refetch: fetchPhotos, loading: isLoadingPhotos } = usePhotos()
+  const { photos, refetch: fetchPhotos, fetchPhotosByIds, loading: isLoadingPhotos } = usePhotos()
   const [isStoreHydrated, setIsStoreHydrated] = useState(false)
-
-  useEffect(() => {
-    fetchPhotos()
-  }, [fetchPhotos]);
-  
-  useEffect(() => {
-    // El store de zustand persistido se hidrata después del montaje inicial.
-    // Este efecto se asegura de que sepamos cuándo está listo.
-    setIsStoreHydrated(true)
-  }, [])
-
-  const mappedPhotos = useMemo(() => photos.map((photo) => mapBackendPhotoToPhoto(photo)), [photos])
-
-  const photosMap = useMemo(() => {
-    const map = new Map<string, Photo>()
-    mappedPhotos.forEach((photo) => {
-      map.set(photo.id, photo)
-    })
-    return map
-  }, [mappedPhotos])
 
   const {
     items,
@@ -77,6 +57,29 @@ export default function CarritoPage() {
     subtotalFotosOverride,
     totalOverride,
   } = useCartStore()
+  
+  useEffect(() => {
+    // El store de zustand persistido se hidrata después del montaje inicial.
+    // Este efecto se asegura de que sepamos cuándo está listo.
+    setIsStoreHydrated(true)
+  }, [])
+  
+  useEffect(() => {
+    if (isStoreHydrated) {
+      const photoIds = items.map((item) => parseInt(item.photoId, 10));
+      fetchPhotosByIds(photoIds);
+    }
+  }, [isStoreHydrated, items, fetchPhotosByIds]);
+
+  const mappedPhotos = useMemo(() => photos.map((photo) => mapBackendPhotoToPhoto(photo)), [photos])
+
+  const photosMap = useMemo(() => {
+    const map = new Map<string, Photo>()
+    mappedPhotos.forEach((photo) => {
+      map.set(photo.id, photo)
+    })
+    return map
+  }, [mappedPhotos])
 
   const { user, isAuthenticated } = useAuthStore()
 

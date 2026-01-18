@@ -64,6 +64,18 @@ def complete_upload(
 def list_photos(offset: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     return PhotoService(db).list_photos(offset=offset, limit=limit)
 
+class PhotoIdsRequest(BaseModel):
+    photo_ids: List[int]
+
+@router.post("/by-ids", response_model=List[PhotoSchema])
+def get_photos_by_ids(request: PhotoIdsRequest, db: Session = Depends(get_db)):
+    """
+    Retrieves a list of photos by their specific IDs.
+    """
+    photo_service = PhotoService(db)
+    return photo_service.get_photos_by_ids(photo_ids=request.photo_ids)
+
+
 @router.get("/{photo_id}", response_model=PhotoSchema)
 def get_photo(photo_id: int, db: Session = Depends(get_db)):
     return PhotoService(db).get_photo(photo_id=photo_id)
