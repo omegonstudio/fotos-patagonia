@@ -6,11 +6,12 @@ import type { Photo } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useCartStore } from "@/lib/store"
+import { useAuthStore, useCartStore } from "@/lib/store"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
 import { formatPhotoDate } from "@/lib/datetime"
 import { usePhotoViewerImage } from "@/hooks/photos/usePhotoViewerImage"
 import { useState } from "react"
+import { isAdmin } from "@/lib/types"
 
 interface PhotoViewerModalProps {
   photo: Photo
@@ -91,7 +92,9 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
   const handleTogglePrinter = () => {
     togglePrinter(photo.id)
   }
+  const { user, isAuthenticated } = useAuthStore()
 
+  const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
 
 
   return (
@@ -171,14 +174,14 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
               )}
             </div>
 
-            <div className="flex gap-2">
-              <button
+           <div className="flex gap-2">
+           {isStaffUser &&  <button
                 onClick={() => setIsFullscreen(true)}
                 className="rounded-full bg-muted p-2 text-muted-foreground transition-colors hover:bg-muted/80"
                 aria-label="Ver en pantalla completa"
               >
                 <ImageIcon className="h-5 w-5" />
-              </button>
+              </button>}
 
               <button
                 onClick={handleToggleFavorite}
@@ -193,7 +196,7 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
                 <Heart className={cn("h-5 w-5", isFavorite && "fill-current")} />
               </button>
 
-              <button
+              {isStaffUser && <button
                 onClick={handleTogglePrinter}
                 className={cn(
                   "rounded-full p-2 transition-colors",
@@ -204,7 +207,7 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
                 aria-label={isPrinter ? "Quitar de impresión" : "Marcar para imprimir"}
               >
                 <Printer className="h-5 w-5" />
-              </button>
+              </button>}
             </div>
           </div>
 
