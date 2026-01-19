@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     FRONTEND_URL: str = "http://localhost:3001"
 
-    EMAIL_FROM: str = "hola@somosfotospatagonia.com"
+    EMAIL_FROM: str = "Fotos Patagonia <hola@somosfotospatagonia.com>"
     RESEND_API_KEY: str = ""
 
     @property

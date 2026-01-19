@@ -4,6 +4,7 @@ from models.order import Order, OrderItem, OrderStatus, OrderUpdateSchema, Payme
 from models.earning import Earning
 from models.photo import Photo
 from services.base import BaseService
+from models.photo_session import PhotoSession # Importar PhotoSession
 from services.email_service import send_email
 from services.cart import CartService # Importar CartService
 from core.config import settings
@@ -62,15 +63,92 @@ class OrderService(BaseService):
 
         order_page_link = f"{settings.FRONTEND_URL}/pedidos/{order.public_id}"
         
-        subject = f"Confirmación de tu orden #{order.id} en Fotos Patagonia"
+        # Determinar el nombre del cliente
+        customer_name = "Cliente"
+        if order.customer_email:
+            customer_name = order.customer_email.split('@')[0]
+        elif order.user and order.user.email:
+            customer_name = order.user.email.split('@')[0]
+
+        # Obtener el nombre del álbum (PhotoSession event_name) del primer item, si existe
+        album_name = "tu compra"
+        if order.items and order.items[0].photo and order.items[0].photo.session and order.items[0].photo.session.event_name:
+            album_name = order.items[0].photo.session.event_name
+
+        # Construir tabla con los items del pedido
+        items_html = ""
+        for item in order.items:
+            photo_description = f"Foto ID: {item.photo_id}" # Fallback
+            if item.photo and item.photo.filename:
+                photo_description = item.photo.filename
+            elif item.photo and item.photo.session and item.photo.session.event_name:
+                photo_description = f"{item.photo.session.event_name} - {item.photo.filename}" # Mejor descripción si hay sesión
+            
+            items_html += f"<tr><td>{photo_description}</td><td style='text-align: center;'>{item.quantity}</td><td style='text-align: right;'>${item.price:.2f}</td></tr>"
+
+        subject = f"Tus fotos de {album_name} ya están listas para descargar 📸"
         email_body = f"""
-        <h1>¡Gracias por tu compra!</h1>
-        <p>Hola,</p>
-        <p>Tu orden #{order.id} ha sido confirmada.</p>
-        <p>Puedes ver los detalles de tu pedido y acceder a tus fotos usando el siguiente enlace:</p>
-        <p><a href="{order_page_link}">{order_page_link}</a></p>
-        <p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
-        <p>Gracias por elegir Fotos Patagonia.</p>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; color: #333; line-height: 1.6; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px; background-color: #fff; }}
+                h1, h2, h3 {{ color: #000; }}
+                p {{ margin-bottom: 10px; }}
+                .button {{ display: inline-block; padding: 10px 20px; margin: 20px 0; background-color: #007bff; color: #ffffff !important; text-decoration: none; border-radius: 5px; font-weight: bold; }}
+                .highlight {{ background-color: #f2f2f2; padding: 15px; border-radius: 5px; margin-bottom: 20px; }}
+                .footer {{ font-size: 0.9em; color: #777; border-top: 1px solid #eee; padding-top: 20px; margin-top: 20px; }}
+                .contact-info {{ margin-top: 15px; }}
+                .contact-info a {{ color: #007bff; text-decoration: none; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <p>Hola {customer_name},</p>
+
+                <p>¡Gracias por tu compra!</p>
+                <p>Ya podés descargar tus fotos en máxima calidad, listas para guardar, compartir o imprimir.</p>
+
+                <p style="text-align: center;">
+                    <a href="{order_page_link}" style="display: inline-block; padding: 10px 20px; margin: 20px 0; background-color: #f9a01b; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px;">👉 Descargar mis fotos</a>
+                </p>
+
+                <h3>¿Qué estás recibiendo?</h3>
+                <ul>
+                    <li>✔ Fotos sin marcas de agua</li>
+                    <li>✔ Máxima calidad</li>
+                    <li>✔ Descarga inmediata</li>
+                    <li>✔ Uso personal ilimitado</li>
+                </ul>
+
+                <div class="highlight">
+                    <h4>📅 Importante:</h4>
+                    <p>Tenés 20 días para descargar tus fotos desde este enlace.</p>
+                    <p>Te recomendamos guardarlas en tu dispositivo una vez descargadas.</p>
+                </div>
+
+                <p>Estas imágenes fueron tomadas durante tu experiencia en la Patagonia.</p>
+                <p>Nos encanta haber estado ahí para capturar ese momento.</p>
+
+                <div class="contact-info">
+                    <h4>¿Tuviste algún problema con la descarga?</h4>
+                    <p>Escribinos y te ayudamos:</p>
+                    <p>📩 <a href="mailto:contacto@fotospatagonia.com">contacto@fotospatagonia.com</a></p>
+                </div>
+
+                <p>Somos Fotos Patagonia.</p>
+                <p>Si necesitás cubrir eventos deportivos, sociales o de aventura en Villa La Angostura y alrededores, no dudes en contactarnos.</p>
+                <p>Tenemos la solución fotográfica y audiovisual para tu evento o experiencia.</p>
+
+                <div class="footer">
+                    <p>Un saludo,</p>
+                    <p><strong>Fotos Patagonia</strong></p>
+                    <p>Fotografía de eventos y experiencias turísticas<br/>Villa La Angostura</p>
+                    <p>PD: Guardá este mail para acceder a tus fotos durante los próximos 20 días.</p>
+                </div>
+            </div>
+        </body>
+        </html>
         """
         return subject, email_body
 
@@ -92,7 +170,7 @@ class OrderService(BaseService):
     def get_order_details(self, order_id: int) -> Order:
         order = self.db.query(Order).options(
             joinedload(Order.user),
-            joinedload(Order.items).joinedload(OrderItem.photo),
+            joinedload(Order.items).joinedload(OrderItem.photo).joinedload(Photo.session),
             joinedload(Order.discount),
             joinedload(Order.earnings)
         ).filter(Order.id == order_id).first()
