@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { X, Heart, ShoppingCart, ChevronLeft, ChevronRight, MapPin, Calendar, Clock, Printer, Image as ImageIcon } from "lucide-react"
+import { X, Heart, ShoppingCart, ChevronLeft, ChevronRight, MapPin, Calendar, Clock, Printer, Image as ImageIcon, Link as LinkIcon } from "lucide-react"
 import type { Photo } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,8 @@ import { formatPhotoDate } from "@/lib/datetime"
 import { usePhotoViewerImage } from "@/hooks/photos/usePhotoViewerImage"
 import { useState } from "react"
 import { isAdmin } from "@/lib/types"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 interface PhotoViewerModalProps {
   photo: Photo
@@ -41,7 +43,7 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
   const isPrinter = cartItem?.printer || false
   
   const [isFullscreen, setIsFullscreen] = useState(false)
-
+  const router = useRouter()
   useEffect(() => {
     if (isFullscreen) return
   
@@ -240,7 +242,7 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
           </div>
 
           <div className="mt-auto space-y-3 border-t border-gray-200 pt-4">
-            <Button
+           {/*  <Button
               onClick={handleToggleCart}
               className={cn(
                 "w-full rounded-xl font-semibold",
@@ -251,7 +253,47 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
             >
               <ShoppingCart className="mr-2 h-4 w-4" />
               {isInCart ? "Quitar del carrito" : "Agregar al carrito"}
-            </Button>
+            </Button> */}
+
+
+
+
+<div className="w-full flex gap-2">
+  {isInCart ? (
+    <>
+    <div className="w-full flex gap-2">
+
+ 
+      <Button
+        onClick={handleToggleCart}
+        className="w-full rounded-xl font-semibold bg-muted text-muted-foreground hover:bg-muted/80"
+      >
+        <ShoppingCart className="mr-2 h-2 w-2" />
+        Quitar del carrito
+      </Button>
+      </div>
+      <div className="w-full flex gap-2">
+      <Link href="/carrito" className="w-full">
+        <Button
+          type="button"
+          className="w-full rounded-xl font-semibold bg-primary text-foreground hover:bg-primary-hover"
+        >
+          Ver carrito
+        </Button>
+      </Link>
+      </div>
+    </>
+  ) : (
+    <Button
+      onClick={handleToggleCart}
+      className="w-full rounded-xl font-semibold bg-primary text-foreground hover:bg-primary-hover"
+    >
+      <ShoppingCart className="mr-2 h-4 w-4" />
+      Agregar al carrito
+    </Button>
+  )}
+</div>
+
 
             <p className="text-center text-xs text-white">
               Disponible en resolución web y alta resolución para descarga
