@@ -783,7 +783,7 @@ useEffect(() => {
               </div>
 
               {/* Discount Code - Solo para visitantes */}
-              {true && (
+              {false && (
                 <div className="space-y-3 border-t border-gray-200 pt-6">
                   <Label className="flex items-center gap-2 text-sm font-medium">
                     <Tag className="h-4 w-4" />
@@ -823,12 +823,12 @@ useEffect(() => {
                     )}
                   </div>
                   {discountError && <p className="text-sm text-destructive">{discountError}</p>}
-                  {discountInfo && (
+                {/*   {discountInfo && (
                     <Badge className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400">
                       {discountInfo.type === "percent" ? `${discountInfo.value}%` : `$${discountInfo.value}`} de descuento
                       aplicado
                     </Badge>
-                  )}
+                  )} */}
                 </div>
               )}
 
