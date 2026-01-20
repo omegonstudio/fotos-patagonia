@@ -93,12 +93,12 @@ class PhotoService(BaseService):
         self.ensure_object_belongs_to_photo(object_name)
         return storage_service.generate_presigned_get_url(object_name)
 
-    def list_photos(self) -> List[PhotoSchema]:
+    def list_photos(self, offset: int = 0, limit: int = 10) -> List[PhotoSchema]:
         """Returns a list of all photos with presigned URLs."""
         photos = self.db.query(Photo).options(
             joinedload(Photo.photographer),
             joinedload(Photo.session).joinedload(PhotoSession.album)
-        ).all()
+        ).order_by(Photo.id.desc()).offset(offset).limit(limit).all()
         return [self._generate_presigned_urls(p) for p in photos]
 
     def get_photo(self, photo_id: int) -> PhotoSchema:
@@ -115,6 +115,25 @@ class PhotoService(BaseService):
         if not photo:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found")
         return self._generate_presigned_urls(photo)
+
+    def get_photos_by_ids(self, photo_ids: List[int]) -> List[PhotoSchema]:
+        """
+        Returns a list of photos by their specific IDs.
+        """
+        if not photo_ids:
+            return []
+        
+        photos = (
+            self.db.query(Photo)
+            .options(
+                joinedload(Photo.photographer),
+                joinedload(Photo.session).joinedload(PhotoSession.album),
+            )
+            .filter(Photo.id.in_(photo_ids))
+            .all()
+        )
+        return [self._generate_presigned_urls(p) for p in photos]
+
 
     def create_photo(self, photo_in: PhotoCreateSchema) -> Photo:
         """Creates a new photo record in the database."""

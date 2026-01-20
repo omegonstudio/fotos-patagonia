@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 
 export interface BackendPhotoSession {
@@ -43,7 +43,7 @@ export interface BackendPhoto {
 
 export function usePhotos() {
   const [photos, setPhotos] = useState<BackendPhoto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPhotos = useCallback(async () => {
@@ -59,6 +59,40 @@ export function usePhotos() {
       setLoading(false);
     }
   }, []);
+
+  const fetchPhotosByIds = useCallback(async (photoIds: number[]) => {
+    if (photoIds.length === 0) {
+      setPhotos([]);
+      return;
+    }
+    try {
+      setLoading(true);
+      const data = await apiFetch<BackendPhoto[]>("/photos/by-ids", {
+        method: "POST",
+        body: JSON.stringify({ photo_ids: photoIds }),
+      });
+      setPhotos(data);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message);
+      console.error("Error fetching photos by IDs:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchPhotosPage = async ({
+    offset,
+    limit,
+  }: {
+    offset: number;
+    limit: number;
+  }): Promise<BackendPhoto[]> => {
+    return apiFetch<BackendPhoto[]>(
+      `/photos/?offset=${offset}&limit=${limit}`
+    );
+  };
+  
 
   const getPhoto = async (photoId: number): Promise<BackendPhoto> => {
     const data = await apiFetch<BackendPhoto>(`/photos/${photoId}`);
@@ -107,18 +141,16 @@ export function usePhotos() {
     return data;
   };
 
-  useEffect(() => {
-    fetchPhotos();
-  }, [fetchPhotos]);
-
   return {
     photos,
     loading,
     error,
     refetch: fetchPhotos,
+    fetchPhotosByIds,
     getPhoto,
     updatePhoto,
     deletePhoto,
     setPhotoTags,
+    fetchPhotosPage,
   };
 }
