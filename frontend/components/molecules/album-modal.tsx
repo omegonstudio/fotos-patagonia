@@ -104,13 +104,23 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
     priceNumber > 0
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md rounded-2xl bg-[#f2f2e4]">
-        <DialogHeader>
-          <DialogTitle>{mode === "add" ? "Nuevo Álbum" : "Editar Álbum"}</DialogTitle>
-        </DialogHeader>
+     <DialogContent className="max-w-md rounded-2xl bg-[#f2f2e4] max-h-[90vh] flex flex-col">
+  <DialogHeader className="shrink-0">
+    <DialogTitle>
+      {mode === "add" ? "Nuevo Álbum" : "Editar Álbum"}
+    </DialogTitle>
+  </DialogHeader>
 
-        <div className="space-y-4">
-
+<div
+  className="flex-1 overflow-y-auto pr-2 space-y-4
+             [scrollbar-width:thin]
+             [scrollbar-color:rgba(0,0,0,.25)_transparent]
+             [&::-webkit-scrollbar]:w-2
+             [&::-webkit-scrollbar-track]:bg-transparent
+             [&::-webkit-scrollbar-thumb]:rounded-full
+             [&::-webkit-scrollbar-thumb]:bg-black/20
+             hover:[&::-webkit-scrollbar-thumb]:bg-black/30"
+>
           {/* Nombre */}
           <div>
             <Label>Nombre del Álbum</Label>
@@ -272,10 +282,9 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
             </div>
           </div>
 
+        </div>
           {/* Botones */}
-          <div className="flex gap-2 pt-4">
-
-
+          <div className="shrink-0 pt-4 border-t border-black/10 bg-[#f2f2e4]">
             <Button
               onClick={handleSave}
               disabled={!name.trim() || (mode === "add" && !isPriceValid)}
@@ -283,9 +292,7 @@ export function AlbumModal({ isOpen, mode, album, onClose, onSave }: AlbumModalP
             >
               {mode === "add" ? "Crear" : "Guardar"}
             </Button>
-
           </div>
-        </div>
       </DialogContent>
     </Dialog>
   )
