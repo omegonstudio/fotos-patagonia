@@ -31,6 +31,7 @@ import { photoHourKey } from "@/lib/datetime"
 import { useAuthStore } from "@/lib/store"
 import { getUserRoleName, isAdmin } from "@/lib/types"
 import { EditOrderModal } from "@/components/molecules/EditOrderModal"
+import { DeleteConfirmationModal } from "@/components/molecules/delete-confirmation-modal"
 
 export default function PedidosPage() {
   const { data: ordersData, loading, error, refetch, deleteOrder } = useOrders()
@@ -42,7 +43,10 @@ export default function PedidosPage() {
   const [paymentFilter, setPaymentFilter] = useState<string>("all")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean
+    orderId: number | null
+  }>({ isOpen: false, orderId: null })
   // Obtener información del rol
   const user = useAuthStore((state) => state.user)
   const roleName = getUserRoleName(user)?.toLowerCase()
@@ -181,11 +185,14 @@ export default function PedidosPage() {
     setIsModalOpen(true)
   }
 
-  const handleDelete = async (orderId: string) => {
-    if (window.confirm("¿Estás seguro de que deseas eliminar este pedido?")) {
-      await deleteOrder(orderId)
-      refetch()
-    }
+  const handleOpenDelete = (orderId: number | string) => {
+    setDeleteConfirmation({ isOpen: true, orderId: parseInt(orderId.toString()) })
+  }
+
+  const handleDelete = async (orderId: number | string) => {
+    await deleteOrder(orderId.toString())
+    refetch()
+    setDeleteConfirmation({ isOpen: false, orderId: null })
   }
 
   if (loading) {
@@ -355,8 +362,8 @@ export default function PedidosPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(order.id)}
-                          >
+                            onClick={() => handleOpenDelete(order.id)}
+                            >
                             <Trash className="h-4 w-4" />
                           </Button>
                           <Link href={`/admin/pedidos/${order.id}`}>
@@ -408,6 +415,13 @@ export default function PedidosPage() {
         onClose={() => setIsModalOpen(false)}
         order={selectedOrder}
         onOrderUpdate={refetch}
+      />
+      <DeleteConfirmationModal
+        isOpen={deleteConfirmation.isOpen}
+        title="Eliminar pedido"
+        entityName={`el pedido ${deleteConfirmation.orderId}`}
+        onConfirm={() => deleteConfirmation.orderId && handleDelete(deleteConfirmation.orderId)}
+        onCancel={() => setDeleteConfirmation({ isOpen: false, orderId: null })}
       />
     </div>
   )
