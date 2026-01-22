@@ -271,12 +271,21 @@ class PhotoService(BaseService):
         return self._generate_presigned_urls(updated_photo)
 
     def finalize_photo_uploads(self, completion_requests: List[PhotoCompletionRequest], current_user: User, album_id: int | None = None) -> List[PhotoSchema]:
+        from models.album import Album  # Importación local para evitar la dependencia circular
+
         created_photos_schemas = []
         user_permissions = {p.name for p in current_user.role.permissions}
         can_edit_any = Permissions.EDIT_ANY_PHOTO.value in user_permissions or Permissions.FULL_ACCESS.value in user_permissions
 
         if not completion_requests:
             return []
+        
+        # Determinar el precio por defecto del álbum si existe
+        default_price = None
+        if album_id:
+            album = self.db.query(Album).filter(Album.id == album_id).first()
+            if album and album.default_photo_price is not None:
+                default_price = album.default_photo_price
 
         photographer_id = completion_requests[0].photographer_id
 
@@ -300,10 +309,13 @@ class PhotoService(BaseService):
                 if not current_user.photographer or photo_data.photographer_id != current_user.photographer.id:
                     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Permission denied for photographer ID {photo_data.photographer_id}.")
             try:
+                # Usar el precio por defecto si está disponible; de lo contrario, usar el precio del request o 0
+                price_to_use = default_price if default_price is not None else photo_data.price
+
                 photo_in = PhotoCreateSchema(
                     filename=photo_data.original_filename,
                     description=photo_data.description,
-                    price=photo_data.price,
+                    price=price_to_use,
                     object_name=photo_data.object_name,
                     photographer_id=photo_data.photographer_id,
                     session_id=batch_session_id,

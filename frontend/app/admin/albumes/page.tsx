@@ -45,6 +45,7 @@ export default function AdminAlbumesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [newAlbumName, setNewAlbumName] = useState("")
   const [newAlbumDescription, setNewAlbumDescription] = useState("")
+  const [newAlbumDefaultPrice, setNewAlbumDefaultPrice] = useState<string>("")
   const [price, setPrice] = useState<string>("100")
 
   // Convertir datos del backend
@@ -128,6 +129,7 @@ export default function AdminAlbumesPage() {
         photographer_id: parseInt(selectedPhotographer),
         session_id: parseInt(selectedSession),
         price: parseFloat(price),
+        album_id: parseInt(selectedAlbum)
       })
 
       toast({
@@ -158,6 +160,7 @@ export default function AdminAlbumesPage() {
       await createAlbum({
         name: newAlbumName.trim(),
         description: newAlbumDescription.trim() || undefined,
+        default_photo_price: newAlbumDefaultPrice ? parseFloat(newAlbumDefaultPrice) : undefined,
       })
 
       toast({
@@ -167,6 +170,7 @@ export default function AdminAlbumesPage() {
 
       setNewAlbumName("")
       setNewAlbumDescription("")
+      setNewAlbumDefaultPrice("")
       setIsDialogOpen(false)
       refetchAlbums()
     } catch (error: any) {
@@ -207,7 +211,7 @@ export default function AdminAlbumesPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Crear Nuevo Álbum</DialogTitle>
-              <DialogDescription>Ingresa el nombre del nuevo álbum</DialogDescription>
+              <DialogDescription>Ingresa los detalles del nuevo álbum</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -229,6 +233,22 @@ export default function AdminAlbumesPage() {
                   onChange={(e) => setNewAlbumDescription(e.target.value)}
                   className="rounded-xl"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="albumDefaultPrice">Precio de fotos (por defecto)</Label>
+                <Input
+                  id="albumDefaultPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="100.00"
+                  value={newAlbumDefaultPrice}
+                  onChange={(e) => setNewAlbumDefaultPrice(e.target.value)}
+                  className="rounded-xl"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este precio se aplicará a todas las fotos nuevas que subas a este álbum.
+                </p>
               </div>
             </div>
             <DialogFooter>
