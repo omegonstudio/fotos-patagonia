@@ -15,12 +15,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { useCartStore, useAuthStore } from "@/lib/store"
 import { usePhotos } from "@/hooks/photos/usePhotos"
+import { useCombos } from "@/hooks/combos/useCombos"
 import { useToast } from "@/hooks/use-toast"
 import { isAdmin } from "@/lib/types"
 import type { Photo, PrintFormat } from "@/lib/types"
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 import { getPackSize } from "@/lib/print-formats"
 import Loading from "./loading"
+import { apiFetch } from "@/lib/api"
 
 export default function CarritoPage() {
   const router = useRouter()
@@ -38,6 +40,11 @@ export default function CarritoPage() {
     subtotal,
     total,
     savedSessionId,
+    printsSubtotalEffective,
+    printsManualEnabled,
+    digitalSubtotalEffective,
+    digitalManualEnabled,
+    totalEffective,
     removeItem,
     toggleFavorite,
     togglePrinter,
@@ -51,11 +58,12 @@ export default function CarritoPage() {
     loadSession,
     clearCart,
     updateTotals,
-    setEditableTotals,
-    clearEditableTotals,
-    subtotalImpresasOverride,
-    subtotalFotosOverride,
-    totalOverride,
+    selectedCombo,
+    setSelectedCombo,
+    setManualPrintsSubtotal,
+    setManualDigitalSubtotal,
+    resetManualPrintsSubtotal,
+    resetManualDigitalSubtotal,
   } = useCartStore()
   
   useEffect(() => {
@@ -85,18 +93,46 @@ export default function CarritoPage() {
 
   // Determinar si es usuario staff
   // Staff users (admin o usuarios con photographer_id) tienen privilegios especiales
-  const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
+  const isStaffUser = !!(isAuthenticated && user && (isAdmin(user) || user.photographer_id))
 
   const [localEmail, setLocalEmail] = useState(email || "")
   const [localDiscountCode, setLocalDiscountCode] = useState("")
   const [discountError, setDiscountError] = useState("")
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false)
   const [sessionIdInput, setSessionIdInput] = useState("")
   const [isLoadingSession, setIsLoadingSession] = useState(false)
+  const { combos, loading: combosLoading } = useCombos()
+  const [albumComboIds, setAlbumComboIds] = useState<number[] | null>(null)
+  const [isLoadingAlbumCombos, setIsLoadingAlbumCombos] = useState(false)
+  const [comboError, setComboError] = useState<string | null>(null)
   
    // Estados para el modal de formato de impresión
   const [isFormatModalOpen, setIsFormatModalOpen] = useState(false)
   const [photosForFormatSelection, setPhotosForFormatSelection] = useState<string[]>([])
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+
+  const activeAlbumId = useMemo(() => {
+    const albumIds = new Set<string>()
+    items.forEach((item) => {
+      const albumId = photosMap.get(item.photoId)?.albumId
+      if (albumId) albumIds.add(albumId)
+    })
+    if (albumIds.size === 1) {
+      return Array.from(albumIds)[0]
+    }
+    return undefined
+  }, [items, photosMap])
+
+  useEffect(() => {
+    const debug = items.map((i) => ({
+      photoId: i.photoId,
+      albumId: photosMap.get(i.photoId)?.albumId,
+    }))
+  
+    console.log("[Cart Debug] items → albumId:", debug)
+    console.log("[Cart Debug] activeAlbumId:", activeAlbumId)
+  }, [items, photosMap, activeAlbumId])
+  
 
   useEffect(() => {
     const sessionParam = searchParams.get("session")
@@ -106,8 +142,84 @@ export default function CarritoPage() {
   }, [searchParams])
 
   useEffect(() => {
-    updateTotals(mappedPhotos)
-  }, [items, printSelections, discountInfo, updateTotals, mappedPhotos])
+    let isCancelled = false
+
+    const fetchAlbumCombos = async () => {
+      if (!activeAlbumId) {
+        setAlbumComboIds(null)
+        setComboError(null)
+        return
+      }
+
+      try {
+        setIsLoadingAlbumCombos(true)
+        const album = await apiFetch<any>(`/albums/${activeAlbumId}`)
+
+        console.log("[Cart Debug] album raw:", album)
+console.log("[Cart Debug] album.combo_ids:", album?.combo_ids)
+console.log("[Cart Debug] album.combos:", album?.combos)
+        if (isCancelled) return
+
+        const idsFromAlbum =
+          album?.combo_ids ??
+          album?.comboIds ??
+          (Array.isArray(album?.combos)
+            ? album.combos
+                .map((combo: any) => combo?.id)
+                .filter((id: number | undefined) => id !== undefined)
+            : null)
+
+            setAlbumComboIds(
+              Array.isArray(idsFromAlbum) && idsFromAlbum.length > 0
+                ? idsFromAlbum
+                : null
+            )
+            
+        setComboError(null)
+      } catch (error) {
+        if (isCancelled) return
+        setAlbumComboIds(null)
+        setComboError("No pudimos cargar los combos del álbum.")
+        console.error("Error obteniendo combos del álbum", error)
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingAlbumCombos(false)
+        }
+      }
+    }
+
+    fetchAlbumCombos()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [activeAlbumId])
+
+  useEffect(() => {
+    setSelectedCombo(null)
+  }, [activeAlbumId, setSelectedCombo])
+
+  const applicableCombos = useMemo(() => {
+    const activeCombos = combos.filter((combo) => combo.active)
+    if (Array.isArray(albumComboIds)) {
+      return activeCombos.filter((combo) => albumComboIds.includes(combo.id))
+    }
+
+    // Fallback consistente cuando el álbum no tiene combo_ids: mostrar combos activos.
+    return activeCombos
+  }, [albumComboIds, combos])
+
+
+
+  useEffect(() => {
+    if (selectedCombo && !applicableCombos.some((combo) => combo.id === selectedCombo.id)) {
+      setSelectedCombo(null)
+    }
+  }, [applicableCombos, selectedCombo, setSelectedCombo])
+
+  useEffect(() => {
+    updateTotals(mappedPhotos, { isStaff: isStaffUser })
+  }, [items, printSelections, discountInfo, updateTotals, mappedPhotos, isStaffUser, selectedCombo])
 
   const cartPhotos = useMemo(() => {
     // No calcular hasta que las fotos y el carrito estén listos
@@ -172,6 +284,31 @@ export default function CarritoPage() {
     }, 0)
   }, [items, photosMap])
 
+  const selectedComboDetails = useMemo(
+    () => (selectedCombo ? applicableCombos.find((combo) => combo.id === selectedCombo.id) ?? null : null),
+    [applicableCombos, selectedCombo],
+  )
+
+  const comboPhotoCount = items.length
+  const comboPhotosNeeded = selectedComboDetails
+    ? Math.max(0, selectedComboDetails.totalPhotos - comboPhotoCount)
+    : 0
+  const comboUnitPrice = useMemo(() => {
+    const prices = items.map((item) => photosMap.get(item.photoId)?.price ?? 0)
+    const firstPositive = prices.find((price) => price > 0)
+    if (firstPositive !== undefined) return firstPositive
+    if (prices.length === 0) return 0
+    return prices.reduce((sum, price) => sum + price, 0) / prices.length
+  }, [items, photosMap])
+  const comboCanApply = !!selectedComboDetails && comboPhotosNeeded === 0
+  const comboDigitalPreview =
+    selectedComboDetails && comboCanApply
+      ? selectedComboDetails.price +
+        Math.max(0, comboPhotoCount - selectedComboDetails.totalPhotos) * comboUnitPrice
+      : subtotalFotosDigitales
+
+          
+
   const unassignedPrinterPhotos = useMemo(
     () => printerPhotos.filter((item) => !printSelectionMap.has(item.photo.id)),
     [printerPhotos, printSelectionMap],
@@ -187,15 +324,76 @@ export default function CarritoPage() {
   }
 
   const handleApplyDiscount = async () => {
+    const code = localDiscountCode.trim()
+    if (!code) return
+
+    setIsApplyingDiscount(true)
     try {
-      await applyDiscount(localDiscountCode)
+      const discount = await apiFetch<{
+        id: number
+        code: string
+        percentage: number
+        expires_at: string
+        is_active: boolean
+      }>(`/discounts/validate?code=${encodeURIComponent(code)}`)
+
+      if (!discount) {
+        throw new Error("Código de descuento inválido")
+      }
+
+      if (!discount.is_active) {
+        throw new Error("El descuento no está activo")
+      }
+
+      if (discount.expires_at) {
+        const expiresAt = new Date(discount.expires_at)
+        if (Number.isNaN(expiresAt.getTime())) {
+          throw new Error("La fecha de expiración del descuento es inválida")
+        }
+        if (expiresAt.getTime() < Date.now()) {
+          throw new Error("El descuento ya venció")
+        }
+      }
+
+      applyDiscount({
+        id: discount.id,
+        code: discount.code,
+        type: "percent",
+        value: discount.percentage,
+      })
       setDiscountError("")
       toast({
         title: "Descuento aplicado",
-        description: `Se aplicó el código ${localDiscountCode.toUpperCase()}`,
+        description: `Se aplicó el código ${discount.code.toUpperCase()}`,
       })
     } catch (error) {
-      setDiscountError((error as Error).message)
+      const message =
+        error instanceof Error ? error.message : "No pudimos validar el descuento. Intenta nuevamente."
+      setDiscountError(message)
+      toast({
+        title: "No pudimos aplicar el descuento",
+        description: message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsApplyingDiscount(false)
+    }
+  }
+
+  const handleSelectCombo = (comboId: string) => {
+    if (!comboId) {
+      setSelectedCombo(null)
+      return
+    }
+
+    const combo = applicableCombos.find((item) => item.id === Number(comboId))
+    if (combo) {
+      setSelectedCombo({
+        id: combo.id,
+        name: combo.name,
+        price: combo.price,
+        totalPhotos: combo.totalPhotos,
+      })
     }
   }
 
@@ -276,21 +474,23 @@ export default function CarritoPage() {
 
   const hasPrinterWithoutSelection = unassignedPrinterPhotos.length > 0
 
-    const effectiveSubtotalImpresas =
-    subtotalImpresasOverride ?? subtotalImpresas
-
-    const effectiveSubtotalFotos =
-      subtotalFotosOverride ?? subtotalFotosDigitales
-
-    const effectiveTotal =
-      totalOverride ??
-      effectiveSubtotalImpresas + effectiveSubtotalFotos
+  const effectiveSubtotalImpresas = printsSubtotalEffective
+  const effectiveSubtotalFotos = digitalSubtotalEffective
+  const effectiveTotal = totalEffective
 
       const cartPhotoList = useMemo(
         () => cartPhotos.map((item) => item.photo),
         [cartPhotos]
       )
-      
+     
+//use efect unic
+
+useEffect(() => {
+  if (!isStaffUser) {
+    if (printsManualEnabled) resetManualPrintsSubtotal()
+    if (digitalManualEnabled) resetManualDigitalSubtotal()
+  }
+}, [isStaffUser, printsManualEnabled, digitalManualEnabled, resetManualPrintsSubtotal, resetManualDigitalSubtotal])
 
       // movimiento de fotos en el modal de preview
       
@@ -583,7 +783,7 @@ export default function CarritoPage() {
               </div>
 
               {/* Discount Code - Solo para visitantes */}
-              {!isStaffUser && (
+              {false && (
                 <div className="space-y-3 border-t border-gray-200 pt-6">
                   <Label className="flex items-center gap-2 text-sm font-medium">
                     <Tag className="h-4 w-4" />
@@ -615,19 +815,90 @@ export default function CarritoPage() {
                     ) : (
                       <Button
                         onClick={handleApplyDiscount}
-                        disabled={!localDiscountCode}
+                        disabled={!localDiscountCode || isApplyingDiscount}
                         className="rounded-xl bg-primary text-foreground"
                       >
-                        Aplicar
+                        {isApplyingDiscount ? "Validando..." : "Aplicar"}
                       </Button>
                     )}
                   </div>
                   {discountError && <p className="text-sm text-destructive">{discountError}</p>}
-                  {discountInfo && (
+                {/*   {discountInfo && (
                     <Badge className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400">
                       {discountInfo.type === "percent" ? `${discountInfo.value}%` : `$${discountInfo.value}`} de descuento
                       aplicado
                     </Badge>
+                  )} */}
+                </div>
+              )}
+
+              {/* Discount Code - Solo para visitantes */}
+              {true && (
+                <div className="space-y-3 border-t border-gray-200 pt-6">
+                  <Label className="flex items-center gap-2 text-sm font-medium">
+                    <Tag className="h-4 w-4" />
+                    Combos
+                  </Label>
+                  {!activeAlbumId ? (
+                    <p className="text-sm text-muted-foreground">
+                      No pudimos determinar el álbum del carrito para sugerir combos.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      <select
+                        className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+                        value={selectedCombo?.id ?? ""}
+                        onChange={(event) => handleSelectCombo(event.target.value)}
+                        disabled={applicableCombos.length === 0 || combosLoading || isLoadingAlbumCombos}
+                      >
+                        <option value="">Sin combo</option>
+                        {applicableCombos.map((combo) => (
+                          <option key={combo.id} value={combo.id}>
+                            {combo.name} • {combo.totalPhotos} fotos • ${combo.price}
+                          </option>
+                        ))}
+                      </select>
+
+                      {(combosLoading || isLoadingAlbumCombos) && (
+                        <p className="text-xs text-muted-foreground">Cargando combos…</p>
+                      )}
+                      {comboError && <p className="text-xs text-destructive">{comboError}</p>}
+                      {applicableCombos.length === 0 && !combosLoading && !isLoadingAlbumCombos && (
+                        <p className="text-xs text-muted-foreground">
+                          No hay combos disponibles para este álbum. Te mostraremos nuevos combos apenas estén listos.
+                        </p>
+                      )}
+
+                      {selectedComboDetails && (
+                        <div className="space-y-1 rounded-lg bg-muted p-3 text-xs">
+                          <p className="font-medium">{selectedComboDetails.name}</p>
+                          <p className="text-muted-foreground">
+                            Incluye {selectedComboDetails.totalPhotos} foto
+                            {selectedComboDetails.totalPhotos === 1 ? "" : "s"} por ${selectedComboDetails.price}.
+                          </p>
+                          {comboCanApply ? (
+                            <p className="text-green-600 dark:text-green-400">
+                              Combo aplicado. Total digital estimado: ${Math.round(comboDigitalPreview)}
+                            </p>
+                          ) : (
+                            <p className="text-orange-600 dark:text-orange-400">
+                              Te faltan {comboPhotosNeeded} foto{comboPhotosNeeded === 1 ? "" : "s"} para aplicar este
+                              combo.
+                            </p>
+                          )}
+                          {comboCanApply && comboPhotoCount > selectedComboDetails.totalPhotos && (
+                            <p className="text-muted-foreground">
+                              {comboPhotoCount - selectedComboDetails.totalPhotos} foto
+                              {comboPhotoCount - selectedComboDetails.totalPhotos === 1 ? "" : "s"} extra a $
+                              {comboUnitPrice} c/u.
+                            </p>
+                          )}
+                          <p className="text-muted-foreground">
+                            El combo ajusta solo el total digital; las impresiones mantienen su cálculo actual.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -685,19 +956,27 @@ export default function CarritoPage() {
                             <Input
                               type="number"
                               value={effectiveSubtotalImpresas}
-                              onChange={(e) =>
-                                setEditableTotals({
-                                  subtotalImpresas: Number(e.target.value),
-                                  total:
-                                    Number(e.target.value) +
-                                    (subtotalFotosOverride ?? subtotalFotosDigitales),
-                                })
-                              }
+                              onChange={(e) => {
+                                const newImpresas = Number(e.target.value)
+                                setManualPrintsSubtotal(newImpresas)
+                              }}
                               className="rounded-lg h-8 text-sm font-medium"
                             />
 
                           </div>
                         </div>
+                        {printsManualEnabled && (
+                          <div className="flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="link"
+                              className="px-0 h-auto text-xs text-muted-foreground"
+                              onClick={resetManualPrintsSubtotal}
+                            >
+                              Volver al cálculo automático
+                            </Button>
+                          </div>
+                        )}
                         
                         </div>
                     )}
@@ -717,19 +996,27 @@ export default function CarritoPage() {
                           <Input
                             type="number"
                             value={effectiveSubtotalFotos}
-                            onChange={(e) =>
-                              setEditableTotals({
-                                subtotalFotos: Number(e.target.value),
-                                total:
-                                  Number(e.target.value) +
-                                  (subtotalImpresasOverride ?? subtotalImpresas),
-                              })
-                            }
+                            onChange={(e) => {
+                              const newFotos = Number(e.target.value)
+                              setManualDigitalSubtotal(newFotos)
+                            }}
                             className="rounded-lg h-8 text-sm font-medium"
                           />
 
                         </div>
                       </div>
+                      {digitalManualEnabled && (
+                        <div className="flex justify-end">
+                          <Button
+                            size="sm"
+                            variant="link"
+                            className="px-0 h-auto text-xs text-muted-foreground"
+                            onClick={resetManualDigitalSubtotal}
+                          >
+                            Volver al cálculo automático
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
                    {/* Total calculado automáticamente */}
