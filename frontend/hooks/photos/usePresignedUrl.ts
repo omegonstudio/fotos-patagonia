@@ -11,7 +11,9 @@ const PLACEHOLDER_URL = "/placeholder.svg"
 const urlCache = new Map<string, string>()
 const pendingCache = new Map<string, Promise<string>>()
 
-export function usePresignedUrl(objectName?: string | null) {
+export function usePresignedUrl(objectName?: string | null, options?: { enabled?: boolean }) {
+  const { enabled = true } = options ?? {}
+
   const cachedInitialUrl =
   objectName && urlCache.has(objectName)
     ? urlCache.get(objectName)!
@@ -25,7 +27,7 @@ const [loading, setLoading] = useState<boolean>(
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!objectName) {
+    if (!objectName || !enabled) {
       setLoading(false)
       setError(null)
       return
