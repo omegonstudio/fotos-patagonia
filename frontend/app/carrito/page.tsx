@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ShoppingCart, Heart, Tag, ArrowRight, Save, Upload, Trash2, Printer } from "lucide-react"
@@ -79,8 +79,21 @@ export default function CarritoPage() {
     }
   }, [isStoreHydrated, items, fetchPhotosByIds]);
 
-  const mappedPhotos = useMemo(() => photos.map((photo) => mapBackendPhotoToPhoto(photo)), [photos])
+  const photoCache = useRef(new Map<string, Photo>())
 
+  const mappedPhotos = useMemo(() => {
+    return photos.map((backendPhoto) => {
+      const id = String(backendPhoto.id)
+
+const cached = photoCache.current.get(id)
+if (cached) return cached
+
+const mapped = mapBackendPhotoToPhoto(backendPhoto)
+photoCache.current.set(id, mapped)
+return mapped
+    })
+  }, [photos])
+  
   const photosMap = useMemo(() => {
     const map = new Map<string, Photo>()
     mappedPhotos.forEach((photo) => {
@@ -129,9 +142,7 @@ export default function CarritoPage() {
       albumId: photosMap.get(i.photoId)?.albumId,
     }))
   
-    console.log("[Cart Debug] items → albumId:", debug)
-    console.log("[Cart Debug] activeAlbumId:", activeAlbumId)
-  }, [items, photosMap, activeAlbumId])
+      }, [items, photosMap, activeAlbumId])
   
 
   useEffect(() => {
@@ -155,9 +166,7 @@ export default function CarritoPage() {
         setIsLoadingAlbumCombos(true)
         const album = await apiFetch<any>(`/albums/${activeAlbumId}`)
 
-        console.log("[Cart Debug] album raw:", album)
-console.log("[Cart Debug] album.combo_ids:", album?.combo_ids)
-console.log("[Cart Debug] album.combos:", album?.combos)
+
         if (isCancelled) return
 
         const idsFromAlbum =
@@ -219,7 +228,7 @@ console.log("[Cart Debug] album.combos:", album?.combos)
 
   useEffect(() => {
     updateTotals(mappedPhotos, { isStaff: isStaffUser })
-  }, [items, printSelections, discountInfo, updateTotals, mappedPhotos, isStaffUser, selectedCombo])
+  }, [printSelections, discountInfo, updateTotals, mappedPhotos, isStaffUser, selectedCombo])
 
   const cartPhotos = useMemo(() => {
     // No calcular hasta que las fotos y el carrito estén listos
@@ -496,26 +505,35 @@ useEffect(() => {
       
       const [activeTab, setActiveTab] = useState<"all" | "favorites" | "printer">("all")
 
-      const navigablePhotos = useMemo(() => {
+      const navigablePhotoIds = useMemo(() => {
         switch (activeTab) {
           case "favorites":
-            return favoritePhotos.map((i) => i.photo)
+            return favoritePhotos.map((i) => i.photo.id)
           case "printer":
-            return printerPhotos.map((i) => i.photo)
+            return printerPhotos.map((i) => i.photo.id)
           default:
-            return cartPhotos.map((i) => i.photo)
+            return cartPhotos.map((i) => i.photo.id)
         }
       }, [activeTab, cartPhotos, favoritePhotos, printerPhotos])
       
-      const viewerPhoto =
-      viewerIndex !== null ? navigablePhotos[viewerIndex] : null
+      
+      const viewerPhotoId =
+        viewerIndex !== null ? navigablePhotoIds
+[viewerIndex] : null
+      
+      const viewerPhoto = useMemo(() => {
+        if (!viewerPhotoId) return null
+        return photosMap.get(viewerPhotoId) ?? null
+      }, [viewerPhotoId, photosMap])
+      
     
 
       const handleNext = () => {
         setViewerIndex((prev) =>
           prev === null
             ? null
-            : (prev + 1) % navigablePhotos.length
+            : (prev + 1) % navigablePhotoIds
+.length
         )
       }
       
@@ -523,7 +541,9 @@ useEffect(() => {
         setViewerIndex((prev) =>
           prev === null
             ? null
-            : (prev - 1 + navigablePhotos.length) % navigablePhotos.length
+            : (prev - 1 + navigablePhotoIds
+.length) % navigablePhotoIds
+.length
         )
       }
       
@@ -656,9 +676,10 @@ useEffect(() => {
                     onRemove={() => removeItem(item.photo.id)}
                     onPreview={() =>
                       setViewerIndex(
-                        navigablePhotos.findIndex((p) => p.id === item.photo.id)
+                        navigablePhotoIds.indexOf(item.photo.id)
                       )
                     }
+                    
                     
                     
                     onEditPrintFormat={item.cartItem.printer ? () => handleEditFormatForPhoto(item.photo.id) : undefined}
@@ -690,9 +711,10 @@ useEffect(() => {
                       onRemove={() => removeItem(item.photo.id)}
                       onPreview={() =>
                         setViewerIndex(
-                          navigablePhotos.findIndex((p) => p.id === item.photo.id)
+                          navigablePhotoIds.indexOf(item.photo.id)
                         )
                       }
+                      
                       
                     />
                   ))}
@@ -723,9 +745,10 @@ useEffect(() => {
                           onRemove={() => removeItem(item.photo.id)}
                           onPreview={() =>
                             setViewerIndex(
-                              navigablePhotos.findIndex((p) => p.id === item.photo.id)
+                              navigablePhotoIds.indexOf(item.photo.id)
                             )
                           }
+                          
                           
                         />
                       ))}

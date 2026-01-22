@@ -36,11 +36,6 @@ export default function AlbumDetailPage() {
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return
     if (!album?.sessions) return
-
-    console.log("[AlbumDetail][sessions order]", album.sessions.map((session: any) => ({
-      id: session.id,
-      event_date: session.event_date,
-    })))
   }, [album])
   
   // Get all photos from all sessions in the album
@@ -292,12 +287,20 @@ export default function AlbumDetailPage() {
     addItem(photoId)
   }
 
-  const currentPhoto = currentPhotoId
-  ? photosToDisplay.find((p) => p.id === currentPhotoId)
-  : null
-
+  const currentIndex = photosToDisplay.findIndex(
+    (p) => p.id === currentPhotoId
+  )
   
+  const nextPhoto =
+    currentIndex !== -1 && currentIndex < photosToDisplay.length - 1
+      ? photosToDisplay[currentIndex + 1]
+      : null
 
+      const currentPhoto =
+      currentPhotoId
+        ? photosToDisplay.find((p) => p.id === currentPhotoId) ?? null
+        : null
+    
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -366,7 +369,7 @@ export default function AlbumDetailPage() {
                 selección múltiple. Marca con ❤️ tus favoritas o con 🖨️ las que quieres imprimir.
               </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            <div className="grid-photo-select">
               {photosToDisplay.map((photo) => {
                 const cartItem = items.find((item) => item.photoId === photo.id)
                 return (
@@ -390,8 +393,15 @@ export default function AlbumDetailPage() {
       </main>
 
       {isOpen && currentPhoto && (
-        <PhotoViewerModal photo={currentPhoto} onClose={close} onNext={next} onPrev={prev} />
-      )}
+  <PhotoViewerModal
+    photo={currentPhoto}
+    nextPhoto={nextPhoto}
+    onClose={close}
+    onNext={next}
+    onPrev={prev}
+  />
+)}
+
 
       <PhotoModal
         open={isUploadModalOpen}

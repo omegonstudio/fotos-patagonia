@@ -5,43 +5,73 @@ interface PresignedUrlResponse {
   url: string
 }
 
-export function usePresignedUrl(objectName?: string | null) {
-  const [url, setUrl] = useState<string>("/placeholder.svg") // Default to a placeholder
-  const [loading, setLoading] = useState(true)
+const PLACEHOLDER_URL = "/placeholder.svg"
+
+// ✅ caches globales
+const urlCache = new Map<string, string>()
+const pendingCache = new Map<string, Promise<string>>()
+
+export function usePresignedUrl(objectName?: string | null, options?: { enabled?: boolean }) {
+  const { enabled = true } = options ?? {}
+
+  const cachedInitialUrl =
+  objectName && urlCache.has(objectName)
+    ? urlCache.get(objectName)!
+    : "/placeholder.svg"
+
+const [url, setUrl] = useState<string>(cachedInitialUrl)
+const [loading, setLoading] = useState<boolean>(
+  !!objectName && !urlCache.has(objectName)
+)
+
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!objectName) {
+    if (!objectName || !enabled) {
       setLoading(false)
-      setUrl("/placeholder.svg")
+      setError(null)
       return
     }
 
-    let isCancelled = false
+    // ✅ 1. cache inmediato
+    if (urlCache.has(objectName)) {
+      setUrl(urlCache.get(objectName)!)
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
     setLoading(true)
 
-    const fetchUrl = async () => {
-      try {
-        const response = await apiFetch<PresignedUrlResponse>(`/photos/presigned-url/?object_name=${encodeURIComponent(objectName)}`)
-        if (!isCancelled) {
-          setUrl(response.url)
-        }
-      } catch (e) {
-        if (!isCancelled) {
+    // ✅ 2. deduplicación de requests
+    const request =
+      pendingCache.get(objectName) ??
+      apiFetch<PresignedUrlResponse>(
+        `/photos/presigned-url/?object_name=${encodeURIComponent(objectName)}`
+      ).then((res) => {
+        urlCache.set(objectName, res.url)
+        pendingCache.delete(objectName)
+        return res.url
+      })
+
+    pendingCache.set(objectName, request)
+
+    request
+      .then((resolvedUrl) => {
+        if (!cancelled) setUrl(resolvedUrl)
+      })
+      .catch((e) => {
+        if (!cancelled) {
           setError("Failed to fetch image URL")
           console.error(e)
         }
-      } finally {
-        if (!isCancelled) {
-          setLoading(false)
-        }
-      }
-    }
-
-    fetchUrl()
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
     return () => {
-      isCancelled = true
+      cancelled = true
     }
   }, [objectName])
 
