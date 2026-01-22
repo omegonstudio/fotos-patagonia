@@ -112,6 +112,7 @@ export default function PublicOrderDetailPage() {
   const [order, setOrder] = useState<OrderWithPublicPhotoItems | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   useEffect(() => {
     if (publicId) {
@@ -196,20 +197,23 @@ export default function PublicOrderDetailPage() {
 
 
   const handleDownloadAll = async () => {
-    if (!allOrderPhotos.length) return;
+    if (!allOrderPhotos.length || isDownloading) return;
   
+    setIsDownloading(true);
     try {
-      for (const photo of allOrderPhotos) {
+      const downloadPromises = allOrderPhotos.map(async (photo) => {
         const url = photo.url || photo.watermark_url;
-        if (!url) continue;
+        if (!url) return;
   
         await triggerFileDownload(url, buildPhotoFilename(photo));
-  
-        // pausa mínima para evitar bloqueo del navegador
+        // Pausa mínima para evitar bloqueo del navegador en descargas sucesivas
         await new Promise((r) => setTimeout(r, 300));
-      }
+      });
+      await Promise.all(downloadPromises);
     } catch (error) {
       console.error("Error descargando fotos", error);
+    } finally {
+      setIsDownloading(false);
     }
   };
   
@@ -324,10 +328,11 @@ export default function PublicOrderDetailPage() {
             <div className="mb-6">
               <Button
                 onClick={handleDownloadAll}
+                disabled={isDownloading}
                 className="w-full rounded-xl bg-primary py-6 text-lg font-semibold text-foreground hover:bg-primary-hover"
               >
                 <Download className="mr-2 h-5 w-5" />
-                Descargar Todas las Fotos ({allOrderPhotos.length})
+                {isDownloading ? "Descargando..." : `Descargar Todas las Fotos (${allOrderPhotos.length})`}
               </Button>
             </div>
           )}
