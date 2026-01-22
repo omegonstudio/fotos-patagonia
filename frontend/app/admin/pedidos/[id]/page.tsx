@@ -111,6 +111,7 @@ export default function OrderDetailPage() {
   const { photos } = usePhotos();
   const [email, setEmail] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { Canvas } = useQRCode();
   const QRCanvas = Canvas as (props: any) => ReactElement;
 
@@ -216,17 +217,21 @@ export default function OrderDetailPage() {
       toast({ title: emptyMessage });
       return;
     }
+    if (isDownloading) return;
 
+    setIsDownloading(true);
     try {
-      for (const photo of photosToDownload) {
+      const downloadPromises = photosToDownload.map(async (photo) => {
         const response = await apiFetch<PresignedUrlResponse>(
           `/photos/presigned-url/?object_name=${encodeURIComponent(photo.objectName)}`
         );
         if (!response?.url) {
-          throw new Error("URL presignada no disponible");
+          throw new Error(`URL presignada no disponible para ${photo.objectName}`);
         }
-        triggerFileDownload(response.url, buildPhotoFilename(photo));
-      }
+        await triggerFileDownload(response.url, buildPhotoFilename(photo));
+      });
+
+      await Promise.all(downloadPromises);
 
       toast({
         title: "Descargas iniciadas",
@@ -239,12 +244,15 @@ export default function OrderDetailPage() {
         description: "Reintenta en unos instantes",
         variant: "destructive",
       });
+    } finally {
+      setIsDownloading(false);
     }
   };
 
   const handleDownloadAllPhotos = async () => {
     await handleDownloadMultiple(allOrderPhotos, "No hay fotos en este pedido");
   };
+
 
   const handleDownloadDigitalPhotos = async () => {
     await handleDownloadMultiple(digitalOrderPhotos, "No hay fotos digitales para descargar");
@@ -371,19 +379,20 @@ export default function OrderDetailPage() {
                   <CardDescription>Miniaturas separadas por digital e impresión</CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button size="sm" className="rounded-xl" onClick={handleDownloadAllPhotos}>
-                    Descargar todas
+                  <Button size="sm" className="rounded-xl" onClick={handleDownloadAllPhotos} disabled={isDownloading}>
+                    {isDownloading ? "Descargando..." : "Descargar todas"}
                   </Button>
-                  <Button size="sm" variant="outline" className="rounded-xl" onClick={handleDownloadDigitalPhotos}>
-                    Descargar fotos
+                  <Button size="sm" variant="outline" className="rounded-xl" onClick={handleDownloadDigitalPhotos} disabled={isDownloading}>
+                    {isDownloading ? "Descargando..." : "Descargar fotos"}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     className="rounded-xl"
                     onClick={handleDownloadPrintPhotos}
+                    disabled={isDownloading}
                   >
-                    Descargar imprimir
+                    {isDownloading ? "Descargando..." : "Descargar imprimir"}
                   </Button>
                 </div>
               </CardHeader>
