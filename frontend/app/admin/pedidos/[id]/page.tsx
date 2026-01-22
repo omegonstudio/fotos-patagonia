@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import type { Order, OrderItem, Photo } from "@/lib/types";
 import { apiFetch } from "@/lib/api";
-import { usePhotos } from "@/hooks/photos/usePhotos";
+import { BackendPhoto, usePhotos } from "@/hooks/photos/usePhotos";
 import { useToast } from "@/hooks/use-toast";
 import WatermarkedImage from "@/components/organisms/WatermarkedImage";
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
@@ -100,6 +100,7 @@ function PhotoGridItem({ photo }: { photo: Photo }) {
 }
 
 
+
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
@@ -114,6 +115,8 @@ export default function OrderDetailPage() {
   const { Canvas } = useQRCode();
   const QRCanvas = Canvas as (props: any) => ReactElement;
 
+
+  
   useEffect(() => {
     if (order?.customer_email) {
       setEmail(order.customer_email);
@@ -148,7 +151,7 @@ export default function OrderDetailPage() {
     }
   };
 
-  const photosMap = useMemo(() => {
+/*   const photosMap = useMemo(() => {
     const map = new Map<string, Photo>();
     if (photos) {
       photos.forEach((photo) => {
@@ -156,7 +159,7 @@ export default function OrderDetailPage() {
       });
     }
     return map;
-  }, [photos]);
+  }, [photos]); */
 
   const orderDownloadUrl = useMemo(() => {
     if (!order) return "";
@@ -166,15 +169,16 @@ export default function OrderDetailPage() {
 
   const orderPhotoItems = useMemo(() => {
     if (!order?.items || order.items.length === 0) return [];
-
+  
     return order.items.flatMap((item: OrderItem) => {
-      const id = item.photo_id;
-      if (id == null) return [];
-      const photo = photosMap.get(String(id));
-      if (!photo) return [];
+      if (!item.photo) return [];
+  
+      const photo = mapBackendPhotoToPhoto(item.photo as BackendPhoto);
+  
       return [{ item, photo }];
     });
-  }, [order?.items, photosMap]);
+  }, [order?.items]);
+  
 
   const allOrderPhotos = useMemo(() => {
     const seen = new Set<string>();
@@ -303,7 +307,6 @@ export default function OrderDetailPage() {
   const statusInfo = getStatusBadge(order.order_status);
   const createdAtLabel = order.created_at ? formatDateTime(order.created_at) : "";
 
-
   return (
     <div className="container mx-auto px-4 py-8">
       <Link
@@ -363,7 +366,7 @@ export default function OrderDetailPage() {
             </CardContent>
           </Card>
 
-          {allOrderPhotos.length > 0 && (
+          {order.order_status === "paid" && (
             <Card className="rounded-2xl border-gray-200">
               <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
