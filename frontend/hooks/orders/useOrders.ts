@@ -101,6 +101,17 @@ export function useOrders(orderId?: string) {
     }
   }
 
+  async function deleteOrder(id: string) {
+    try {
+      await apiFetch(`/orders/${id}`, {
+        method: "DELETE",
+      });
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  }
+
   // NOTA: Los siguientes endpoints NO existen en el OpenAPI actual:
   // - POST /orders/{id}/cancel (usa updateOrderStatus en su lugar)
   // - GET /orders/by-email/{email} (usa getMyOrders para usuario actual)
@@ -120,5 +131,6 @@ export function useOrders(orderId?: string) {
     getMyOrders,
     sendOrderEmail,
     generateQRCode,
+    deleteOrder,
   };
 }
