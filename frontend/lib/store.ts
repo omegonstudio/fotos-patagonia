@@ -21,7 +21,6 @@ import type {
   User,
   PrintFormat,
   PrintSelection,
-  CartComboSelection,
 } from "./types"
 import { getPackSize } from "./print-formats"
 
@@ -35,23 +34,6 @@ const removePhotoFromSelections = (selections: PrintSelection[], photoId: string
     }))
     .filter((selection) => selection.photoIds.length > 0)
 
-const normalizeAmount = (value: number | undefined | null) => {
-  const num = Number(value)
-  if (!Number.isFinite(num) || num < 0) return 0
-  return num
-}
-
-const computeDiscountedTotal = (
-  baseTotal: number,
-  discountInfo: CartState["discountInfo"],
-) => {
-  if (!discountInfo) return baseTotal
-  if (discountInfo.type === "percent") {
-    return baseTotal * (1 - discountInfo.value / 100)
-  }
-  return Math.max(0, baseTotal - discountInfo.value)
-}
-
 interface CartStore extends CartState {
   addItem: (photoId: string) => void
   removeItem: (photoId: string) => void
@@ -63,16 +45,18 @@ interface CartStore extends CartState {
   clearPrintSelections: () => void
   clearNonFavorites: () => void
   setEmail: (email: string) => void
-  applyDiscount: (discount: { id: number; code: string; type: "percent"; value: number }) => void
+  applyDiscount: (code: string) => Promise<void>
   saveSession: () => Promise<string>
   loadSession: (sessionId: string) => Promise<void>
   clearCart: () => void
-  updateTotals: (photos: Photo[], options?: { isStaff?: boolean }) => void
-  setSelectedCombo: (combo: CartComboSelection | null) => void
-  setManualPrintsSubtotal: (value: number) => void
-  setManualDigitalSubtotal: (value: number) => void
-  resetManualPrintsSubtotal: () => void
-  resetManualDigitalSubtotal: () => void
+  updateTotals: (photos: Photo[]) => void
+  setEditableTotals: (data: {
+    subtotalImpresas?: number
+    subtotalFotos?: number
+    total?: number
+  }) => void
+
+  clearEditableTotals: () => void
 }
 
 export const useCartStore = create<CartStore>()(
@@ -83,26 +67,13 @@ export const useCartStore = create<CartStore>()(
       email: undefined,
       discountCode: undefined,
       discountInfo: undefined,
-      // Impresiones
-      printsSubtotalCalculated: 0,
-      printsSubtotalManual: undefined,
-      printsManualEnabled: false,
-      printsSubtotalEffective: 0,
-
-      // Digitales
-      digitalSubtotalCalculated: 0,
-      digitalSubtotalManual: undefined,
-      digitalManualEnabled: false,
-      digitalSubtotalEffective: 0,
-
-      // Totales
       subtotal: 0,
       total: 0,
-      totalEffective: 0,
-
       savedSessionId: undefined,
       channel: "web",
-      selectedCombo: null,
+      subtotalImpresasOverride: undefined,
+      subtotalFotosOverride: undefined,
+      totalOverride: undefined,
 
       addItem: (photoId: string) => {
         const { items } = get()
@@ -281,22 +252,20 @@ export const useCartStore = create<CartStore>()(
         set({ email })
       },
 
-      applyDiscount: (discount) => {
-        set((state) => {
-          const totalEffective = state.printsSubtotalEffective + state.digitalSubtotalEffective
-          const total = computeDiscountedTotal(totalEffective, {
-            type: discount.type,
-            value: discount.value,
-          })
-      
-          return {
-            discountCode: discount.code,
-            discountInfo: { type: discount.type, value: discount.value },
-            subtotal: totalEffective,
-            totalEffective,
-            total,
-          }
-        })
+      applyDiscount: async (code: string) => {
+        // Mock discount validation
+        const validDiscounts: Record<string, { type: "percent" | "fixed"; value: number }> = {
+          PATAGONIA10: { type: "percent", value: 10 },
+          VERANO2024: { type: "percent", value: 15 },
+          DESCUENTO500: { type: "fixed", value: 500 },
+        }
+
+        const discount = validDiscounts[code.toUpperCase()]
+        if (discount) {
+          set({ discountCode: code, discountInfo: discount })
+        } else {
+          throw new Error("Código de descuento inválido")
+        }
       },
 
       saveSession: async () => {
@@ -316,17 +285,9 @@ export const useCartStore = create<CartStore>()(
           set({
             ...state,
             printSelections: state.printSelections ?? [],
-            printsManualEnabled: false,
-            digitalManualEnabled: false,
-            printsSubtotalManual: undefined,
-            digitalSubtotalManual: undefined,
-            printsSubtotalCalculated: state.printsSubtotalCalculated ?? 0,
-            printsSubtotalEffective: state.printsSubtotalEffective ?? 0,
-            digitalSubtotalCalculated: state.digitalSubtotalCalculated ?? 0,
-            digitalSubtotalEffective: state.digitalSubtotalEffective ?? 0,
-            subtotal: state.subtotal ?? 0,
-            total: state.total ?? 0,
-            totalEffective: state.totalEffective ?? 0,
+            subtotalImpresasOverride: undefined,
+            subtotalFotosOverride: undefined,
+            totalOverride: undefined,
           })
           
         }
@@ -339,158 +300,85 @@ export const useCartStore = create<CartStore>()(
           email: undefined,
           discountCode: undefined,
           discountInfo: undefined,
-          printsSubtotalCalculated: 0,
-          printsSubtotalManual: undefined,
-          printsManualEnabled: false,
-          printsSubtotalEffective: 0,
-          digitalSubtotalCalculated: 0,
-          digitalSubtotalManual: undefined,
-          digitalManualEnabled: false,
-          digitalSubtotalEffective: 0,
           subtotal: 0,
           total: 0,
-          totalEffective: 0,
-          selectedCombo: null,
+      
+          // 🔥 limpiar overrides
+          subtotalImpresasOverride: undefined,
+          subtotalFotosOverride: undefined,
+          totalOverride: undefined,
         })
       },
-          setSelectedCombo: (combo) => {
-            set({ selectedCombo: combo })
-          },
+      
 
-      setManualPrintsSubtotal: (value: number) =>
-        set((state) => {
-          const printsManual = normalizeAmount(value)
-          const totalEffective = printsManual + state.digitalSubtotalEffective
-          const total = computeDiscountedTotal(totalEffective, state.discountInfo)
-
-          return {
-            ...state,
-            printsManualEnabled: true,
-            printsSubtotalManual: printsManual,
-            printsSubtotalEffective: printsManual,
-            subtotal: totalEffective,
-            totalEffective,
-            total,
-          }
+      setEditableTotals: (data) =>
+        set((state) => ({
+          subtotalImpresasOverride:
+            data.subtotalImpresas ?? state.subtotalImpresasOverride,
+          subtotalFotosOverride:
+            data.subtotalFotos ?? state.subtotalFotosOverride,
+          totalOverride: data.total ?? state.totalOverride,
+        })),
+      
+      clearEditableTotals: () =>
+        set({
+          subtotalImpresasOverride: undefined,
+          subtotalFotosOverride: undefined,
+          totalOverride: undefined,
         }),
+      
 
-      setManualDigitalSubtotal: (value: number) =>
-        set((state) => {
-          const digitalManual = normalizeAmount(value)
-          const totalEffective = state.printsSubtotalEffective + digitalManual
-          const total = computeDiscountedTotal(totalEffective, state.discountInfo)
+      updateTotals: (photos: Photo[]) => {
+        const { items, printSelections, discountInfo } = get()
 
-          return {
-            ...state,
-            digitalManualEnabled: true,
-            digitalSubtotalManual: digitalManual,
-            digitalSubtotalEffective: digitalManual,
-            subtotal: totalEffective,
-            totalEffective,
-            total,
-          }
-        }),
-
-      resetManualPrintsSubtotal: () =>
-        set((state) => {
-          const printsEffective = state.printsSubtotalCalculated
-          const totalEffective = printsEffective + state.digitalSubtotalEffective
-          const total = computeDiscountedTotal(totalEffective, state.discountInfo)
-
-          return {
-            ...state,
-            printsManualEnabled: false,
-            printsSubtotalManual: undefined,
-            printsSubtotalEffective: printsEffective,
-            subtotal: totalEffective,
-            totalEffective,
-            total,
-          }
-        }),
-
-      resetManualDigitalSubtotal: () =>
-        set((state) => {
-          const digitalEffective = state.digitalSubtotalCalculated
-          const totalEffective = state.printsSubtotalEffective + digitalEffective
-          const total = computeDiscountedTotal(totalEffective, state.discountInfo)
-
-          return {
-            ...state,
-            digitalManualEnabled: false,
-            digitalSubtotalManual: undefined,
-            digitalSubtotalEffective: digitalEffective,
-            subtotal: totalEffective,
-            totalEffective,
-            total,
-          }
-        }),
-
-      updateTotals: (photos: Photo[], _options) => {
-        const {
-          items,
-          printSelections,
-          discountInfo,
-          selectedCombo,
-          printsManualEnabled,
-          digitalManualEnabled,
-          printsSubtotalManual,
-          digitalSubtotalManual,
-        } = get()
         const photoPriceMap = photos.reduce<Map<string, number>>((acc, photo) => {
           acc.set(photo.id, photo.price || 0)
           return acc
         }, new Map())
 
-        // 🔐 Regla: toda foto en carrito (digital o imprimir) suma al subtotal digital.
-        const photoPrices = items.map((item) => photoPriceMap.get(item.photoId) ?? 0)
-        const digitalBase = photoPrices.reduce((sum, price) => sum + price, 0)
+        // 🔐 Regla de negocio: toda foto marcada para imprimir sigue siendo una compra digital.
+        // Por eso el subtotal digital considera TODAS las fotos del carrito.
+        const subtotalFotos = items.reduce((sum, item) => {
+          const price = photoPriceMap.get(item.photoId) ?? 0
+          return sum + price
+        }, 0)
 
-        const computeUnitPrice = () => {
-          const firstPositive = photoPrices.find((price) => price > 0)
-          if (firstPositive !== undefined) return firstPositive
-          if (photoPrices.length === 0) return 0
-          return digitalBase / Math.max(1, photoPrices.length)
-        }
-
-        let digitalCalculated = digitalBase
-        const canApplyCombo =
-          selectedCombo &&
-          selectedCombo.totalPhotos > 0 &&
-          photoPrices.length >= selectedCombo.totalPhotos
-
-        if (canApplyCombo) {
-          const remaining = photoPrices.length - selectedCombo.totalPhotos
-          const unitPrice = computeUnitPrice()
-          digitalCalculated = selectedCombo.price + Math.max(0, remaining) * unitPrice
-        }
-
-        // Impresiones: packs x precio formato
-        const printsCalculated = printSelections.reduce((sum, selection) => {
+        // Precio de impresión = precio de pack * cantidad de packs necesarios.
+        // No incluye el precio digital (se suma aparte en subtotalFotos).
+        const subtotalImpresas = printSelections.reduce((sum, selection) => {
           const packSize = getPackSize(selection.format)
           const packs = Math.ceil(selection.photoIds.length / packSize)
           return sum + packs * selection.format.price
         }, 0)
 
-        const printsEffective = printsManualEnabled
-          ? normalizeAmount(printsSubtotalManual)
-          : printsCalculated
+        const subtotal = subtotalFotos + subtotalImpresas
 
-        const digitalEffective = digitalManualEnabled
-          ? normalizeAmount(digitalSubtotalManual)
-          : digitalCalculated
+        let total = subtotal
+        if (discountInfo) {
+          if (discountInfo.type === "percent") {
+            total = subtotal * (1 - discountInfo.value / 100)
+          } else {
+            total = Math.max(0, subtotal - discountInfo.value)
+          }
+        }
 
-        const totalEffective = printsEffective + digitalEffective
-        const total = computeDiscountedTotal(totalEffective, discountInfo)
-
-        set({
-          printsSubtotalCalculated: printsCalculated,
-          printsSubtotalEffective: printsEffective,
-          digitalSubtotalCalculated: digitalCalculated,
-          digitalSubtotalEffective: digitalEffective,
-          subtotal: totalEffective,
-          totalEffective,
-          total,
-        })
+        const {
+          subtotalImpresasOverride,
+          subtotalFotosOverride,
+          totalOverride,
+        } = get()
+        
+        // Si hay override (staff), NO recalcular
+        if (
+          subtotalImpresasOverride !== undefined ||
+          subtotalFotosOverride !== undefined ||
+          totalOverride !== undefined
+        ) {
+          return
+        }
+        
+        set({ subtotal, total })
+        
       },
     }),
     {

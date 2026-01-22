@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
-import { isAdmin, getUserRoleName } from "@/lib/types";
+import { isAdmin } from "@/lib/types";
 
 type Props = {
   src: string;
@@ -33,7 +33,7 @@ export default function WatermarkedImage({
   watermarkSrc = "/watermark.svg",
   opacity = 0.3, // 👉 más visible por defecto
   rotateDeg = -20,
-  watermarkText = "",
+  watermarkText = "PROHIBIDO SU USO SIN AUTORIZACIÓN",
   textFontSize = "18px",
 }: Props) {
   // Detectar el rol del usuario
@@ -43,15 +43,9 @@ export default function WatermarkedImage({
   // - Si showWatermark está definido, usar ese valor (override manual)
   // - Si no hay usuario -> mostrar marca de agua
   // - Si el usuario es admin o tiene permisos especiales -> NO mostrar marca de agua
-  const roleName = getUserRoleName(user)?.toLowerCase();
   const userIsAdmin = isAdmin(user);
-  const userIsPhotographer = roleName === "photographer"
   const shouldShowWatermark =
-  showWatermark !== undefined
-    ? showWatermark
-    : !user || (!userIsAdmin && !userIsPhotographer);
-  
-
+    showWatermark !== undefined ? showWatermark : !user || !userIsAdmin;
 
   return (
     <div className={cn("relative w-full h-full", className)}>
@@ -84,7 +78,7 @@ export default function WatermarkedImage({
           {/* Texto legal grande en el centro */}
           <div className="absolute inset-0 flex items-center justify-center">
             <span
-              className="font-bold uppercase tracking-[0.35em] text-center px-6 py-3 rounded-md bg-black/0 text-white"
+              className="font-bold uppercase tracking-[0.35em] text-center px-6 py-3 rounded-md bg-black/40 text-white"
               style={{
                 transform: `rotate(${rotateDeg}deg)`,
                 fontSize: textFontSize,

@@ -82,8 +82,14 @@ export default function CheckoutPage() {
     printSelections,
     email,
     total,
+    totalOverride, 
+    subtotalImpresasOverride,
+    subtotalFotosOverride,
+    channel,
     clearCart,
   } = useCartStore();
+  
+  const effectiveTotal = totalOverride ?? total;
 
   const { user, isAuthenticated } = useAuthStore();
   const { photos } = usePhotos();
@@ -259,7 +265,7 @@ export default function CheckoutPage() {
   // Payload para backend (ajustado al esquema real)
   const orderPayload = {
     customer_email: email,
-    total, 
+    total: effectiveTotal, 
     payment_method: paymentMethod,
     payment_status: "pending",
     order_status: "pending",
@@ -272,6 +278,7 @@ export default function CheckoutPage() {
     metadata: {
       channel: orderChannel,
       items: orderDraftItems,
+      overrideTotal: totalOverride ?? null, 
     },
   };
   
@@ -548,6 +555,10 @@ export default function CheckoutPage() {
                           </p>
                         )}
                       </div>
+                      <p className="text-sm font-semibold">
+                        ${subtotalImpresasOverride ?? selectionTotal}
+
+                      </p>
                     </div>
                   )})}
                   {printPhotos.length > 3 && (
@@ -584,6 +595,9 @@ export default function CheckoutPage() {
                           {photo.takenAt && formatPhotoDate(photo.takenAt)}
                         </p>
                       </div>
+                      <p className="text-sm font-semibold">
+                        ${subtotalFotosOverride ?? photo.price}
+                      </p>
                     </div>
                   ))}
                   {digitalPhotos.length > 3 && (
@@ -603,7 +617,7 @@ export default function CheckoutPage() {
                   <span className="text-muted-foreground">
                     Total ({items.length} fotos)
                   </span>
-                  <span className="font-medium">${total}</span>
+                  <span className="font-medium">${totalOverride??total}</span>
                 </div>
                 {printPhotos.length > 0 && (
                   <div className="text-xs text-muted-foreground pt-2 space-y-1">
@@ -613,14 +627,14 @@ export default function CheckoutPage() {
                           • {summary.format.name} ({summary.format.size}) × {summary.packs} pack
                           {summary.packs > 1 ? "s" : ""}
                         </span>
-                        <span>${summary.totalPrice}</span>
+                        <span>${subtotalImpresasOverride ?? summary.totalPrice}</span>
                       </div>
                     ))}
                   </div>
                 )}
                 <div className="flex justify-between border-t border-gray-200 pt-2 text-lg font-bold">
                   <span>Total</span>
-                  <span className="text-primary">${total}</span>
+                  <span className="text-primary">${totalOverride??total}</span>
                 </div>
               </div>
 

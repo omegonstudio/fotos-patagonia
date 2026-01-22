@@ -18,8 +18,7 @@ class ResendEmailPayload(BaseModel):
 @router.get("/")
 def list_all_orders(
     db: Session = Depends(get_db),
-    #current_user: User = Depends(PermissionChecker([Permissions.LIST_ALL_ORDERS]))
-    current_user: User = Depends(PermissionChecker([Permissions.LIST_ORDERS]))
+    current_user: User = Depends(PermissionChecker([Permissions.LIST_ALL_ORDERS]))
 ):
     return OrderService(db).list_all_orders()
 

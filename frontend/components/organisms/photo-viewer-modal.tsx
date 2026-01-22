@@ -156,7 +156,7 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
               )}
               {!originalLoading && originalUrl && previewUrl && (
                 <div className="absolute right-4 bottom-4 rounded-full bg-black/70 px-3 py-1 text-[10px] text-white">
-                  Vista previa protegida. La versión final la verás después de la compra
+                  Alta resolución cargada
                 </div>
               )}
             </>

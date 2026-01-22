@@ -18,8 +18,6 @@ interface BackendAlbum {
 
   tags?: any[];
 
-  combos?: any[];
-
 }
 
 export function useAlbums(albumId?: string) {

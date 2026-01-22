@@ -83,13 +83,6 @@ export interface PrintSelection {
   photoIds: string[];
 }
 
-export interface CartComboSelection {
-  id: number;
-  name: string;
-  price: number;
-  totalPhotos: number;
-}
-
 export interface CartItem {
   photoId: string;
   selected: boolean;  // checkbox selection
@@ -103,26 +96,13 @@ export interface CartState {
   email?: string;
   discountCode?: string;
   discountInfo?: { type: "percent" | "fixed"; value: number };
-  // Impresiones
-  printsSubtotalCalculated: number; // subtotal automático (packs x precio formato)
-  printsSubtotalManual?: number; // override manual staff
-  printsManualEnabled: boolean; // flag de override
-  printsSubtotalEffective: number; // valor usado para total
-
-  // Digitales
-  digitalSubtotalCalculated: number; // subtotal automático (digitales + combo)
-  digitalSubtotalManual?: number; // override manual staff
-  digitalManualEnabled: boolean; // flag de override
-  digitalSubtotalEffective: number; // valor usado para total
-
-  // Totales
-  subtotal: number; // total efectivo antes de descuentos (compat)
-  total: number; // total final con descuentos aplicados
-  totalEffective: number; // printsEffective + digitalEffective
-
+  subtotal: number;
+  total: number;
   savedSessionId?: string;
   channel: "web" | "local"; // affects checkout flow
-  selectedCombo?: CartComboSelection | null
+  subtotalImpresasOverride?: number
+  subtotalFotosOverride?: number
+  totalOverride?: number
 }
 
 export interface Filters {

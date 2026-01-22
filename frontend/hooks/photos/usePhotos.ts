@@ -18,7 +18,6 @@ export interface BackendPhotoSession {
 
 export interface BackendPhoto {
   id: number;
-  album_id?: number | null;
   filename: string;
   description?: string;
   price: number;

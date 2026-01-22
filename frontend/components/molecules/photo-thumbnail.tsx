@@ -2,14 +2,13 @@
 
 import type React from "react"
 import { useState } from "react"
-import { isAdmin, type Photo } from "@/lib/types"
+import type { Photo } from "@/lib/types"
 import { formatPhotoDate } from "@/lib/datetime"
 import { cn } from "@/lib/utils"
 import { Check, Heart, Printer, Image as ImageIcon } from "lucide-react"
 import WatermarkedImage from "@/components/organisms/WatermarkedImage"
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
 import { buildThumbObjectName } from "@/lib/photo-thumbnails"
-import { useAuthStore } from "@/lib/store"
 
 interface PhotoThumbnailProps {
   photo: Photo
@@ -64,10 +63,6 @@ export function PhotoThumbnail({
     e.stopPropagation()
     onTogglePrinter?.()
   }
-
-   const { user, isAuthenticated } = useAuthStore()
-  
-    const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
   return (
     <div
       className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl bg-muted shadow-md transition-all hover:shadow-xl"
@@ -122,7 +117,7 @@ export function PhotoThumbnail({
             <Heart className={cn("h-4 w-4", isFavorite ? "fill-white text-white" : "text-white")} strokeWidth={2} />
           </div>
         )}
-     {isStaffUser && onTogglePrinter && (
+        {onTogglePrinter && (
           <div
             className={cn(
               "flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 transition-all",
@@ -132,13 +127,9 @@ export function PhotoThumbnail({
             )}
             onClick={handlePrinterClick}
           >
-            <Printer
-              className={cn("h-4 w-4 text-white")}
-              strokeWidth={2}
-            />
+            <Printer className={cn("h-4 w-4", isPrinter ? "text-white" : "text-white")} strokeWidth={2} />
           </div>
         )}
-
       </div>
 
       {/* Overlay */}

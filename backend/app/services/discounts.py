@@ -2,8 +2,6 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from models.discount import Discount, DiscountCreateSchema, DiscountUpdateSchema
 from services.base import BaseService
-from sqlalchemy import func
-
 
 class DiscountService(BaseService):
     def __init__(self, db: Session):
@@ -17,33 +15,18 @@ class DiscountService(BaseService):
         """Returns a specific discount by its ID."""
         discount = self.db.query(Discount).filter(Discount.id == discount_id).first()
         if not discount:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Discount not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Discount not found")
         return discount
-
-    # 👉 NUEVO MÉTODO
-    def find_by_code(self, code: str) -> Discount | None:
-        """
-        Finds a discount by code (case-insensitive).
-        Used by /discounts/validate (public endpoint).
-        """
-        return (
-            self.db
-            .query(Discount)
-            .filter(func.upper(Discount.code) == code.upper())
-            .first()
-        )
 
     def create_discount(self, discount_in: DiscountCreateSchema) -> Discount:
         """Creates a new discount."""
         db_discount = Discount(**discount_in.model_dump())
+
         return self._save_and_refresh(db_discount)
 
     def update_discount(self, discount_id: int, discount_in: DiscountUpdateSchema) -> Discount:
         """Updates an existing discount."""
-        db_discount = self.get_discount(discount_id)
+        db_discount = self.get_discount(discount_id) # Re-use get_discount to handle not found
         
         update_data = discount_in.model_dump(exclude_unset=True)
         for field, value in update_data.items():
@@ -53,5 +36,6 @@ class DiscountService(BaseService):
 
     def delete_discount(self, discount_id: int):
         """Deletes a discount."""
-        db_discount = self.get_discount(discount_id)
+        db_discount = self.get_discount(discount_id) # Re-use get_discount to handle not found
+        
         return self._delete_and_refresh(db_discount)

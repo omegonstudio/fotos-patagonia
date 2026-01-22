@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
-import type { Album, PhotoCombo } from "@/lib/types"
+import type { Album } from "@/lib/types"
 import { AlbumModal, AlbumModalFormValues } from "@/components/molecules/album-modal"
 import { DeleteConfirmationModal } from "@/components/molecules/delete-confirmation-modal"
 import { useAlbums } from "@/hooks/albums/useAlbums"
@@ -120,7 +120,6 @@ export default function AlbumsManagementPage() {
                 {/* TAGS */}
                 {album.tags && (
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <p className="text-sm text-muted-foreground">tags</p>
                     {album.tags.map((t) => (
                       <Badge key={t.id} variant="secondary" className="rounded-full px-3 py-1">
                         {t.name}
@@ -129,19 +128,7 @@ export default function AlbumsManagementPage() {
                   </div>
                 )}
               </div>
-              {/* Combos de fotos */}
-             
-              {album.combos && (
-                
-                  <div className="flex flex-wrap gap-1">
-                     <p className="text-sm text-muted-foreground">Combos de fotos</p>
-                    {album.combos.map((c: PhotoCombo) => (
-                      <Badge key={c.id} variant="secondary" className="rounded-full px-3 py-1">
-                        {c.name}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+
               <div className="flex gap-2">
                 <Button
                   size="sm"
@@ -177,8 +164,7 @@ export default function AlbumsManagementPage() {
                   <p className="text-sm text-muted-foreground">ID</p>
                   <p>#{album.id}</p>
                 </div>
-              </div>  
-              
+              </div>
             </CardContent>
           </Card>
         ))}

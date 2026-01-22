@@ -15,8 +15,6 @@ import { OrderStatusSelector } from "@/components/molecules/OrderStatusSelector"
 import { formatDateTime, parseUtcNaiveDate } from "@/lib/datetime";
 import { FilterBar } from "@/components/molecules/filter-bar"
 import { photoHourKey } from "@/lib/datetime"
-import { useAuthStore } from "@/lib/store"
-import { getUserRoleName, isAdmin } from "@/lib/types"
 
 
 
@@ -28,34 +26,6 @@ export default function PedidosPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
-
- // Obtener información del rol
- const user = useAuthStore((state) => state.user)
-const roleName = getUserRoleName(user)?.toLowerCase()
-const userIsAdmin = isAdmin(user)
-
-const isPhotographer =
-  roleName === "fotógrafo" || roleName === "vendedor"
-
-  const isTodayInArgentina = (dateValue?: string | null) => {
-    if (!dateValue) return false
-  
-    const date = parseUtcNaiveDate(dateValue)
-    if (!date) return false
-  
-    const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Argentina/Buenos_Aires",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
-  
-    const orderDate = formatter.format(date)
-    const today = formatter.format(new Date())
-  
-    return orderDate === today
-  }
-  
 
   const toMillis = (value?: string | null) => parseUtcNaiveDate(value)?.getTime() ?? 0;
 
@@ -83,14 +53,6 @@ const isPhotographer =
         (order) => order.order_status === statusFilter
       )
     }
-
-          // 🔐 Fotógrafo: solo pedidos del día
-      if (isPhotographer && !userIsAdmin) {
-        filtered = filtered.filter((order) =>
-          isTodayInArgentina(order.created_at ?? order.createdAt)
-        )
-      }
-
   
     // 💳 pago
     if (paymentFilter !== "all") {
