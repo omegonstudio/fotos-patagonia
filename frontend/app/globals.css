@@ -117,6 +117,7 @@
   --input: #e5e5e5;
   --ring: var(--color-primary);
   --radius: 1rem;
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -125,6 +126,7 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -143,3 +145,136 @@ h5,
 h6 {
   @apply font-heading text-foreground;
 }
+
+@layer utilities {
+  /* Grid optimizado para selección en mobile */
+  .grid-photo-select {
+    @apply grid gap-2 grid-cols-2 /* mobile: 2 por fila */ sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5;
+  }
+}
+
+@layer utilities {
+  /* Visor mobile: 2 imágenes visibles */
+  .photo-viewer-mobile {
+    @apply flex flex-col gap-2 overflow-y-auto snap-y snap-mandatory;
+  }
+
+  .photo-viewer-mobile-item {
+    @apply relative snap-start h-[45vh] w-full overflow-hidden rounded-xl bg-black;
+  }
+}
+
+/* Mobile CTA fixed bottom inside modal */
+.photo-viewer-mobile-cta {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 44px 1fr 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, black 70%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.photo-viewer-cta-icon {
+  height: 44px;
+  width: 44px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, white 12%, transparent);
+  color: white;
+}
+
+.photo-viewer-cta-icon.is-active-fav {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.photo-viewer-cta-main {
+  height: 44px;
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  font-weight: 700;
+  background: color-mix(in oklab, white 12%, transparent);
+  color: white;
+  border: 1px solid color-mix(in oklab, white 18%, transparent);
+}
+
+.photo-viewer-cta-main.is-in-cart {
+  background: color-mix(in oklab, white 10%, transparent);
+  opacity: 0.95;
+}
+
+.photo-viewer-cta-main.is-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  text-decoration: none;
+}
+
+@layer utilities {
+  /* Botonera overlay por foto en visor mobile */
+  .photo-viewer-item-actions {
+    @apply absolute bottom-2 right-2 z-20 flex gap-2;
+  }
+
+  .photo-viewer-item-btn {
+    @apply h-10 w-10 rounded-full grid place-items-center bg-black/60 text-white backdrop-blur transition;
+  }
+
+  .photo-viewer-item-btn.is-active {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+}
+
+.photo-viewer-mobile-item {
+  position: relative;
+  z-index: 1;
+}
+
+@layer utilities {
+  .photo-viewer-item-actions {
+    @apply absolute bottom-2 right-2 z-50 flex items-center gap-2;
+  }
+
+  /* Cuando está en carrito → heart + cart a la izquierda,
+     "Ver carrito" ocupa el resto */
+  .photo-viewer-item-actions.is-in-cart {
+    @apply left-2 right-2 justify-center;
+  }
+
+  .photo-viewer-item-btn {
+    @apply h-10 w-10 rounded-full grid place-items-center bg-black/60 text-white backdrop-blur transition;
+  }
+
+  .photo-viewer-item-btn.is-active {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  .photo-viewer-item-btn.is-cart-link {
+    @apply
+      h-[25px]              /* ✅ MOBILE */
+      sm:h-10               /* desktop vuelve a 40px */
+      px-14
+      rounded-full
+      flex
+      items-center
+      justify-center
+      gap-2
+      font-semibold
+      whitespace-nowrap;
+  
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+}
+
