@@ -75,6 +75,15 @@ def send_order_email(
 ):
     return OrderService(db).send_order_email(order_id=order_id, email_to=payload.email)
 
+@router.delete("/{order_id}", status_code=status.HTTP_200_OK)
+def delete_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(PermissionChecker([Permissions.DELETE_ORDER]))
+):
+    OrderService(db).delete_order(order_id)
+    return {"message": "Order deleted successfully"}
+
 @router.get("/{order_id}/qr-code")
 def generate_qr_code(
     order_id: int,
