@@ -21,10 +21,11 @@ export interface Combo {
       }
     }
   
-    // ordenar combos por tamaño DESC (7 → 5 → 3)
-    const sorted = [...combos].sort(
-      (a, b) => b.totalPhotos - a.totalPhotos,
-    )
+    
+    const sorted = [...combos]
+    .filter(c => c.totalPhotos > 0)
+    .sort((a, b) => b.totalPhotos - a.totalPhotos)
+  
   
     let remaining = photoCount
     const applied: AppliedCombo[] = []

@@ -257,9 +257,21 @@ export default function CarritoPage() {
     return prices.reduce((sum, price) => sum + price, 0) / prices.length
   }, [items, photosMap])
 
+  const quantityCombos = useMemo(
+    () =>
+      applicableCombos.filter(
+        (c) =>
+          c.active &&
+          c.totalPhotos > 0 &&
+          !c.isFullAlbum // si existe el campo
+      ),
+    [applicableCombos],
+  )
+  
   const autoComboResolution = useMemo(() => {
-    return resolveAutoCombos(items.length, applicableCombos)
-  }, [items.length, applicableCombos])
+    return resolveAutoCombos(items.length, quantityCombos)
+  }, [items.length, quantityCombos])
+  
 
   const autoSelectedCombo = useMemo(() => {
     if (digitalManualEnabled) return null
