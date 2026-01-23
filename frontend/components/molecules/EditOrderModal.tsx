@@ -49,7 +49,7 @@ export function EditOrderModal({
 
   const handleSave = async () => {
     if (order) {
-      await updateOrder(order.id, {
+      await updateOrder(order.id.toString(), {
         payment_method: paymentMethod as PaymentMethod,
         total,
         order_status: status as OrderStatus,
