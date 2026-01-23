@@ -63,6 +63,8 @@ interface PresignedUrlResponse {
   url: string;
 }
 
+
+
 const fetchPresignedUrl = async (photo: Photo) => {
   const response = await apiFetch<PresignedUrlResponse>(
     `/photos/presigned-url/?object_name=${encodeURIComponent(photo.objectName)}`
@@ -135,6 +137,7 @@ export default function OrderDetailPage() {
   const { photos } = usePhotos();
   const [email, setEmail] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { Canvas } = useQRCode();
   const QRCanvas = Canvas as (props: any) => ReactElement;
 
@@ -238,31 +241,41 @@ export default function OrderDetailPage() {
       .map(({ photo }) => photo);
   }, [orderPhotoItems]);
 
-  const handleDownloadMultiple = async (photosToDownload: Photo[], emptyMessage: string) => {
+  const handleDownloadMultiple = async (
+    photosToDownload: Photo[],
+    emptyMessage: string
+  ) => {
     if (!photosToDownload.length) {
-      toast({ title: emptyMessage });
-      return;
+      toast({ title: emptyMessage })
+      return
     }
-
+  
+    if (isDownloading) return
+    setIsDownloading(true)
+  
     try {
       for (const photo of photosToDownload) {
-        const presignedUrl = await fetchPresignedUrl(photo);
-        triggerFileDownload(presignedUrl, buildPhotoFilename(photo));
+        const presignedUrl = await fetchPresignedUrl(photo)
+        await triggerFileDownload(presignedUrl, buildPhotoFilename(photo))
       }
-
+  
       toast({
         title: "Descargas iniciadas",
-        description: `${photosToDownload.length} foto${photosToDownload.length === 1 ? "" : "s"} en proceso`,
-      });
-    } catch (downloadError) {
-      console.error(downloadError);
+        description: `${photosToDownload.length} foto${
+          photosToDownload.length === 1 ? "" : "s"
+        }`,
+      })
+    } catch (err) {
+      console.error(err)
       toast({
         title: "Error al descargar fotos",
-        description: "Reintenta en unos instantes",
         variant: "destructive",
-      });
+      })
+    } finally {
+      setIsDownloading(false)
     }
-  };
+  }
+  
 
   const zipOrderItems = useMemo(() => {
     if (!order?.items) return [];
@@ -277,7 +290,8 @@ export default function OrderDetailPage() {
       return;
     }
   
- 
+/*     if (!confirmDownload(zipOrderItems.length)) return;
+ */  
     try {
       const zip = new JSZip();
   
@@ -320,6 +334,7 @@ export default function OrderDetailPage() {
     }
   };
   
+
 
   const handleDownloadDigitalPhotos = async () => {
     await handleDownloadMultiple(digitalOrderPhotos, "No hay fotos digitales para descargar");
@@ -447,6 +462,7 @@ export default function OrderDetailPage() {
                   <CardDescription>Miniaturas separadas por digital e impresión</CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+
                 <Button
                   size="sm"
                   className="rounded-xl"
@@ -457,8 +473,8 @@ export default function OrderDetailPage() {
                     setConfirmOpen(true)
                   }}
                 >
-                  Descargar todas
-                </Button>
+                    {isDownloading ? "Descargando..." : "Descargar todas"}
+                    </Button>
 
                 <Button
                   size="sm"
@@ -476,8 +492,7 @@ export default function OrderDetailPage() {
                     setConfirmOpen(true)
                   }}
                 >
-                  Descargar fotos
-                </Button>
+{isDownloading ? "Descargando..." : "Descargar Digitales"}                </Button>
 
                 <Button
                   size="sm"
@@ -495,7 +510,7 @@ export default function OrderDetailPage() {
                     setConfirmOpen(true)
                   }}
                 >
-                  Descargar imprimir
+                    {isDownloading ? "Descargando..." : "Descargar imprimir"}
                 </Button>
 
                 </div>
