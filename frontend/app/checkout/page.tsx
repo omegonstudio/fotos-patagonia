@@ -81,15 +81,21 @@ export default function CheckoutPage() {
     items,
     printSelections,
     email,
-    total,
-    totalOverride, 
-    subtotalImpresasOverride,
-    subtotalFotosOverride,
-    channel,
-    clearCart,
-  } = useCartStore();
   
-  const effectiveTotal = totalOverride ?? total;
+    // 💰 valores reales
+    printsSubtotalEffective,
+    digitalSubtotalEffective,
+    totalEffective,
+  
+    // 🧠 flags de edición
+    printsManualEnabled,
+    digitalManualEnabled,
+  
+    clearCart,
+  } = useCartStore()
+
+  const effectiveTotal = totalEffective;
+  
 
   const { user, isAuthenticated } = useAuthStore();
   const { photos } = usePhotos();
@@ -131,7 +137,9 @@ export default function CheckoutPage() {
   const isStaffUser =
     isAuthenticated && user && (isAdmin(user) || user.photographer_id);
   const defaultChannel = isStaffUser ? "local" : "web";
-
+  const orderChannel = isStaffUser ? "local" : "web"
+  const canShowPrints = orderChannel === "local"
+  
   const [selectedChannel, setSelectedChannel] = useState<"web" | "local">(
     defaultChannel
   );
@@ -278,7 +286,7 @@ export default function CheckoutPage() {
     metadata: {
       channel: orderChannel,
       items: orderDraftItems,
-      overrideTotal: totalOverride ?? null, 
+      overrideTotal: effectiveTotal, 
     },
   };
   
@@ -514,7 +522,7 @@ export default function CheckoutPage() {
               <h2 className="mb-4 text-xl font-heading">Resumen del Pedido</h2>
 
               {/* Fotos Impresas */}
-              {printPhotos.length > 0 && (
+              {canShowPrints && printPhotos.length > 0 && (
                 <div className="mb-4 space-y-3 border-b border-gray-200 pb-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
@@ -556,7 +564,7 @@ export default function CheckoutPage() {
                         )}
                       </div>
                       <p className="text-sm font-semibold">
-                        ${subtotalImpresasOverride ?? selectionTotal}
+                        ${selectionTotal}
 
                       </p>
                     </div>
@@ -596,7 +604,7 @@ export default function CheckoutPage() {
                         </p>
                       </div>
                       <p className="text-sm font-semibold">
-                        ${subtotalFotosOverride ?? photo.price}
+                        ${photo.price}
                       </p>
                     </div>
                   ))}
@@ -617,7 +625,7 @@ export default function CheckoutPage() {
                   <span className="text-muted-foreground">
                     Total ({items.length} fotos)
                   </span>
-                  <span className="font-medium">${totalOverride??total}</span>
+                  <span className="font-medium">${effectiveTotal}</span>
                 </div>
                 {printPhotos.length > 0 && (
                   <div className="text-xs text-muted-foreground pt-2 space-y-1">
@@ -627,23 +635,23 @@ export default function CheckoutPage() {
                           • {summary.format.name} ({summary.format.size}) × {summary.packs} pack
                           {summary.packs > 1 ? "s" : ""}
                         </span>
-                        <span>${subtotalImpresasOverride ?? summary.totalPrice}</span>
+                        <span>${summary.totalPrice}</span>
                       </div>
                     ))}
                   </div>
                 )}
                 <div className="flex justify-between border-t border-gray-200 pt-2 text-lg font-bold">
                   <span>Total</span>
-                  <span className="text-primary">${totalOverride??total}</span>
+                    <span className="text-primary">${effectiveTotal}</span>
                 </div>
               </div>
 
               <div className="mt-6 space-y-2 border-t border-gray-200 pt-6 text-xs text-muted-foreground">
                 <p>✓ Descarga inmediata después del pago</p>
                 <p>✓ Resolución web y alta calidad</p>
-                {printPhotos.length > 0 && (
-                  <p>✓ Impresiones en formato seleccionado</p>
-                )}
+                {canShowPrints && printPhotos.length > 0 && (
+                    <p>✓ Impresiones en formato seleccionado</p>
+                  )}
                 <p>✓ Soporte técnico incluido</p>
               </div>
             </div>

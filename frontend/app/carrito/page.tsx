@@ -108,6 +108,28 @@ return mapped
   // Staff users (admin o usuarios con photographer_id) tienen privilegios especiales
   const isStaffUser = !!(isAuthenticated && user && (isAdmin(user) || user.photographer_id))
 
+  useEffect(() => {
+    if (!isStaffUser) {
+      // 1️⃣ limpiar flags printer en items
+      items.forEach((item) => {
+        if (item.printer) {
+          togglePrinter(item.photoId)
+        }
+      })
+  
+      // 2️⃣ limpiar selecciones de impresión
+      if (printSelections.length > 0) {
+        clearPrintSelections()
+      }
+    }
+  }, [
+    isStaffUser,
+    items,
+    printSelections.length,
+    togglePrinter,
+    clearPrintSelections,
+  ])
+
   const [localEmail, setLocalEmail] = useState(email || "")
   const [localDiscountCode, setLocalDiscountCode] = useState("")
   const [discountError, setDiscountError] = useState("")
@@ -612,7 +634,7 @@ useEffect(() => {
             </p> */}
           </div>
           <div className="flex gap-3">
-            {printerCount > 0 && (
+            {isStaffUser && printerCount > 0 && (
               <Button
                 onClick={handleOpenFormatModal}
                 className="gap-2 rounded-xl bg-primary text-foreground"
@@ -621,7 +643,7 @@ useEffect(() => {
                 Elegir Formato ({printerCount})
               </Button>
             )}
-            {printSelections.length > 0 && (
+            {isStaffUser && printSelections.length > 0 && (
               <Button
                 variant="outline"
                 onClick={clearPrintSelections}
@@ -655,10 +677,12 @@ useEffect(() => {
                   <Heart className="mr-2 h-4 w-4" />
                   Favoritas ({favoriteCount}/{totalCount})
                 </TabsTrigger>
-                <TabsTrigger value="printer" className="rounded-lg data-[state=active]:bg-[#ffecce]">
+                {isStaffUser && (
+                  <TabsTrigger value="printer" className="rounded-lg data-[state=active]:bg-[#ffecce]">
                   <Printer className="mr-2 h-4 w-4" />
-                  Imprimir ({printerCount}/{totalCount})
-                </TabsTrigger>
+                    Imprimir ({printerCount}/{totalCount})
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="all" className="space-y-4">
@@ -679,10 +703,8 @@ useEffect(() => {
                         navigablePhotoIds.indexOf(item.photo.id)
                       )
                     }
-                    
-                    
-                    
                     onEditPrintFormat={item.cartItem.printer ? () => handleEditFormatForPhoto(item.photo.id) : undefined}
+                    isStaffUser={isStaffUser}
                   />
                 ))}
                 </div>
@@ -701,6 +723,7 @@ useEffect(() => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {favoritePhotos.map((item) => (
                     <CartItem
+                      isStaffUser={isStaffUser}
                       key={item.photo.id}
                       photo={item.photo}
                       isFavorite={item.cartItem.favorite}
@@ -735,6 +758,7 @@ useEffect(() => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                       {printerPhotos.map((item) => (
                         <CartItem
+                          isStaffUser={isStaffUser}
                           key={item.photo.id}
                           photo={item.photo}
                           isFavorite={item.cartItem.favorite}

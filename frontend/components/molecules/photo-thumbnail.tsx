@@ -20,12 +20,14 @@ interface PhotoThumbnailProps {
   isPrinter?: boolean
   onToggleFavorite?: () => void
   onTogglePrinter?: () => void
+  isStaffUser: boolean
 }
 
 export function PhotoThumbnail({
   photo,
   onClick,
   onShiftClick,
+  isStaffUser,
   isSelected = false,
   onToggleSelect,
   isFavorite = false,
@@ -117,7 +119,7 @@ export function PhotoThumbnail({
             <Heart className={cn("h-4 w-4", isFavorite ? "fill-white text-white" : "text-white")} strokeWidth={2} />
           </div>
         )}
-        {onTogglePrinter && (
+        {isStaffUser && onTogglePrinter && (
           <div
             className={cn(
               "flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 transition-all",

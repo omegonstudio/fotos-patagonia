@@ -21,6 +21,7 @@ interface CartItemProps {
   onRemove: () => void
   onPreview?: () => void
   onEditPrintFormat?: () => void
+  isStaffUser: boolean
 }
 
 function CartItemComponent({
@@ -33,6 +34,7 @@ function CartItemComponent({
   onTogglePrinter,
   onRemove,
   onPreview,
+  isStaffUser,
 }: CartItemProps) {
   const previewObjectName =
     photo.previewObjectName ?? buildThumbObjectName(photo.objectName)
@@ -86,7 +88,7 @@ function CartItemComponent({
 
         
         {/* Badge de formato si está para imprimir */}
-        {isPrinter && printFormat && (
+        {isStaffUser && isPrinter && printFormat && (
           <div className="absolute top-2 right-2">
             <Badge className="bg-primary/90 text-foreground text-xs">
               {printFormat.size}
@@ -103,7 +105,7 @@ function CartItemComponent({
         </div>
         {/* Info del formato si está seleccionado */}
 
-        {isPrinter && printFormat && (
+        {isStaffUser && isPrinter && printFormat && (
           <button
             type="button"
             onClick={onEditPrintFormat}
@@ -124,14 +126,6 @@ function CartItemComponent({
             </div>
           </button>
         )}
-       {/*  {isPrinter && printFormat && (
-          <div className="text-xs text-muted-foreground">
-            <div className="flex justify-between items-center">
-              <span className="font-medium">{printFormat.name}</span>
-              <span className="font-semibold text-primary">${printFormat.price}</span>
-            </div>
-          </div>
-        )} */}
         
         {/* Botones de acción */}
         <div className="flex items-center justify-between">
@@ -142,19 +136,23 @@ function CartItemComponent({
               className={cn(isFavorite && "text-primary hover:text-primary")}
               ariaLabel={isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
             />
-            <IconButton
+            {isStaffUser && (
+              <IconButton
               icon={Printer}
               onClick={onTogglePrinter}
               className={cn(isPrinter && "text-secondary hover:text-secondary/80")}
               ariaLabel={isPrinter ? "Quitar de impresión" : "Marcar para imprimir"}
-            />
+              />
+            )}
           </div>
-          <IconButton
+          {isStaffUser && (
+            <IconButton
             icon={Trash2}
             onClick={onRemove}
             className="text-destructive hover:text-destructive/80"
             ariaLabel="Eliminar del carrito"
-          />
+            />
+          )}
         </div>
       </div>
     </div>

@@ -18,9 +18,9 @@ export default function GaleriaPage() {
   const { addItem, items, toggleFavorite, togglePrinter, toggleSelected } = useCartStore()
   const { isOpen, currentPhotoId, photos, open, close, next, prev } = useLightboxStore()
   const { filters, setFilters, setPhotos } = useGalleryStore()
-  const { user } = useAuthStore()
 
-  const userIsAdmin = isAdmin(user)
+    const { user, isAuthenticated } = useAuthStore()
+  const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
 
   // Transform backend photos to match expected format
   const galleryPhotos = useMemo(() => {
@@ -181,6 +181,7 @@ export default function GaleriaPage() {
               const cartItem = items.find((item) => item.photoId === photo.id)
               return (
                 <PhotoThumbnail
+                  isStaffUser={!!isStaffUser}
                   key={photo.id}
                   photo={photo}
                   onClick={() => handlePhotoClick(photo.id)}

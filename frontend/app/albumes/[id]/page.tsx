@@ -18,6 +18,7 @@ import { PhotoModal } from "@/components/organisms/photo-modal"
 import { formatDateOnly, parseUtcNaiveDate } from "@/lib/datetime"
 import { photoHourKey } from "@/lib/datetime"
 import { findClosestHourWithPhotos } from "@/lib/time-slots"
+import { isAdmin } from "@/lib/types"
 
 
 export default function AlbumDetailPage() {
@@ -26,12 +27,12 @@ export default function AlbumDetailPage() {
   const { data: albumData, loading, error, refetch } = useAlbums(id)
   const [filters, setFilters] = useState<{ date?: string; place?: string; time?: string }>({})
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
-  const { isAuthenticated } = useAuthStore()
+  const { user,isAuthenticated } = useAuthStore()
+  const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
   const eventDateMs = (value?: string | null) => parseUtcNaiveDate(value)?.getTime() ?? 0
 
   // Transform backend data
   const album = albumData && !Array.isArray(albumData) ? albumData : null
-  
   // Debug: registrar el orden crudo de sesiones recibido
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return
@@ -371,6 +372,7 @@ export default function AlbumDetailPage() {
                 const cartItem = items.find((item) => item.photoId === photo.id)
                 return (
                   <PhotoThumbnail
+                    isStaffUser={!!isStaffUser}
                     key={photo.id}
                     photo={photo}
                     onClick={() => handlePhotoClick(photo.id)}
