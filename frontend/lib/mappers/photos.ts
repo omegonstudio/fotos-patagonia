@@ -7,40 +7,59 @@ interface PhotoMappingOptions {
   albumName?: string | null
 }
 
-export function mapBackendPhotoToPhoto(photo: BackendPhoto, options?: PhotoMappingOptions): Photo {
-  const session = options?.session ?? photo.session
+export function mapBackendPhotoToPhoto(
+  photo: BackendPhoto,
+  options?: PhotoMappingOptions
+): Photo {
+  const safePhoto = normalizeNullable(photo)
+
+  const session = options?.session ?? safePhoto.session
 
   const albumIdValue =
     options?.session?.album_id ?? session?.album_id ?? null
 
-  const sessionIdValue = options?.session?.id ?? session?.id ?? null
+  const sessionIdValue =
+    options?.session?.id ?? session?.id ?? null
+
   const photographerName =
-    photo.photographer?.name ?? session?.photographer?.name ?? undefined
+    safePhoto.photographer?.name ??
+    session?.photographer?.name ??
+    undefined
 
   const thumbnailObjectName =
-    photo.thumbnail_object_name ?? buildThumbObjectName(photo.object_name)
+    safePhoto.thumbnail_object_name ??
+    buildThumbObjectName(safePhoto.object_name)
 
   return {
-    id: String(photo.id),
-    albumId: albumIdValue !== null && albumIdValue !== undefined ? String(albumIdValue) : undefined,
+    id: String(safePhoto.id),
+    albumId:
+      albumIdValue !== null && albumIdValue !== undefined
+        ? String(albumIdValue)
+        : undefined,
     albumName: options?.albumName ?? session?.event_name ?? undefined,
-    photographerId: photo.photographer_id ? String(photo.photographer_id) : undefined,
+    photographerId: safePhoto.photographer_id
+      ? String(safePhoto.photographer_id)
+      : undefined,
     photographerName,
-    sessionId: sessionIdValue !== null && sessionIdValue !== undefined ? String(sessionIdValue) : undefined,
+    sessionId:
+      sessionIdValue !== null && sessionIdValue !== undefined
+        ? String(sessionIdValue)
+        : undefined,
     takenAt: session?.event_date ?? undefined,
     place: session?.location ?? undefined,
-    price: photo.price,
-    description: photo.description,
-    tags: photo.tags?.map((tag) => tag.name) ?? [],
-    objectName: photo.object_name,
+    price: safePhoto.price,
+    description: safePhoto.description,
+    tags: safePhoto.tags?.map((tag) => tag.name) ?? [],
+    objectName: safePhoto.object_name,
     thumbnailObjectName,
-    previewObjectName: thumbnailObjectName ?? undefined,
-    // urls: {
-    //   thumb: photo.watermark_url || photo.url,
-    //   web: photo.watermark_url || photo.url,
-    //   local: photo.url,
-    //   original: photo.url,
-    // },
+    previewObjectName: thumbnailObjectName,
   }
+}
+
+
+function normalizeNullable<T extends Record<string, any>>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => [k, v === null ? undefined : v])
+  ) as T
 }
 

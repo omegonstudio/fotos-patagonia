@@ -14,13 +14,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import type { Order, OrderItem, Photo } from "@/lib/types";
 import { apiFetch } from "@/lib/api";
-import { usePhotos } from "@/hooks/photos/usePhotos";
+import { BackendPhoto, usePhotos } from "@/hooks/photos/usePhotos";
 import { useToast } from "@/hooks/use-toast";
 import WatermarkedImage from "@/components/organisms/WatermarkedImage";
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
 import { useOrders } from "@/hooks/orders/useOrders";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
 import { formatDateTime } from "@/lib/datetime";
+
+
 
 const QR_CANVAS_ID = "order-download-qr-canvas";
 
@@ -148,7 +150,7 @@ export default function OrderDetailPage() {
     }
   };
 
-  const photosMap = useMemo(() => {
+ /*  const photosMap = useMemo(() => {
     const map = new Map<string, Photo>();
     if (photos) {
       photos.forEach((photo) => {
@@ -156,7 +158,10 @@ export default function OrderDetailPage() {
       });
     }
     return map;
-  }, [photos]);
+  }, [photos]); */
+
+  
+  
 
   const orderDownloadUrl = useMemo(() => {
     if (!order) return "";
@@ -165,16 +170,16 @@ export default function OrderDetailPage() {
   }, [order]);
 
   const orderPhotoItems = useMemo(() => {
-    if (!order?.items || order.items.length === 0) return [];
-
+    if (!order?.items || order.items.length === 0) return []
+  
     return order.items.flatMap((item: OrderItem) => {
-      const id = item.photo_id;
-      if (id == null) return [];
-      const photo = photosMap.get(String(id));
-      if (!photo) return [];
-      return [{ item, photo }];
-    });
-  }, [order?.items, photosMap]);
+      if (!item.photo) return []
+  
+      const photo = mapBackendPhotoToPhoto(item.photo as BackendPhoto)
+      return [{ item, photo }]
+    })
+  }, [order?.items])
+  
 
   const allOrderPhotos = useMemo(() => {
     const seen = new Set<string>();
