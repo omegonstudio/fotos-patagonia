@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Download, Send, Printer, ImageIcon } from "lucide-react";
 import { useQRCode } from "next-qrcode";
+import JSZip from "jszip";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +22,7 @@ import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
 import { useOrders } from "@/hooks/orders/useOrders";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
 import { formatDateTime } from "@/lib/datetime";
-
-
+import { DownloadConfirmationModal } from "@/components/molecules/download-confirmation-modal";
 
 const QR_CANVAS_ID = "order-download-qr-canvas";
 
@@ -30,6 +30,12 @@ const buildPhotoFilename = (photo: Photo) => {
   const sanitizedPlace = photo.place?.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || `foto-${photo.id}`;
   return `${sanitizedPlace}.jpg`;
 };
+const buildZipFilename = (photo: Photo, index: number) => {
+  const base = buildPhotoFilename(photo).replace(".jpg", "");
+  return `${base}-${photo.id || index}.jpg`;
+};
+
+
 
 const triggerFileDownload = async (url: string, filename: string) => {
   try {
@@ -56,6 +62,16 @@ const triggerFileDownload = async (url: string, filename: string) => {
 interface PresignedUrlResponse {
   url: string;
 }
+
+const fetchPresignedUrl = async (photo: Photo) => {
+  const response = await apiFetch<PresignedUrlResponse>(
+    `/photos/presigned-url/?object_name=${encodeURIComponent(photo.objectName)}`
+  );
+  if (!response?.url) {
+    throw new Error("URL presignada no disponible");
+  }
+  return response.url;
+};
 
 // Sub-componente para manejar la lógica de la URL presignada
 function PhotoGridItem({ photo }: { photo: Photo }) {
@@ -102,7 +118,13 @@ function PhotoGridItem({ photo }: { photo: Photo }) {
 }
 
 
+
 export default function OrderDetailPage() {
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<null | (() => Promise<void>)>(null)
+  const [confirmCount, setConfirmCount] = useState(0)
+  const [confirmTitle, setConfirmTitle] = useState("")
+  const [confirmLoading, setConfirmLoading] = useState(false)
   const params = useParams();
   const orderId = params.id as string;
 
@@ -116,6 +138,8 @@ export default function OrderDetailPage() {
   const { Canvas } = useQRCode();
   const QRCanvas = Canvas as (props: any) => ReactElement;
 
+
+  
   useEffect(() => {
     if (order?.customer_email) {
       setEmail(order.customer_email);
@@ -150,7 +174,7 @@ export default function OrderDetailPage() {
     }
   };
 
- /*  const photosMap = useMemo(() => {
+/*   const photosMap = useMemo(() => {
     const map = new Map<string, Photo>();
     if (photos) {
       photos.forEach((photo) => {
@@ -160,9 +184,6 @@ export default function OrderDetailPage() {
     return map;
   }, [photos]); */
 
-  
-  
-
   const orderDownloadUrl = useMemo(() => {
     if (!order) return "";
     const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -170,15 +191,16 @@ export default function OrderDetailPage() {
   }, [order]);
 
   const orderPhotoItems = useMemo(() => {
-    if (!order?.items || order.items.length === 0) return []
+    if (!order?.items || order.items.length === 0) return [];
   
     return order.items.flatMap((item: OrderItem) => {
-      if (!item.photo) return []
+      if (!item.photo) return [];
   
-      const photo = mapBackendPhotoToPhoto(item.photo as BackendPhoto)
-      return [{ item, photo }]
-    })
-  }, [order?.items])
+      const photo = mapBackendPhotoToPhoto(item.photo as BackendPhoto);
+  
+      return [{ item, photo }];
+    });
+  }, [order?.items]);
   
 
   const allOrderPhotos = useMemo(() => {
@@ -224,13 +246,8 @@ export default function OrderDetailPage() {
 
     try {
       for (const photo of photosToDownload) {
-        const response = await apiFetch<PresignedUrlResponse>(
-          `/photos/presigned-url/?object_name=${encodeURIComponent(photo.objectName)}`
-        );
-        if (!response?.url) {
-          throw new Error("URL presignada no disponible");
-        }
-        triggerFileDownload(response.url, buildPhotoFilename(photo));
+        const presignedUrl = await fetchPresignedUrl(photo);
+        triggerFileDownload(presignedUrl, buildPhotoFilename(photo));
       }
 
       toast({
@@ -247,9 +264,62 @@ export default function OrderDetailPage() {
     }
   };
 
+  const zipOrderItems = useMemo(() => {
+    if (!order?.items) return [];
+  
+    return order.items.filter(item => item.photo);
+  }, [order?.items]);
+  
+
   const handleDownloadAllPhotos = async () => {
-    await handleDownloadMultiple(allOrderPhotos, "No hay fotos en este pedido");
+    if (!zipOrderItems.length) {
+      toast({ title: "No hay fotos en este pedido" });
+      return;
+    }
+  
+ 
+    try {
+      const zip = new JSZip();
+  
+      for (let index = 0; index < zipOrderItems.length; index++) {
+        const item = zipOrderItems[index];
+        const photo = mapBackendPhotoToPhoto(item.photo as BackendPhoto);
+  
+        const presignedUrl = await fetchPresignedUrl(photo);
+        const res = await fetch(presignedUrl, { credentials: "omit" });
+        if (!res.ok) throw new Error("Error descargando foto");
+  
+        const buffer = await res.arrayBuffer();
+  
+        const base = buildPhotoFilename(photo).replace(".jpg", "");
+        const suffix = item.format ? "print" : "digital";
+  
+        zip.file(`${base}-${suffix}-${index + 1}.jpg`, buffer);
+      }
+  
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const objectUrl = URL.createObjectURL(zipBlob);
+  
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `pedido-${order?.id}-fotos.zip`;
+      a.click();
+  
+      URL.revokeObjectURL(objectUrl);
+  
+      toast({
+        title: "Descarga iniciada",
+        description: `ZIP con ${zipOrderItems.length} archivos`,
+      });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Error al descargar ZIP",
+        variant: "destructive",
+      });
+    }
   };
+  
 
   const handleDownloadDigitalPhotos = async () => {
     await handleDownloadMultiple(digitalOrderPhotos, "No hay fotos digitales para descargar");
@@ -308,7 +378,8 @@ export default function OrderDetailPage() {
   const statusInfo = getStatusBadge(order.order_status);
   const createdAtLabel = order.created_at ? formatDateTime(order.created_at) : "";
 
-
+  
+  
   return (
     <div className="container mx-auto px-4 py-8">
       <Link
@@ -368,28 +439,65 @@ export default function OrderDetailPage() {
             </CardContent>
           </Card>
 
-          {allOrderPhotos.length > 0 && (
+          {order.order_status === "paid" && (
             <Card className="rounded-2xl border-gray-200">
               <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <CardTitle>Fotos del Pedido ({allOrderPhotos.length})</CardTitle>
+                  <CardTitle>Fotos del Pedido ({orderPhotoItems.length})</CardTitle>
                   <CardDescription>Miniaturas separadas por digital e impresión</CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button size="sm" className="rounded-xl" onClick={handleDownloadAllPhotos}>
-                    Descargar todas
-                  </Button>
-                  <Button size="sm" variant="outline" className="rounded-xl" onClick={handleDownloadDigitalPhotos}>
-                    Descargar fotos
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-xl"
-                    onClick={handleDownloadPrintPhotos}
-                  >
-                    Descargar imprimir
-                  </Button>
+                <Button
+                  size="sm"
+                  className="rounded-xl"
+                  onClick={() => {
+                    setConfirmTitle("Descargar todas las fotos")
+                    setConfirmCount(zipOrderItems.length)
+                    setConfirmAction(() => handleDownloadAllPhotos)
+                    setConfirmOpen(true)
+                  }}
+                >
+                  Descargar todas
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() => {
+                    setConfirmTitle("Descargar fotos digitales")
+                    setConfirmCount(digitalOrderPhotos.length)
+                    setConfirmAction(() => () =>
+                      handleDownloadMultiple(
+                        digitalOrderPhotos,
+                        "No hay fotos digitales para descargar"
+                      )
+                    )
+                    setConfirmOpen(true)
+                  }}
+                >
+                  Descargar fotos
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() => {
+                    setConfirmTitle("Descargar fotos para imprimir")
+                    setConfirmCount(printOrderPhotos.length)
+                    setConfirmAction(() => () =>
+                      handleDownloadMultiple(
+                        printOrderPhotos,
+                        "No hay fotos para imprimir"
+                      )
+                    )
+                    setConfirmOpen(true)
+                  }}
+                >
+                  Descargar imprimir
+                </Button>
+
                 </div>
               </CardHeader>
               <CardContent>
@@ -468,6 +576,28 @@ export default function OrderDetailPage() {
               </div>
             </CardContent>
           </Card>
+                 <DownloadConfirmationModal
+                  isOpen={confirmOpen}
+                  title={confirmTitle}
+                  itemCount={confirmCount}
+                  isLoading={confirmLoading}
+                  onCancel={() => {
+                  setConfirmOpen(false)
+                  setConfirmAction(null)
+                  }}
+                  onConfirm={async () => {
+                  if (!confirmAction) return
+                  setConfirmLoading(true)
+                  try {
+                    await confirmAction()
+                  } finally {
+                    setConfirmLoading(false)
+                    setConfirmOpen(false)
+                    setConfirmAction(null)
+                  }
+                  }}
+                  />
+
         </div>
       </div>
     </div>
