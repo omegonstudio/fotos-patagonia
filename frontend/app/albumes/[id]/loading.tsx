@@ -14,8 +14,8 @@ export default function Loading() {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {Array.from({ length: 12 }).map((_, i) => (
+        <div className="grid-photo-select">
+        {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="aspect-square animate-pulse rounded-2xl bg-secondary" />
           ))}
         </div>

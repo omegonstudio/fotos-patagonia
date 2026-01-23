@@ -367,8 +367,8 @@ export default function AlbumDetailPage() {
                 selección múltiple. Marca con ❤️ tus favoritas o con 🖨️ las que quieres imprimir.
               </p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {photosToDisplay.map((photo) => {
+            <div className="grid-photo-select">
+            {photosToDisplay.map((photo) => {
                 const cartItem = items.find((item) => item.photoId === photo.id)
                 return (
                   <PhotoThumbnail
