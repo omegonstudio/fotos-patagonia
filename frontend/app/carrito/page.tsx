@@ -23,6 +23,7 @@ import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 import { getPackSize } from "@/lib/print-formats"
 import Loading from "./loading"
 import { apiFetch } from "@/lib/api"
+import { resolveAutoCombos } from "@/lib/combos/resolveAutoCombos"
 
 export default function CarritoPage() {
   const router = useRouter()
@@ -30,6 +31,7 @@ export default function CarritoPage() {
   const { toast } = useToast()
   const { photos, refetch: fetchPhotos, fetchPhotosByIds, loading: isLoadingPhotos } = usePhotos()
   const [isStoreHydrated, setIsStoreHydrated] = useState(false)
+  const photoCache = useRef(new Map<string, Photo>())
 
   const {
     items,
@@ -72,25 +74,36 @@ export default function CarritoPage() {
     setIsStoreHydrated(true)
   }, [])
   
+  const itemPhotoIdsKey = useMemo(() => {
+    if (items.length === 0) return ""
+    return items
+      .map((item) => item.photoId)
+      .sort()
+      .join(",")
+  }, [items])
+  
   useEffect(() => {
-    if (isStoreHydrated) {
-      const photoIds = items.map((item) => parseInt(item.photoId, 10));
-      fetchPhotosByIds(photoIds);
-    }
-  }, [isStoreHydrated, items, fetchPhotosByIds]);
+    if (!isStoreHydrated) return
 
-  const photoCache = useRef(new Map<string, Photo>())
+    if (items.length === 0) {
+      photoCache.current.clear()
+      return
+    }
+
+    const photoIds = items.map((item) => parseInt(item.photoId, 10))
+    fetchPhotosByIds(photoIds)
+  }, [isStoreHydrated, itemPhotoIdsKey, fetchPhotosByIds])
 
   const mappedPhotos = useMemo(() => {
     return photos.map((backendPhoto) => {
       const id = String(backendPhoto.id)
 
-const cached = photoCache.current.get(id)
-if (cached) return cached
+      const cached = photoCache.current.get(id)
+      if (cached) return cached
 
-const mapped = mapBackendPhotoToPhoto(backendPhoto)
-photoCache.current.set(id, mapped)
-return mapped
+      const mapped = mapBackendPhotoToPhoto(backendPhoto)
+      photoCache.current.set(id, mapped)
+      return mapped
     })
   }, [photos])
   
@@ -157,15 +170,6 @@ return mapped
     }
     return undefined
   }, [items, photosMap])
-
-  useEffect(() => {
-    const debug = items.map((i) => ({
-      photoId: i.photoId,
-      albumId: photosMap.get(i.photoId)?.albumId,
-    }))
-  
-      }, [items, photosMap, activeAlbumId])
-  
 
   useEffect(() => {
     const sessionParam = searchParams.get("session")
@@ -240,17 +244,62 @@ return mapped
     return activeCombos
   }, [albumComboIds, combos])
 
+  const mappedPhotosKey = useMemo(
+    () => mappedPhotos.map(p => `${p.id}:${p.price}`).join("|"),
+    [mappedPhotos]
+  )
+  
+  const digitalUnitPrice = useMemo(() => {
+    const prices = items.map((item) => photosMap.get(item.photoId)?.price ?? 0)
+    const firstPositive = prices.find((price) => price > 0)
+    if (firstPositive !== undefined) return firstPositive
+    if (prices.length === 0) return 0
+    return prices.reduce((sum, price) => sum + price, 0) / prices.length
+  }, [items, photosMap])
 
+  const autoComboResolution = useMemo(() => {
+    return resolveAutoCombos(items.length, applicableCombos)
+  }, [items.length, applicableCombos])
 
-  useEffect(() => {
-    if (selectedCombo && !applicableCombos.some((combo) => combo.id === selectedCombo.id)) {
-      setSelectedCombo(null)
+  const autoSelectedCombo = useMemo(() => {
+    if (digitalManualEnabled) return null
+    if (!activeAlbumId) return null
+    const coveredPhotos = items.length - autoComboResolution.remainingPhotos
+    if (autoComboResolution.applied.length === 0 || coveredPhotos <= 0) return null
+
+    return {
+      id: -1,
+      name: "Combos automáticos",
+      price: autoComboResolution.totalComboPrice,
+      totalPhotos: coveredPhotos,
     }
-  }, [applicableCombos, selectedCombo, setSelectedCombo])
+  }, [activeAlbumId, autoComboResolution, digitalManualEnabled, items.length])
 
+  const autoDigitalSubtotal = useMemo(() => {
+    if (digitalManualEnabled) return null
+    if (autoComboResolution.applied.length === 0) return null
+    return autoComboResolution.totalComboPrice + autoComboResolution.remainingPhotos * digitalUnitPrice
+  }, [autoComboResolution, digitalManualEnabled, digitalUnitPrice])
+  
   useEffect(() => {
+    if (!digitalManualEnabled) {
+      const nextCombo = autoSelectedCombo
+      const sameCombo =
+        (!selectedCombo && !nextCombo) ||
+        (selectedCombo &&
+          nextCombo &&
+          selectedCombo.id === nextCombo.id &&
+          selectedCombo.price === nextCombo.price &&
+          selectedCombo.totalPhotos === nextCombo.totalPhotos)
+
+      if (!sameCombo) {
+        setSelectedCombo(nextCombo)
+        return
+      }
+    }
+
     updateTotals(mappedPhotos, { isStaff: isStaffUser })
-  }, [printSelections, discountInfo, updateTotals, mappedPhotos, isStaffUser, selectedCombo])
+  }, [printSelections, discountInfo, mappedPhotosKey, isStaffUser, selectedCombo, autoSelectedCombo, digitalManualEnabled])
 
   const cartPhotos = useMemo(() => {
     // No calcular hasta que las fotos y el carrito estén listos
@@ -301,44 +350,6 @@ return mapped
       }
     })
   }, [printSelections])
-
-  // Calcular subtotales para usuarios staff
-  const subtotalImpresas = useMemo(
-    () => printSelectionSummary.reduce((sum, selection) => sum + selection.totalPrice, 0),
-    [printSelectionSummary],
-  )
-
-  const subtotalFotosDigitales = useMemo(() => {
-    return items.reduce((sum, item) => {
-      const photo = photosMap.get(item.photoId)
-      return sum + (photo?.price || 0)
-    }, 0)
-  }, [items, photosMap])
-
-  const selectedComboDetails = useMemo(
-    () => (selectedCombo ? applicableCombos.find((combo) => combo.id === selectedCombo.id) ?? null : null),
-    [applicableCombos, selectedCombo],
-  )
-
-  const comboPhotoCount = items.length
-  const comboPhotosNeeded = selectedComboDetails
-    ? Math.max(0, selectedComboDetails.totalPhotos - comboPhotoCount)
-    : 0
-  const comboUnitPrice = useMemo(() => {
-    const prices = items.map((item) => photosMap.get(item.photoId)?.price ?? 0)
-    const firstPositive = prices.find((price) => price > 0)
-    if (firstPositive !== undefined) return firstPositive
-    if (prices.length === 0) return 0
-    return prices.reduce((sum, price) => sum + price, 0) / prices.length
-  }, [items, photosMap])
-  const comboCanApply = !!selectedComboDetails && comboPhotosNeeded === 0
-  const comboDigitalPreview =
-    selectedComboDetails && comboCanApply
-      ? selectedComboDetails.price +
-        Math.max(0, comboPhotoCount - selectedComboDetails.totalPhotos) * comboUnitPrice
-      : subtotalFotosDigitales
-
-          
 
   const unassignedPrinterPhotos = useMemo(
     () => printerPhotos.filter((item) => !printSelectionMap.has(item.photo.id)),
@@ -408,23 +419,6 @@ return mapped
       })
     } finally {
       setIsApplyingDiscount(false)
-    }
-  }
-
-  const handleSelectCombo = (comboId: string) => {
-    if (!comboId) {
-      setSelectedCombo(null)
-      return
-    }
-
-    const combo = applicableCombos.find((item) => item.id === Number(comboId))
-    if (combo) {
-      setSelectedCombo({
-        id: combo.id,
-        name: combo.name,
-        price: combo.price,
-        totalPhotos: combo.totalPhotos,
-      })
     }
   }
 
@@ -509,13 +503,6 @@ return mapped
   const effectiveSubtotalFotos = digitalSubtotalEffective
   const effectiveTotal = totalEffective
 
-      const cartPhotoList = useMemo(
-        () => cartPhotos.map((item) => item.photo),
-        [cartPhotos]
-      )
-     
-//use efect unic
-
 useEffect(() => {
   if (!isStaffUser) {
     if (printsManualEnabled) resetManualPrintsSubtotal()
@@ -539,34 +526,25 @@ useEffect(() => {
       }, [activeTab, cartPhotos, favoritePhotos, printerPhotos])
       
       
-      const viewerPhotoId =
-        viewerIndex !== null ? navigablePhotoIds
-[viewerIndex] : null
-      
+      const viewerPhotoId = viewerIndex !== null ? navigablePhotoIds[viewerIndex] : null
+
       const viewerPhoto = useMemo(() => {
         if (!viewerPhotoId) return null
         return photosMap.get(viewerPhotoId) ?? null
       }, [viewerPhotoId, photosMap])
-      
-    
 
       const handleNext = () => {
-        setViewerIndex((prev) =>
-          prev === null
-            ? null
-            : (prev + 1) % navigablePhotoIds
-.length
-        )
+        setViewerIndex((prev) => {
+          if (prev === null || navigablePhotoIds.length === 0) return null
+          return (prev + 1) % navigablePhotoIds.length
+        })
       }
-      
+
       const handlePrev = () => {
-        setViewerIndex((prev) =>
-          prev === null
-            ? null
-            : (prev - 1 + navigablePhotoIds
-.length) % navigablePhotoIds
-.length
-        )
+        setViewerIndex((prev) => {
+          if (prev === null || navigablePhotoIds.length === 0) return null
+          return (prev - 1 + navigablePhotoIds.length) % navigablePhotoIds.length
+        })
       }
       
       
@@ -892,57 +870,56 @@ useEffect(() => {
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      <select
-                        className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
-                        value={selectedCombo?.id ?? ""}
-                        onChange={(event) => handleSelectCombo(event.target.value)}
-                        disabled={applicableCombos.length === 0 || combosLoading || isLoadingAlbumCombos}
-                      >
-                        <option value="">Sin combo</option>
-                        {applicableCombos.map((combo) => (
-                          <option key={combo.id} value={combo.id}>
-                            {combo.name} • {combo.totalPhotos} fotos • ${combo.price}
-                          </option>
-                        ))}
-                      </select>
-
                       {(combosLoading || isLoadingAlbumCombos) && (
-                        <p className="text-xs text-muted-foreground">Cargando combos…</p>
+                        <p className="text-xs text-muted-foreground">Calculando combos…</p>
                       )}
                       {comboError && <p className="text-xs text-destructive">{comboError}</p>}
-                      {applicableCombos.length === 0 && !combosLoading && !isLoadingAlbumCombos && (
-                        <p className="text-xs text-muted-foreground">
-                          No hay combos disponibles para este álbum. Te mostraremos nuevos combos apenas estén listos.
-                        </p>
-                      )}
-
-                      {selectedComboDetails && (
-                        <div className="space-y-1 rounded-lg bg-muted p-3 text-xs">
-                          <p className="font-medium">{selectedComboDetails.name}</p>
-                          <p className="text-muted-foreground">
-                            Incluye {selectedComboDetails.totalPhotos} foto
-                            {selectedComboDetails.totalPhotos === 1 ? "" : "s"} por ${selectedComboDetails.price}.
-                          </p>
-                          {comboCanApply ? (
-                            <p className="text-green-600 dark:text-green-400">
-                              Combo aplicado. Total digital estimado: ${Math.round(comboDigitalPreview)}
+                      {!combosLoading && !isLoadingAlbumCombos && (
+                        <div className="space-y-2 rounded-lg bg-muted p-3 text-xs">
+                          <p className="font-medium">Combos aplicados automáticamente</p>
+                          {applicableCombos.length === 0 ? (
+                            <p className="text-muted-foreground">
+                              No hay combos disponibles para este álbum por el momento.
+                            </p>
+                          ) : autoComboResolution.applied.length === 0 ? (
+                            <p className="text-muted-foreground">
+                              Aún no aplican combos para {items.length} foto{items.length === 1 ? "" : "s"}.
                             </p>
                           ) : (
-                            <p className="text-orange-600 dark:text-orange-400">
-                              Te faltan {comboPhotosNeeded} foto{comboPhotosNeeded === 1 ? "" : "s"} para aplicar este
-                              combo.
-                            </p>
+                            <>
+                              <div className="space-y-1">
+                                {autoComboResolution.applied.map(({ combo, count }) => (
+                                  <div key={combo.id} className="flex items-center justify-between gap-2">
+                                    <span>
+                                      • {count} x {combo.totalPhotos} foto{combo.totalPhotos === 1 ? "" : "s"}
+                                    </span>
+                                    <span>${combo.price} c/u</span>
+                                  </div>
+                                ))}
+                              </div>
+                              {autoComboResolution.remainingPhotos > 0 && (
+                                <p className="text-muted-foreground">
+                                  {autoComboResolution.remainingPhotos} foto
+                                  {autoComboResolution.remainingPhotos === 1 ? "" : "s"} fuera de combo a $
+                                  {digitalUnitPrice} c/u.
+                                </p>
+                              )}
+                              {!digitalManualEnabled && autoDigitalSubtotal !== null && (
+                                <p className="text-green-600 dark:text-green-400">
+                                  Subtotal digital estimado: ${Math.round(autoDigitalSubtotal)}
+                                </p>
+                              )}
+                              {digitalManualEnabled && (
+                                <p className="text-orange-600 dark:text-orange-400">
+                                  Subtotal digital editado manualmente; se respeta tu override.
+                                </p>
+                              )}
+                              <p className="text-muted-foreground">
+                                Los combos solo ajustan el subtotal digital. Las impresiones y descuentos siguen su
+                                cálculo actual.
+                              </p>
+                            </>
                           )}
-                          {comboCanApply && comboPhotoCount > selectedComboDetails.totalPhotos && (
-                            <p className="text-muted-foreground">
-                              {comboPhotoCount - selectedComboDetails.totalPhotos} foto
-                              {comboPhotoCount - selectedComboDetails.totalPhotos === 1 ? "" : "s"} extra a $
-                              {comboUnitPrice} c/u.
-                            </p>
-                          )}
-                          <p className="text-muted-foreground">
-                            El combo ajusta solo el total digital; las impresiones mantienen su cálculo actual.
-                          </p>
                         </div>
                       )}
                     </div>
