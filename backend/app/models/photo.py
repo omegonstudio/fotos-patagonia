@@ -13,6 +13,7 @@ class PhotoBaseSchema(BaseModel):
     description: Optional[str] = None
     price: float
     object_name: str
+    session_id: int | None
 
 class PhotoCreateSchema(PhotoBaseSchema):
     photographer_id: int
@@ -27,13 +28,28 @@ class PhotoInDBBaseSchema(PhotoBaseSchema):
     id: int
     photographer: PhotographerSchema
     session_id: int
+    album_id: Optional[int] = None   # 👈 NUEVO
     tags: List[TagSchema] = []
 
     class Config:
         from_attributes = True
 
 class PhotoSchema(PhotoInDBBaseSchema):
-    pass
+    @root_validator(pre=True)
+    def inject_album_id(cls, values):
+        # Caso 1: values es un dict (ya serializado)
+        if isinstance(values, dict):
+            return values
+
+        # Caso 2: values es el modelo SQLAlchemy Photo
+        session = getattr(values, "session", None)
+        if session is not None:
+            album_id = getattr(session, "album_id", None)
+            if album_id is not None:
+                setattr(values, "album_id", album_id)
+
+        return values
+
 
 class PublicPhotoSchema(PhotoSchema):
     url: Optional[str] = None

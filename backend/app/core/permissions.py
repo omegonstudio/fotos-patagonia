@@ -9,9 +9,11 @@ class Permissions(str, Enum):
     FULL_ACCESS = "full_access" # Un permiso especial para el rol de Admin
 
     # --- Permisos de Órdenes ---
+    LIST_ORDERS = "list_orders" # Solo para fotógrafos y vendedores
     LIST_ALL_ORDERS = "list_all_orders"
     UPDATE_ORDER_STATUS = "update_order_status"
     EDIT_ORDER = "edit_order"
+    DELETE_ORDER = "delete_order"
     VIEW_OWN_ORDERS = "view_own_orders"
 
     # --- Permisos de Fotógrafos ---

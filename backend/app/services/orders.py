@@ -310,6 +310,19 @@ class OrderService(BaseService):
         
         return {"message": f"Email successfully sent to {recipient}"}
 
+    def delete_order(self, order_id: int):
+        # Primero, eliminar las ganancias asociadas para evitar problemas de clave externa
+        self.db.query(Earning).filter(Earning.order_id == order_id).delete(synchronize_session=False)
+
+        # Ahora, eliminar la orden
+        order = self.db.query(Order).filter(Order.id == order_id).first()
+        if not order:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+        
+        self.db.delete(order)
+        self.db.commit()
+        return {"message": "Order and associated earnings deleted successfully"}
+
     def generate_qr_code(self, order_id: int):
         # Business logic for generating QR code for an order
         return {"message": f"OrderService: Generate QR code for order {order_id} logic"}
