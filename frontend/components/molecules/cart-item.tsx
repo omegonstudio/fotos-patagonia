@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Heart, Trash2, Printer, ImageIcon, Pencil } from "lucide-react"
+import { Heart, Trash2, Printer, ImageIcon, Pencil, Car } from "lucide-react"
 import type { Photo, PrintFormat } from "@/lib/types"
 import { IconButton } from "@/components/atoms/icon-button"
 import { cn } from "@/lib/utils"
@@ -9,6 +9,7 @@ import WatermarkedImage from "@/components/organisms/WatermarkedImage"
 import { Badge } from "@/components/ui/badge"
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
 import { buildThumbObjectName } from "@/lib/photo-thumbnails"
+import { memo } from "react"
 
 interface CartItemProps {
   photo: Photo
@@ -22,7 +23,7 @@ interface CartItemProps {
   onEditPrintFormat?: () => void
 }
 
-export function CartItem({
+function CartItemComponent({
   photo,
   isFavorite,
   isPrinter,
@@ -62,24 +63,27 @@ export function CartItem({
   style={{ aspectRatio: "3 / 2" }}   // 👈 ratio consistente
   onClick={onPreview}
 >
-  {imageLoading ? (
-    <div className="flex h-full w-full animate-pulse items-center justify-center bg-gray-200">
-      <ImageIcon className="h-10 w-10 text-gray-400" />
-    </div>
-  ) : imageError || !imageUrl ? (
-    <div className="flex h-full w-full items-center justify-center bg-red-100 text-xs text-red-500">
-      Error al cargar
-    </div>
-  ) : (
-    <WatermarkedImage
-      src={imageUrl}
-      alt={`Foto de ${photo.place || "Patagonia"}`}
-      fill
-      objectFit="cover"
-      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-      priority={false}
-    />
-  )}
+<WatermarkedImage
+  src={imageUrl || "/placeholder.svg"}
+  alt={`Foto de ${photo.place || "Patagonia"}`}
+  fill
+  objectFit="cover"
+  sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+  priority={false}
+/>
+
+{imageLoading && (
+  <div className="absolute inset-0 flex items-center justify-center bg-gray-200/60">
+    <ImageIcon className="h-10 w-10 text-gray-400" />
+  </div>
+)}
+
+{imageError && (
+  <div className="absolute inset-0 flex items-center justify-center bg-red-100 text-xs text-red-500">
+    Error al cargar
+  </div>
+)}
+
         
         {/* Badge de formato si está para imprimir */}
         {isPrinter && printFormat && (
@@ -156,3 +160,12 @@ export function CartItem({
     </div>
   )
 }
+
+export const CartItem = memo(
+  CartItemComponent,
+  (prev, next) =>
+    prev.photo === next.photo &&
+    prev.isFavorite === next.isFavorite &&
+    prev.isPrinter === next.isPrinter &&
+    prev.printFormat === next.printFormat
+)
