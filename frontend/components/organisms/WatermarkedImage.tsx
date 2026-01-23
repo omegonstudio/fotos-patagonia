@@ -33,7 +33,7 @@ export default function WatermarkedImage({
   watermarkSrc = "/watermark.svg",
   opacity = 0.3, // 👉 más visible por defecto
   rotateDeg = -20,
-  watermarkText = "PROHIBIDO SU USO SIN AUTORIZACIÓN",
+  watermarkText = "",
   textFontSize = "18px",
 }: Props) {
   // Detectar el rol del usuario
@@ -78,7 +78,7 @@ export default function WatermarkedImage({
           {/* Texto legal grande en el centro */}
           <div className="absolute inset-0 flex items-center justify-center">
             <span
-              className="font-bold uppercase tracking-[0.35em] text-center px-6 py-3 rounded-md bg-black/40 text-white"
+              className="font-bold uppercase tracking-[0.35em] text-center px-6 py-3 rounded-md text-white"
               style={{
                 transform: `rotate(${rotateDeg}deg)`,
                 fontSize: textFontSize,
