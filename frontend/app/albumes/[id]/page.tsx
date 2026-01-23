@@ -18,6 +18,7 @@ import { PhotoModal } from "@/components/organisms/photo-modal"
 import { formatDateOnly, parseUtcNaiveDate } from "@/lib/datetime"
 import { photoHourKey } from "@/lib/datetime"
 import { findClosestHourWithPhotos } from "@/lib/time-slots"
+import { isAdmin } from "@/lib/types"
 
 
 export default function AlbumDetailPage() {
@@ -26,16 +27,21 @@ export default function AlbumDetailPage() {
   const { data: albumData, loading, error, refetch } = useAlbums(id)
   const [filters, setFilters] = useState<{ date?: string; place?: string; time?: string }>({})
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
-  const { isAuthenticated } = useAuthStore()
+  const { user,isAuthenticated } = useAuthStore()
+  const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
   const eventDateMs = (value?: string | null) => parseUtcNaiveDate(value)?.getTime() ?? 0
 
   // Transform backend data
   const album = albumData && !Array.isArray(albumData) ? albumData : null
-  
   // Debug: registrar el orden crudo de sesiones recibido
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return
     if (!album?.sessions) return
+
+    console.log("[AlbumDetail][sessions order]", album.sessions.map((session: any) => ({
+      id: session.id,
+      event_date: session.event_date,
+    })))
   }, [album])
   
   // Get all photos from all sessions in the album
@@ -287,20 +293,12 @@ export default function AlbumDetailPage() {
     addItem(photoId)
   }
 
-  const currentIndex = photosToDisplay.findIndex(
-    (p) => p.id === currentPhotoId
-  )
-  
-  const nextPhoto =
-    currentIndex !== -1 && currentIndex < photosToDisplay.length - 1
-      ? photosToDisplay[currentIndex + 1]
-      : null
+  const currentPhoto = currentPhotoId
+  ? photosToDisplay.find((p) => p.id === currentPhotoId)
+  : null
 
-      const currentPhoto =
-      currentPhotoId
-        ? photosToDisplay.find((p) => p.id === currentPhotoId) ?? null
-        : null
-    
+  
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -370,10 +368,11 @@ export default function AlbumDetailPage() {
               </p>
             </div>
             <div className="grid-photo-select">
-              {photosToDisplay.map((photo) => {
+            {photosToDisplay.map((photo) => {
                 const cartItem = items.find((item) => item.photoId === photo.id)
                 return (
                   <PhotoThumbnail
+                    isStaffUser={!!isStaffUser}
                     key={photo.id}
                     photo={photo}
                     onClick={() => handlePhotoClick(photo.id)}
@@ -393,15 +392,8 @@ export default function AlbumDetailPage() {
       </main>
 
       {isOpen && currentPhoto && (
-  <PhotoViewerModal
-    photo={currentPhoto}
-    nextPhoto={nextPhoto}
-    onClose={close}
-    onNext={next}
-    onPrev={prev}
-  />
-)}
-
+        <PhotoViewerModal photo={currentPhoto} onClose={close} onNext={next} onPrev={prev} />
+      )}
 
       <PhotoModal
         open={isUploadModalOpen}
