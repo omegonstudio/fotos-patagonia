@@ -362,6 +362,7 @@ export function PhotoViewerModal({ photo,  nextPhoto, onClose, onNext, onPrev }:
         alt={`Foto en alta resolución de ${photo.place || "Patagonia"}`}
         className="max-h-screen max-w-screen object-contain"
         draggable={false}
+        onContextMenu={(e) => e.preventDefault()}
       />
     )}
 
