@@ -13,28 +13,33 @@ export function usePhotoViewerImage(photo: Photo | null) {
   const previewObjectName = useMemo(() => {
     if (!photo) return null
     return photo.previewObjectName ?? buildThumbObjectName(photo.objectName)
-  }, [photo])
+  }, [photo?.previewObjectName, photo?.objectName])
 
   const {
     url: previewUrl,
     loading: previewLoading,
     error: previewError,
-  } = usePresignedUrl(previewObjectName)
+  } = usePresignedUrl(previewObjectName, {
+    enabled: !!previewObjectName,
+  })
 
   const {
     url: originalUrl,
     loading: originalLoading,
     error: originalError,
-  } = usePresignedUrl(photo?.objectName)
+  } = usePresignedUrl(photo?.objectName, {
+    enabled: !!photo?.objectName,
+  })
 
   const originalReady = !!originalUrl && !originalLoading && !originalError
   const previewReady = !!previewUrl && !previewLoading && !previewError
 
-  const displayUrl = originalReady
-    ? originalUrl
-    : previewReady
-      ? previewUrl
-      : undefined
+  const displayUrl = useMemo(() => {
+    if (originalReady) return originalUrl
+    if (previewReady) return previewUrl
+    return undefined
+  }, [originalReady, originalUrl, previewReady, previewUrl])
+  
 
   // Sólo mostramos error si ambas fuentes fallan
   const error = previewError && originalError ? "No se pudo cargar la foto" : null
