@@ -25,6 +25,8 @@ import type {
 } from "./types"
 import { getPackSize } from "./print-formats"
 
+import { apiFetch } from "./api"
+
 const generateSelectionId = () => `sel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 const removePhotoFromSelections = (selections: PrintSelection[], photoId: string) =>
@@ -300,35 +302,28 @@ export const useCartStore = create<CartStore>()(
       },
 
       saveSession: async () => {
-        const state = get()
-        const sessionId = `session-${Date.now()}`
-        // In real app, save to backend
-        localStorage.setItem(`cart-session-${sessionId}`, JSON.stringify(state))
-        set({ savedSessionId: sessionId })
-        return sessionId
+        const { ...stateToSave } = get()
+        const response = await apiFetch<{ public_id: string }>("/saved-carts/sessions/", {
+          method: "POST",
+          body: JSON.stringify({ cart_state: stateToSave }),
+          headers: { "Content-Type": "application/json" },
+        })
+        set({ savedSessionId: response.public_id })
+        return response.public_id
       },
 
       loadSession: async (sessionId: string) => {
-        // In real app, load from backend
-        const saved = localStorage.getItem(`cart-session-${sessionId}`)
-        if (saved) {
-          const state = JSON.parse(saved)
+        const response = await apiFetch<{ cart_state: CartState }>(`/saved-carts/sessions/${sessionId}`)
+        if (response && response.cart_state) {
           set({
-            ...state,
-            printSelections: state.printSelections ?? [],
+            ...response.cart_state,
+            savedSessionId: sessionId,
+            // Ensure state consistency after loading
             printsManualEnabled: false,
             digitalManualEnabled: false,
             printsSubtotalManual: undefined,
             digitalSubtotalManual: undefined,
-            printsSubtotalCalculated: state.printsSubtotalCalculated ?? 0,
-            printsSubtotalEffective: state.printsSubtotalEffective ?? 0,
-            digitalSubtotalCalculated: state.digitalSubtotalCalculated ?? 0,
-            digitalSubtotalEffective: state.digitalSubtotalEffective ?? 0,
-            subtotal: state.subtotal ?? 0,
-            total: state.total ?? 0,
-            totalEffective: state.totalEffective ?? 0,
           })
-          
         }
       },
 

@@ -1,54 +1,30 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
-from typing import List
-from deps import get_db, PermissionChecker
+from deps import get_db
 from services.saved_carts import SavedCartService
-from models.saved_cart import SavedCartSchema, SavedCartCreateSchema
-from core.permissions import Permissions
-from models.user import User
+from models.saved_cart import SavedCartSchema, SavedCartSessionCreateSchema
 
 router = APIRouter(
     prefix="/saved-carts",
     tags=["saved-carts"],
 )
 
-@router.get("/", response_model=List[SavedCartSchema])
-def list_saved_carts(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(PermissionChecker([Permissions.LIST_ALL_ORDERS]))
+@router.post("/sessions/", response_model=SavedCartSchema, status_code=status.HTTP_201_CREATED)
+def create_cart_session(
+    cart_state_in: SavedCartSessionCreateSchema,
+    db: Session = Depends(get_db)
 ):
-    return SavedCartService(db).list_saved_carts()
+    """
+    Saves a cart session and returns it with a new public ID.
+    """
+    return SavedCartService(db).create_cart_session(cart_state=cart_state_in)
 
-@router.post("/", response_model=SavedCartSchema, status_code=status.HTTP_201_CREATED)
-def create_saved_cart(
-    saved_cart_in: SavedCartCreateSchema,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(PermissionChecker([Permissions.LIST_ALL_ORDERS]))
+@router.get("/sessions/{public_id}", response_model=SavedCartSchema)
+def get_cart_session(
+    public_id: str,
+    db: Session = Depends(get_db)
 ):
-    return SavedCartService(db).create_saved_cart(saved_cart_in=saved_cart_in)
-
-@router.get("/{saved_cart_id}", response_model=SavedCartSchema)
-def get_saved_cart(
-    saved_cart_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(PermissionChecker([Permissions.LIST_ALL_ORDERS]))
-):
-    return SavedCartService(db).get_saved_cart(saved_cart_id=saved_cart_id)
-
-@router.delete("/{saved_cart_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_saved_cart(
-    saved_cart_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(PermissionChecker([Permissions.LIST_ALL_ORDERS]))
-):
-    return SavedCartService(db).delete_saved_cart(saved_cart_id=saved_cart_id)
-
-# --- Special Actions ---
-
-@router.post("/{cart_id}/send-recovery-email")
-def send_recovery_email(
-    cart_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(PermissionChecker([Permissions.LIST_ALL_ORDERS]))
-):
-    return SavedCartService(db).send_recovery_email(cart_id)
+    """
+    Retrieves a saved cart session by its public ID.
+    """
+    return SavedCartService(db).get_cart_session_by_public_id(public_id=public_id)
