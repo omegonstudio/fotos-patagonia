@@ -14,15 +14,21 @@ import { useState } from "react"
 import { isAdmin } from "@/lib/types"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
+import { buildThumbObjectName } from "@/lib/photo-thumbnails"
+import { PhotoViewerItemActions } from "@/components/atoms/PhotoViewerItemActions"
+
 
 interface PhotoViewerModalProps {
   photo: Photo
+  nextPhoto?: Photo | null
   onClose: () => void
   onNext: () => void
   onPrev: () => void
 }
 
-export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewerModalProps) {
+
+export function PhotoViewerModal({ photo,  nextPhoto, onClose, onNext, onPrev }: PhotoViewerModalProps) {
   const { items, removeItem, toggleSelected, toggleFavorite, togglePrinter } = useCartStore()
 
   const {
@@ -98,6 +104,36 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
 
   const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
 
+  function NextPhotoPreview({ photo }: { photo: Photo }) {
+    const previewObjectName =
+      photo.previewObjectName ?? buildThumbObjectName(photo.objectName)
+  
+    const { url } = usePresignedUrl(previewObjectName)
+  
+    const cartItem = items.find((i) => i.photoId === photo.id)
+    const isInCart = !!cartItem
+    const isFavorite = cartItem?.favorite ?? false
+  
+    if (!url) return null
+  
+    return (
+      <div className="photo-viewer-mobile-item opacity-80">
+        <WatermarkedImage
+          src={url}
+          alt="Siguiente foto"
+          fill
+          objectFit="contain"
+          sizes="100vw"
+        />
+  
+        {/* 🔥 BOTONERA COMPLETA */}
+        <PhotoViewerItemActions photo={photo} />
+      </div>
+    )
+  }
+  
+
+  
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
@@ -126,45 +162,38 @@ export function PhotoViewerModal({ photo, onClose, onNext, onPrev }: PhotoViewer
       </button>
 
       <div className="flex h-full w-full max-w-7xl flex-col gap-4 lg:flex-row">
-        <div className="relative flex-1 overflow-hidden rounded-2xl bg-black aspect-[3/4] md:aspect-[3/2] m-10 max-h-[90vh]">
-          {isInitialLoading ? (
-            <div className="flex h-full w-full animate-pulse items-center justify-center bg-gray-800">
-              <ImageIcon className="h-24 w-24 text-gray-600" />
-            </div>
-          ) : showError ? (
-            <div className="flex h-full w-full items-center justify-center bg-red-900 text-red-300">
-              Error al cargar la imagen
-            </div>
-          ) : (
-            <>
-              {displayUrl && (
-                <WatermarkedImage
-                  src={displayUrl}
-                  alt={`Foto de ${photo.place || "Patagonia"}`}
-                  fill
-                  objectFit="contain"
-                  sizes="(max-width: 1024px) 100vw, 70vw"
-                  priority
-                  className="transition-opacity duration-300"
-                />
-              )}
+              {/* VISOR */}
+          <div className="flex-1 m-4 lg:m-10 max-h-[90vh]">
+         
+          <div className="photo-viewer-mobile lg:hidden flex flex-col h-full">
+          <div className="photo-viewer-mobile-item flex-1 relative">
 
-              {originalLoading && (
-                <div className="absolute right-4 bottom-4 rounded-full bg-black/70 px-3 py-1 text-xs text-white">
-                  Cargando alta resolución...
-                </div>
-              )}
-              {!originalLoading && originalUrl && previewUrl && (
-                <div className="absolute right-4 bottom-4 rounded-full bg-black/70 px-3 py-1 text-[10px] text-white">
-                  Alta resolución cargada
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                {displayUrl && (
+                  <WatermarkedImage
+                    src={displayUrl}
+                    alt={`Foto de ${photo.place || "Patagonia"}`}
+                    fill
+                    objectFit="contain"
+                    sizes="100vw"
+                    priority
+                  />
+                )}
 
-        <div className="flex w-full flex-col gap-4 rounded-2xl bg-card p-6 lg:w-96">
-          <div className="flex items-start justify-between">
+                  <PhotoViewerItemActions photo={photo} />
+
+                  </div>
+
+
+                    {/* foto siguiente REAL — SOLO MOBILE */}
+                  <div className="lg:hidden">
+                    {nextPhoto && <NextPhotoPreview photo={nextPhoto} />}
+                  </div>
+              </div>
+          </div>
+
+
+        <div className="hidden lg:flex w-full flex-col gap-4 rounded-2xl bg-card p-6 lg:w-96">
+        <div className="flex items-start justify-between">
             <div>
               <h2 className="text-2xl font-heading">
                   <span className="text-white">{photo.place || "Patagonia"}</span>
