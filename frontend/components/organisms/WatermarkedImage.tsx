@@ -48,7 +48,11 @@ export default function WatermarkedImage({
     showWatermark !== undefined ? showWatermark : !user || !userIsAdmin;
 
   return (
-    <div className={cn("relative w-full h-full", className)}>
+    <div
+      className={cn("relative w-full h-full", className)}
+      onContextMenu={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
+    >
       {/* Imagen original (sin marca guardada físicamente) */}
       <Image
         src={src}
