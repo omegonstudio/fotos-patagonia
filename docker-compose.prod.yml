@@ -60,7 +60,10 @@ services:
 
     container_name: fotopatagonia-frontend
     restart: unless-stopped
-
+    
+    env_file:
+      - ./frontend/.env
+      
     depends_on:
       - backend
 
