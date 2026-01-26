@@ -76,7 +76,7 @@ const fetchPresignedUrl = async (photo: Photo) => {
 };
 
 // Sub-componente para manejar la lógica de la URL presignada
-function PhotoGridItem({ photo }: { photo: Photo }) {
+function PhotoGridItem({ photo, canDownload, isDownloading }: { photo: Photo, canDownload: boolean, isDownloading: boolean }) {
   const { url, loading, error } = usePresignedUrl(photo.objectName);
 
   if (loading) {
@@ -106,13 +106,17 @@ function PhotoGridItem({ photo }: { photo: Photo }) {
         className="transition-transform group-hover:scale-105"
       />
       <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-        <Button
+      <Button
           size="sm"
-          onClick={() => triggerFileDownload(url, buildPhotoFilename(photo))}
-          className="gap-2 rounded-lg bg-primary text-foreground"
+          disabled={!canDownload || isDownloading}
+          onClick={() => {
+            if (!canDownload) return
+            triggerFileDownload(url, buildPhotoFilename(photo))
+          }}
+          className="gap-2 rounded-lg"
         >
           <Download className="h-4 w-4" />
-          Descargar
+          {canDownload ? "Descargar" : "Pendiente"}
         </Button>
       </div>
     </div>
@@ -393,9 +397,14 @@ export default function OrderDetailPage() {
   const statusInfo = getStatusBadge(order.order_status);
   const createdAtLabel = order.created_at ? formatDateTime(order.created_at) : "";
 
-  
-  
-  return (
+  const isPaid = order.order_status === "paid"
+  const isCompleted = order.order_status === "completed"
+  const isPending = order.order_status === "pending"
+
+  const canViewPhotos = isPaid || isCompleted || isPending
+  const canDownload = isPaid || isCompleted
+
+    return (
     <div className="container mx-auto px-4 py-8">
       <Link
         href="/admin/pedidos"
@@ -454,7 +463,7 @@ export default function OrderDetailPage() {
             </CardContent>
           </Card>
 
-          {order.order_status === "paid" && (
+        {canViewPhotos && (
             <Card className="rounded-2xl border-gray-200">
               <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -465,6 +474,7 @@ export default function OrderDetailPage() {
 
                 <Button
                   size="sm"
+                  disabled={!canDownload || isDownloading}
                   className="rounded-xl"
                   onClick={() => {
                     setConfirmTitle("Descargar todas las fotos")
@@ -478,6 +488,7 @@ export default function OrderDetailPage() {
 
                 <Button
                   size="sm"
+                  disabled={!canDownload || isDownloading}
                   variant="outline"
                   className="rounded-xl"
                   onClick={() => {
@@ -496,6 +507,7 @@ export default function OrderDetailPage() {
 
                 <Button
                   size="sm"
+                  disabled={!canDownload || isDownloading}
                   variant="outline"
                   className="rounded-xl"
                   onClick={() => {
@@ -522,7 +534,7 @@ export default function OrderDetailPage() {
                       <h3 className="text-lg font-semibold">Fotos digitales</h3>
                       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                         {digitalOrderPhotos.map((photo) => (
-                          <PhotoGridItem key={photo.id} photo={photo} />
+                          <PhotoGridItem key={photo.id} photo={photo} canDownload={canDownload} isDownloading={isDownloading}/>
                         ))}
                       </div>
                     </div>
@@ -543,7 +555,7 @@ export default function OrderDetailPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                         {printOrderPhotos.map((photo) => (
-                          <PhotoGridItem key={photo.id} photo={photo} />
+                          <PhotoGridItem key={photo.id} photo={photo} canDownload={canDownload} isDownloading={isDownloading}/>
                         ))}
                       </div>
                     </div>
