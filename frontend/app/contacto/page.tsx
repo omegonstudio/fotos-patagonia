@@ -375,7 +375,7 @@ export default function ContactoPage() {
                   <div>
                     <p className="text-sm font-medium">Email</p>
                     <a href="mailto:admin@fotospatagonia.com" className="text-sm text-[#f9a01b] hover:underline">
-                      admin@fotospatagonia.com
+                    somos.fotos.patagonia@gmail.com
                     </a>
                   </div>
                 </div>
@@ -385,7 +385,7 @@ export default function ContactoPage() {
                   <div>
                     <p className="text-sm font-medium">WhatsApp</p>
                     <a href="https://wa.me/5492941234567" className="text-sm text-[#f9a01b] hover:underline">
-                      +54 9 294 123-4567
+                      +54 9 351 787-3220
                     </a>
                   </div>
                 </div>
@@ -394,7 +394,7 @@ export default function ContactoPage() {
                   <MapPin className="h-5 w-5 flex-shrink-0 text-[#f9a01b]" />
                   <div>
                     <p className="text-sm font-medium">Ubicación</p>
-                    <p className="text-sm text-muted-foreground">El Chaltén, Santa Cruz, Argentina</p>
+                    <p className="text-sm text-muted-foreground">Villa La Angostura, Neuquén, Argentina</p>
                   </div>
                 </div>
               </div>

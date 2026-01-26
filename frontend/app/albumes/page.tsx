@@ -5,107 +5,165 @@ import { Header } from "@/components/organisms/header"
 import { useAlbums } from "@/hooks/albums/useAlbums"
 import { usePhotographers } from "@/hooks/photographers/usePhotographers"
 import Link from "next/link"
-import { Calendar, MapPin, Camera, Search, ArrowLeft, Loader2 } from "lucide-react"
+import { Camera, Search, ArrowLeft, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-
-import { AlbumCard } from "@/components/molecules/album-card";
-import { parseUtcNaiveDate } from "@/lib/datetime";
+import { AlbumCard } from "@/components/molecules/album-card"
+import { parseUtcNaiveDate } from "@/lib/datetime"
 
 interface AlbumWithDetails {
-  id: number;
-  name: string;
-  description?: string | null;
-  sessions: any[];
-  photoCount: number;
-  coverPhotoObjectName?: string; // <-- Cambio de nombre
-  location?: string;
-  event?: string;
-  photographerName?: string;
-  photographerId?: number;
-  createdAt?: string;
+  id: number
+  name: string
+  description?: string | null
+  sessions: any[]
+  photoCount: number
+  coverPhotoObjectName?: string
+  location?: string
+  event?: string
+  photographerName?: string
+  photographerId?: number
+  createdAt?: string
+  tags: string[]
 }
 
 export default function AlbumesPage({ main }: { main?: boolean }) {
-  const { data: albumsData, loading: albumsLoading, error: albumsError, refetch: refetchAlbums } = useAlbums();
-  const { photographers, loading: photographersLoading } = usePhotographers();
-  
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPhotographer, setSelectedPhotographer] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"recent" | "oldest" | "name">("recent");
+  const {
+    data: albumsData,
+    loading: albumsLoading,
+    error: albumsError,
+    refetch: refetchAlbums,
+  } = useAlbums()
 
-  // Transform backend albums to include details from sessions
-  const albums = useMemo(() => {
-    if (!Array.isArray(albumsData)) return [];
-    
-    return albumsData.map((album): AlbumWithDetails => {
-      const firstSession = album.sessions?.[0];
-      const photoCount = album.sessions?.reduce((total: number, session: any) => 
-        total + (session.photos?.length || 0), 0
-      ) || 0;
+  const { photographers, loading: photographersLoading } = usePhotographers()
+
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedPhotographer, setSelectedPhotographer] = useState<string>("all")
+  const [selectedTag, setSelectedTag] = useState<string>("all")
+  const [sortBy, setSortBy] = useState<"recent" | "oldest" | "name">("recent")
+
+  /**
+   * Normalizamos los álbumes
+   */
+  const albums = useMemo<AlbumWithDetails[]>(() => {
+    if (!Array.isArray(albumsData)) return []
+
+    return albumsData.map((album: any) => {
+      const firstSession = album.sessions?.[0]
+
+      const photoCount =
+        album.sessions?.reduce(
+          (total: number, session: any) =>
+            total + (session.photos?.length || 0),
+          0,
+        ) || 0
+
+      // Tags: soporta album.tags o session.tags
+      const tags: string[] = Array.from(
+        new Set<string>(
+          (
+            album.tags?.map((t: any) => String(t.name ?? t)) ??
+            album.sessions?.flatMap(
+              (s: any) => s.tags?.map((t: any) => String(t.name ?? t)) ?? [],
+            ) ??
+            []
+          ).filter(Boolean)
+        )
+      )
       
+
       return {
         id: album.id,
         name: album.name,
         description: album.description,
         sessions: album.sessions || [],
         photoCount,
-        coverPhotoObjectName: firstSession?.photos?.[0]?.object_name || undefined, // <-- Cambio clave
+        coverPhotoObjectName: firstSession?.photos?.[0]?.object_name,
         location: firstSession?.location,
         event: firstSession?.event_name,
         photographerName: firstSession?.photographer?.name,
         photographerId: firstSession?.photographer_id,
         createdAt: firstSession?.event_date || new Date().toISOString(),
-      };
-    });
-  }, [albumsData]);
+        tags,
+      }
+    })
+  }, [albumsData])
 
-  const toMillis = (value?: string | null) => parseUtcNaiveDate(value)?.getTime() ?? 0;
+  /**
+   * Lista única de tags para el select
+   */
+  const allTags = useMemo(() => {
+    const set = new Set<string>()
+    albums.forEach((album) => {
+      album.tags.forEach((tag) => set.add(tag))
+    })
+    return Array.from(set).sort()
+  }, [albums])
 
-  // Filter and sort albums
+  const toMillis = (value?: string | null) =>
+    parseUtcNaiveDate(value)?.getTime() ?? 0
+
+  /**
+   * Filtros + orden
+   */
   const filteredAlbums = useMemo(() => {
-    let filtered = albums.filter((album) => album.photoCount >= 0) // Solo mostrar álbumes con fotos 
+    let filtered = albums.filter((album) => album.photoCount > 0)
 
-    // Search filter
+    // Texto
     if (searchQuery) {
+      const q = searchQuery.toLowerCase()
       filtered = filtered.filter(
         (album) =>
-          album.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          album.event?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          album.location?.toLowerCase().includes(searchQuery.toLowerCase()),
+          album.name.toLowerCase().includes(q) ||
+          album.event?.toLowerCase().includes(q) ||
+          album.location?.toLowerCase().includes(q),
       )
     }
 
-    // Photographer filter
+    // Fotógrafo
     if (selectedPhotographer !== "all") {
-      filtered = filtered.filter((album) => album.photographerId === parseInt(selectedPhotographer))
+      filtered = filtered.filter(
+        (album) => album.photographerId === Number(selectedPhotographer),
+      )
     }
 
-    // Sort
+    // Tag
+    if (selectedTag !== "all") {
+      filtered = filtered.filter((album) =>
+        album.tags.includes(selectedTag),
+      )
+    }
+
+    // Orden
     filtered.sort((a, b) => {
-      if (sortBy === "recent") {
-        return toMillis(b.createdAt) - toMillis(a.createdAt)
-      } else if (sortBy === "oldest") {
-        return toMillis(a.createdAt) - toMillis(b.createdAt)
-      } else {
-        return a.name.localeCompare(b.name)
-      }
+      if (sortBy === "recent") return toMillis(b.createdAt) - toMillis(a.createdAt)
+      if (sortBy === "oldest") return toMillis(a.createdAt) - toMillis(b.createdAt)
+      return a.name.localeCompare(b.name)
     })
 
     return filtered
-  }, [albums, searchQuery, selectedPhotographer, sortBy])
+  }, [albums, searchQuery, selectedPhotographer, selectedTag, sortBy])
 
-  // Loading state
+  /**
+   * Loading
+   */
   if (albumsLoading || photographersLoading) {
     return (
       <div className="min-h-screen bg-background">
-        {main ? null : <Header />}
+        {!main && <Header />}
         <main className="container mx-auto px-4 py-8">
           <div className="flex min-h-[400px] items-center justify-center">
             <div className="text-center">
               <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary mb-4" />
-              <p className="text-lg text-muted-foreground">Cargando álbumes...</p>
+              <p className="text-lg text-muted-foreground">
+                Cargando álbumes...
+              </p>
             </div>
           </div>
         </main>
@@ -113,18 +171,19 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
     )
   }
 
-  // Error state
+  /**
+   * Error
+   */
   if (albumsError) {
     return (
       <div className="min-h-screen bg-background">
-        {main ? null : <Header />}
+        {!main && <Header />}
         <main className="container mx-auto px-4 py-8">
-          <div className="flex min-h-[400px] items-center justify-center">
-            <div className="text-center">
-              <p className="text-lg text-destructive mb-4">Error al cargar los álbumes</p>
-              <p className="text-sm text-muted-foreground mb-4">{albumsError}</p>
-              <Button onClick={refetchAlbums}>Reintentar</Button>
-            </div>
+          <div className="text-center">
+            <p className="text-lg text-destructive mb-4">
+              Error al cargar los álbumes
+            </p>
+            <Button onClick={refetchAlbums}>Reintentar</Button>
           </div>
         </main>
       </div>
@@ -133,14 +192,16 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
 
   return (
     <div className="min-h-screen bg-background">
-      {main ? null : <Header />}
+      {!main && <Header />}
 
       <main className="container mx-auto px-4 py-8">
-        {/* Header Section */}
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="mb-2 text-4xl font-heading md:text-5xl">¿Dónde te tomaron la foto?</h1>
+          <h1 className="mb-2 text-4xl font-heading md:text-5xl">
+            ¿Dónde te tomaron la foto?
+          </h1>
           <p className="text-lg text-muted-foreground">
-            Busca el álbum por lugar o evento
+            Busca el álbum por lugar, evento o tag
           </p>
           <Link
             href="/"
@@ -151,12 +212,11 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
           </Link>
         </div>
 
-        {/* Filters Section */}
+        {/* Filtros */}
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              type="text"
               placeholder="Buscar álbumes, eventos o lugares..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -164,24 +224,44 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
             />
           </div>
 
-          <div className="flex gap-3">
-            <Select value={selectedPhotographer} onValueChange={setSelectedPhotographer}>
+          <div className="flex gap-3 flex-wrap">
+            {/* Fotógrafo */}
+            <Select
+              value={selectedPhotographer}
+              onValueChange={setSelectedPhotographer}
+            >
               <SelectTrigger className="w-[180px] rounded-xl border-gray-200">
                 <SelectValue placeholder="Fotógrafo" />
               </SelectTrigger>
               <SelectContent className="bg-[#f2f2e4]">
-                <SelectItem value="all">Todos</SelectItem>
-                {photographers.map((photographer) => (
-                  <SelectItem key={photographer.id} value={String(photographer.id)}>
-                    {photographer.name}
+                <SelectItem value="all">Todos los fotógrafos</SelectItem>
+                {photographers.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>
+                    {p.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+            {/* Tags */}
+            <Select value={selectedTag} onValueChange={setSelectedTag}>
               <SelectTrigger className="w-[180px] rounded-xl border-gray-200">
-                <SelectValue placeholder="Ordenar por" />
+                <SelectValue placeholder="Tag" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#f2f2e4]">
+                <SelectItem value="all">Todos los tags</SelectItem>
+                {allTags.map((tag) => (
+                  <SelectItem key={tag} value={tag}>
+                    {tag}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Orden */}
+            <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+              <SelectTrigger className="w-[180px] rounded-xl border-gray-200">
+                <SelectValue placeholder="Ordenar" />
               </SelectTrigger>
               <SelectContent className="bg-[#f2f2e4]">
                 <SelectItem value="recent">Más recientes</SelectItem>
@@ -192,27 +272,24 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
           </div>
         </div>
 
-        {/* Albums Grid */}
+        {/* Grid */}
         {filteredAlbums.length === 0 ? (
           <div className="py-20 text-center">
             <Camera className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
             <p className="text-lg text-muted-foreground mb-2">
-              {searchQuery || selectedPhotographer !== "all" 
-                ? "No se encontraron álbumes con esos filtros" 
-                : "No hay álbumes disponibles"}
+              No se encontraron álbumes con esos filtros
             </p>
-            {(searchQuery || selectedPhotographer !== "all") && (
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSearchQuery("")
-                  setSelectedPhotographer("all")
-                }}
-                className="mt-4"
-              >
-                Limpiar filtros
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchQuery("")
+                setSelectedPhotographer("all")
+                setSelectedTag("all")
+              }}
+              className="mt-4"
+            >
+              Limpiar filtros
+            </Button>
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -225,5 +302,3 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
     </div>
   )
 }
-
-
