@@ -38,10 +38,10 @@ export default function AlbumDetailPage() {
     if (process.env.NODE_ENV === "production") return
     if (!album?.sessions) return
 
-    console.log("[AlbumDetail][sessions order]", album.sessions.map((session: any) => ({
+    /* console.log("[AlbumDetail][sessions order]", album.sessions.map((session: any) => ({
       id: session.id,
       event_date: session.event_date,
-    })))
+    }))) */
   }, [album])
   
   // Get all photos from all sessions in the album
@@ -101,8 +101,8 @@ export default function AlbumDetailPage() {
     })
   
     if (process.env.NODE_ENV !== "production") {
-      console.log("[AlbumDetail][flattened photos - first 15]", debugEntries.slice(0, 15))
-      console.log("[AlbumDetail][flattened photos - last 15]", debugEntries.slice(-15))
+      //console.log("[AlbumDetail][flattened photos - first 15]", debugEntries.slice(0, 15))
+      //console.log("[AlbumDetail][flattened photos - last 15]", debugEntries.slice(-15))
     }
 
     const sortedPhotos = [...photos].sort((a, b) => {

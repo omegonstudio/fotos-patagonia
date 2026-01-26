@@ -67,21 +67,21 @@ function ConfirmacionContent() {
   }, [mappedPhotos])
 
   useEffect(() => {
-    console.log("[v0] Order ID from URL:", orderId)
+    //console.log(" Order ID from URL:", orderId)
 
     if (orderId) {
       const existingOrders = localStorage.getItem("orders")
-      console.log("[v0] Existing orders from localStorage:", existingOrders)
+      //console.log(" Existing orders from localStorage:", existingOrders)
 
       if (existingOrders) {
         const orders: Order[] = JSON.parse(existingOrders)
         const foundOrder = orders.find((o) => o.id === orderId)
-        console.log("[v0] Found order:", foundOrder)
+        //console.log(" Found order:", foundOrder)
         setOrder(foundOrder || null)
 
         if (foundOrder) {
           const downloadUrl = `${window.location.origin}/descargar/${foundOrder.id}`
-          console.log("[v0] Generating QR code for URL:", downloadUrl)
+          //console.log(" Generating QR code for URL:", downloadUrl)
 
           QRCodeLib.toDataURL(downloadUrl, {
             width: 300,
@@ -92,10 +92,10 @@ function ConfirmacionContent() {
             },
           })
             .then((url) => {
-              console.log("[v0] QR code generated successfully")
+              //console.log(" QR code generated successfully")
               setQrCodeUrl(url)
             })
-            .catch((err) => console.error("[v0] Error generating QR code:", err))
+            .catch((err) => console.error(" Error generating QR code:", err))
         }
       }
     }

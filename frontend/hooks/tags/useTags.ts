@@ -34,18 +34,18 @@ export function useTags() {
 
   const createTag = async (name: string): Promise<BackendTag> => {
     try {
-      console.log("Creating tag with name:", name);
+      //console.log("Creating tag with name:", name);
 
       const result = await apiFetch<BackendTag>("/tags/", {
         method: "POST",
         body: JSON.stringify({ name }),
       });
 
-      console.log("Tag created:", result);
+      //console.log("Tag created:", result);
       return result;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error creating tag:", err);
+      //console.error("Error creating tag:", err);
       throw err;
     }
   };
@@ -55,34 +55,34 @@ export function useTags() {
     name: string
   ): Promise<BackendTag> => {
     try {
-      console.log(`Updating tag ${tagId} with name:`, name);
+      //console.log(`Updating tag ${tagId} with name:`, name);
 
       const result = await apiFetch<BackendTag>(`/tags/${tagId}`, {
         method: "PUT",
         body: JSON.stringify({ name }),
       });
 
-      console.log("Tag updated:", result);
+      //console.log("Tag updated:", result);
       return result;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error updating tag:", err);
+      //console.error("Error updating tag:", err);
       throw err;
     }
   };
 
   const deleteTag = async (tagId: number): Promise<void> => {
     try {
-      console.log(`Deleting tag ${tagId}`);
+      //console.log(`Deleting tag ${tagId}`);
 
       await apiFetch(`/tags/${tagId}`, {
         method: "DELETE",
       });
 
-      console.log("Tag deleted successfully");
+      //console.log("Tag deleted successfully");
     } catch (err: any) {
       setError(err.message);
-      console.error("Error deleting tag:", err);
+      //  console.error("Error deleting tag:", err);
       throw err;
     }
   };

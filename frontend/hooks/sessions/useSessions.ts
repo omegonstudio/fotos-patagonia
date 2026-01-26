@@ -70,18 +70,18 @@ export function useSessions() {
     sessionData: SessionCreateInput
   ): Promise<BackendSession> => {
     try {
-      console.log("Creating session:", sessionData);
+      //console.log("Creating session:", sessionData);
 
       const data = await apiFetch<BackendSession>("/sessions/", {
         method: "POST",
         body: JSON.stringify(sessionData),
       });
 
-      console.log("Session created:", data);
+      //console.log("Session created:", data);
       return data;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error creating session:", err);
+      //console.error("Error creating session:", err);
       throw err;
     }
   };
@@ -91,51 +91,51 @@ export function useSessions() {
     updates: SessionUpdateInput
   ): Promise<BackendSession> => {
     try {
-      console.log(`Updating session ${sessionId}:`, updates);
+      //console.log(`Updating session ${sessionId}:`, updates);
 
       const data = await apiFetch<BackendSession>(`/sessions/${sessionId}`, {
         method: "PUT",
         body: JSON.stringify(updates),
       });
 
-      console.log("Session updated:", data);
+      //console.log("Session updated:", data);
       return data;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error updating session:", err);
+      //console.error("Error updating session:", err);
       throw err;
     }
   };
 
   const deleteSession = async (sessionId: number): Promise<void> => {
     try {
-      console.log(`Deleting session ${sessionId}`);
+      //console.log(`Deleting session ${sessionId}`);
 
       await apiFetch(`/sessions/${sessionId}`, {
         method: "DELETE",
       });
 
-      console.log("Session deleted successfully");
+      //console.log("Session deleted successfully");
     } catch (err: any) {
       setError(err.message);
-      console.error("Error deleting session:", err);
+      //console.error("Error deleting session:", err);
       throw err;
     }
   };
 
   const sendCartLink = async (sessionId: number): Promise<any> => {
     try {
-      console.log(`Sending cart link for session ${sessionId}`);
+      //console.log(`Sending cart link for session ${sessionId}`);
 
       const data = await apiFetch(`/sessions/${sessionId}/send-cart-link`, {
         method: "POST",
       });
 
-      console.log("Cart link sent:", data);
+      //console.log("Cart link sent:", data);
       return data;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error sending cart link:", err);
+      //console.error("Error sending cart link:", err);
       throw err;
     }
   };

@@ -38,7 +38,7 @@ export function useDiscounts() {
       setError(null);
     } catch (err: any) {
       setError(err.message);
-      console.error("Error fetching discounts:", err);
+      //console.error("Error fetching discounts:", err);
     } finally {
       setLoading(false);
     }
@@ -53,18 +53,18 @@ export function useDiscounts() {
     discountData: DiscountCreateInput
   ): Promise<BackendDiscount> => {
     try {
-      console.log("Creating discount:", discountData);
+      //console.log("Creating discount:", discountData);
 
       const result = await apiFetch<BackendDiscount>("/discounts/", {
         method: "POST",
         body: JSON.stringify(discountData),
       });
 
-      console.log("Discount created:", result);
+      //console.log("Discount created:", result);
       return result;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error creating discount:", err);
+      //console.error("Error creating discount:", err);
       throw err;
     }
   };
@@ -74,7 +74,7 @@ export function useDiscounts() {
     discountData: DiscountUpdateInput
   ): Promise<BackendDiscount> => {
     try {
-      console.log(`Updating discount ${discountId}:`, discountData);
+      //console.log(`Updating discount ${discountId}:`, discountData);
 
       const result = await apiFetch<BackendDiscount>(
         `/discounts/${discountId}`,
@@ -84,27 +84,27 @@ export function useDiscounts() {
         }
       );
 
-      console.log("Discount updated:", result);
+      //console.log("Discount updated:", result);
       return result;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error updating discount:", err);
+      //console.error("Error updating discount:", err);
       throw err;
     }
   };
 
   const deleteDiscount = async (discountId: number): Promise<void> => {
     try {
-      console.log(`Deleting discount ${discountId}`);
+      //console.log(`Deleting discount ${discountId}`);
 
       await apiFetch(`/discounts/${discountId}`, {
         method: "DELETE",
       });
 
-      console.log("Discount deleted successfully");
+      //console.log("Discount deleted successfully");
     } catch (err: any) {
       setError(err.message);
-      console.error("Error deleting discount:", err);
+      //console.error("Error deleting discount:", err);
       throw err;
     }
   };

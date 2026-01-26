@@ -59,18 +59,18 @@ export function useCombos() {
     comboData: ComboCreateInput
   ): Promise<BackendCombo> => {
     try {
-      console.log("Creating combo:", comboData);
+      //console.log("Creating combo:", comboData);
 
       const result = await apiFetch<BackendCombo>("/combos/", {
         method: "POST",
         body: JSON.stringify(comboData),
       });
 
-      console.log("Combo created:", result);
+      //console.log("Combo created:", result);
       return result;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error creating combo:", err);
+      //console.error("Error creating combo:", err);
       throw err;
     }
   };
@@ -80,34 +80,34 @@ export function useCombos() {
     comboData: ComboUpdateInput
   ): Promise<BackendCombo> => {
     try {
-      console.log(`Updating combo ${comboId}:`, comboData);
+      //console.log(`Updating combo ${comboId}:`, comboData);
 
       const result = await apiFetch<BackendCombo>(`/combos/${comboId}`, {
         method: "PUT",
         body: JSON.stringify(comboData),
       });
 
-      console.log("Combo updated:", result);
+      //console.log("Combo updated:", result);
       return result;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error updating combo:", err);
+      //console.error("Error updating combo:", err);
       throw err;
     }
   };
 
   const deleteCombo = async (comboId: number): Promise<void> => {
     try {
-      console.log(`Deleting combo ${comboId}`);
+      //console.log(`Deleting combo ${comboId}`);
 
       await apiFetch(`/combos/${comboId}`, {
         method: "DELETE",
       });
 
-      console.log("Combo deleted successfully");
+      //console.log("Combo deleted successfully");
     } catch (err: any) {
       setError(err.message);
-      console.error("Error deleting combo:", err);
+      //console.error("Error deleting combo:", err);
       throw err;
     }
   };

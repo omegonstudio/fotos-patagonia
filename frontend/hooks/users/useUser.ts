@@ -46,7 +46,7 @@ export function useUsers() {
       setError(null);
     } catch (err: any) {
       setError(err.message);
-      console.error("Error fetching users:", err);
+      /* console.error("Error fetching users:", err); */  
     } finally {
       setLoading(false);
     }
@@ -61,18 +61,18 @@ export function useUsers() {
     userData: UserCreateInput
   ): Promise<BackendUser> => {
     try {
-      console.log("Creating user:", { ...userData, password: "***" });
+        /* console.log("Creating user:", { ...userData, password: "***" }); */
 
       const result = await apiFetch<BackendUser>("/users/", {
         method: "POST",
         body: JSON.stringify(userData),
       });
 
-      console.log("User created:", result);
+      /* console.log("User created:", result); */
       return result;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error creating user:", err);
+      /* console.error("Error creating user:", err); */
       throw err;
     }
   };
@@ -82,37 +82,37 @@ export function useUsers() {
     userData: UserUpdateInput
   ): Promise<BackendUser> => {
     try {
-      console.log(
+      /* console.log(
         `Updating user ${userId}:`,
         userData.password ? { ...userData, password: "***" } : userData
-      );
+      ); */ 
 
       const result = await apiFetch<BackendUser>(`/users/${userId}`, {
         method: "PUT",
         body: JSON.stringify(userData),
       });
 
-      console.log("User updated:", result);
+      /* console.log("User updated:", result); */
       return result;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error updating user:", err);
+      /* console.error("Error updating user:", err); */
       throw err;
     }
   };
 
   const deleteUser = async (userId: number): Promise<void> => {
     try {
-      console.log(`Deleting user ${userId}`);
+      /* console.log(`Deleting user ${userId}`); */
 
       await apiFetch(`/users/${userId}`, {
         method: "DELETE",
       });
 
-      console.log("User deleted successfully");
+      /* console.log("User deleted successfully"); */
     } catch (err: any) {
       setError(err.message);
-      console.error("Error deleting user:", err);
+      /* console.error("Error deleting user:", err); */
       throw err;
     }
   };

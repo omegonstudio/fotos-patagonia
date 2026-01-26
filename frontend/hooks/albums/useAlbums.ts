@@ -56,18 +56,18 @@ export function useAlbums(albumId?: string) {
         default_photo_price: albumData.default_photo_price,
       };
 
-      console.log("Creating album with data:", backendData);
+      //console.log("Creating album with data:", backendData);
 
       const result = await apiFetch<BackendAlbum>("/albums/", {
         method: "POST",
         body: JSON.stringify(backendData),
       });
 
-      console.log("Album created:", result);
+      //console.log("Album created:", result);
       return result;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error creating album:", err);
+      //console.error("Error creating album:", err);
       throw err;
     }
   };
@@ -87,34 +87,34 @@ export function useAlbums(albumId?: string) {
         default_photo_price: albumData.default_photo_price,
       };
 
-      console.log(`Updating album ${id} with data:`, backendData);
+      //console.log(`Updating album ${id} with data:`, backendData);
 
       const result = await apiFetch<BackendAlbum>(`/albums/${id}`, {
         method: "PUT",
         body: JSON.stringify(backendData),
       });
 
-      console.log("Album updated:", result);
+      //console.log("Album updated:", result);
       return result;
     } catch (err: any) {
       setError(err.message);
-      console.error("Error updating album:", err);
+      //console.error("Error updating album:", err);
       throw err;
     }
   };
 
   const deleteAlbum = async (id: number | string): Promise<void> => {
     try {
-      console.log(`Deleting album ${id}`);
+      //console.log(`Deleting album ${id}`);
 
       await apiFetch(`/albums/${id}`, {
         method: "DELETE",
       });
 
-      console.log("Album deleted successfully");
+      //console.log("Album deleted successfully");
     } catch (err: any) {
       setError(err.message);
-      console.error("Error deleting album:", err);
+      //console.error("Error deleting album:", err);
       throw err;
     }
   };

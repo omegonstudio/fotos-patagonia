@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Header } from "@/components/organisms/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,8 +10,13 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MapPin, Users, Mail, Phone, MapPinIcon, ArrowLeft } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
+import "react-toastify/dist/ReactToastify.css"
+import ReCAPTCHA from "react-google-recaptcha"
+import { toast } from "react-toastify"
+
+
+
 
 type ContactType = "local" | "event"
 
@@ -29,8 +34,11 @@ interface FormData {
   estimatedPeople?: number
 }
 
+
+
 export default function ContactoPage() {
-  const { toast } = useToast()
+  const recaptchaRef = useRef<ReCAPTCHA>(null)
+
   const [contactType, setContactType] = useState<ContactType>("local")
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
@@ -65,66 +73,62 @@ export default function ContactoPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    //console.log("🟡 submit iniciado")
 
-    // Validation
     if (!formData.fullName || !formData.email || !formData.message) {
-      toast({
-        title: "Campos incompletos",
-        description: "Por favor completa todos los campos obligatorios.",
-        variant: "destructive",
-      })
+      toast.error("Completá todos los campos obligatorios")
       return
     }
-
-    if (contactType === "local" && !formData.location) {
-      toast({
-        title: "Campos incompletos",
-        description: "Por favor selecciona un local o zona turística.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (contactType === "event" && (!formData.eventType || !formData.eventDate || !formData.estimatedPeople)) {
-      toast({
-        title: "Campos incompletos",
-        description: "Por favor completa todos los campos del evento.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsSubmitting(true)
-
-    // Simulate sending (in production, this would call an API)
+  
     try {
-      // For now, just simulate a successful submission
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      setIsSubmitting(true)
+      //console.log("🟡 ejecutando recaptcha...")
 
-      console.log("[v0] Form submitted:", { contactType, ...formData })
+      const token = await recaptchaRef.current?.executeAsync()
+      //console.log("🟢 token recaptcha:", token)
 
-      toast({
-        title: "¡Consulta enviada!",
-        description: "Te contactaremos pronto con más información.",
+      if (!token) {
+        toast.error("Captcha inválido")
+        return
+      }
+      //console.log("🟡 enviando POST /api/contact")
+
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          contactType,
+          recaptchaToken: token,
+        }),
       })
+      
+      //console.log("🟢 response status:", res.status)
 
-      // Reset form
+      if (!res.ok) {
+        //console.log("🔴 error backend:", await res.json())
+        throw new Error("Error enviando formulario")
+      }
+  
+      toast.success("Consulta enviada correctamente 🙌")
+  
       setFormData({
         fullName: "",
         email: "",
         phone: "",
         message: "",
       })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo enviar la consulta. Intenta más tarde.",
-        variant: "destructive",
-      })
+    } catch (err) {
+      //console.error("🔴 catch submit", err)
+      toast.error("No se pudo enviar la consulta")
     } finally {
       setIsSubmitting(false)
+      recaptchaRef.current?.reset()
+      //console.log("🟡 submit finalizado")
     }
   }
+  
+  
 
   return (
     <div className="min-h-screen bg-background">
@@ -342,6 +346,11 @@ export default function ContactoPage() {
                     className="min-h-[120px] rounded-xl border-gray-200"
                   />
                 </div>
+                <ReCAPTCHA
+                  ref={recaptchaRef}
+                  sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
+                  size="invisible"
+                />
 
                 <Button
                   type="submit"

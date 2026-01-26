@@ -26,7 +26,7 @@ command -v docker compose >/dev/null 2>&1 || {
 # 2️⃣ Limpieza previa (opcional)
 # -----------------------------
 echo "🧹 Limpiando entorno Docker previo (dev)..."
-docker compose -f "$COMPOSE_FILE" down -v --remove-orphans || true
+docker compose -f "$COMPOSE_FILE" down --remove-orphans || true
 
 # -----------------------------
 # 3️⃣ Build y levantar servicios

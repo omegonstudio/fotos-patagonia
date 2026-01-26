@@ -2,6 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
 import dynamic from "next/dynamic"
+import { ToastContainer } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
 
 const UploadManager = dynamic(
   () => import("@/components/organisms/upload-manager").then((m) => m.UploadManager),
@@ -28,7 +30,14 @@ export default function RootLayout({
       <body className="antialiased">
         {children}
         <UploadManager />
+        <ToastContainer
+          position="bottom-right"
+          autoClose={4000}
+          hideProgressBar
+          theme="light"
+        />
       </body>
     </html>
   )
 }
+
