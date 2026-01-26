@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
-import { Album } from "@/lib/types";
+import { Album, PhotoCombo } from "@/lib/types";
 
 interface BackendAlbum {
 
@@ -17,6 +17,8 @@ interface BackendAlbum {
   sessions?: any[];
 
   tags?: any[];
+
+  combos?: PhotoCombo[];
 
 }
 
