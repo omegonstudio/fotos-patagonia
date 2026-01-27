@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends
+from typing import List
 from sqlalchemy.orm import Session
 
 from deps import get_db, PermissionChecker
 from services.admin import AdminService
-from schemas.admin import AdminDashboardSchema
+from schemas.admin import AdminDashboardSchema, RecentSessionInfo
 from models.user import User
 from core.permissions import Permissions
 
@@ -23,3 +24,13 @@ def get_admin_dashboard(
     orders, and commissions. Restricted to users with sufficient privileges.
     """
     return AdminService(db).get_dashboard_summary()
+
+@router.get("/dashboard/recent-sessions", response_model=List[RecentSessionInfo])
+def get_recent_sessions_report(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(PermissionChecker([Permissions.VIEW_ANY_EARNINGS]))
+):
+    """
+    Provides a summary of the last 5 photo session uploads.
+    """
+    return AdminService(db).get_recent_sessions()
