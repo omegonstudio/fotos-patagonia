@@ -6,6 +6,7 @@ from models.photo import Photo
 from models.photographer import Photographer
 from models.earning import Earning
 from schemas.admin import AdminDashboardSchema, AdminCommissionSummary, RecentSessionInfo
+from schemas.statistics import PhotoSaleStat
 from typing import List
 
 class AdminService(BaseService):
@@ -119,4 +120,27 @@ class AdminService(BaseService):
                 status=r.status
             ) for r in recent_sessions
         ]
+
+    def get_photo_sales_statistics(self, photographer_id: int) -> List[PhotoSaleStat]:
+        from models.photo_session import PhotoSession
+        from models.album import Album
+
+        stats_query = self.db.query(
+            Photo.id.label("photo_id"),
+            Photo.filename.label("photo_filename"),
+            Album.name.label("album_name"),
+            func.sum(OrderItem.quantity).label("times_sold"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue")
+        ).select_from(Photo)\
+         .join(Photo.order_items)\
+         .join(OrderItem.order)\
+         .outerjoin(Photo.session)\
+         .outerjoin(PhotoSession.album)\
+         .filter(Photo.photographer_id == photographer_id)\
+         .filter(Order.payment_status == PaymentStatus.PAID)\
+         .group_by(Photo.id, Photo.filename, Album.name)\
+         .order_by(func.sum(OrderItem.quantity).desc())
+
+        results = stats_query.all()
+        return [PhotoSaleStat.from_orm(r) for r in results]
 

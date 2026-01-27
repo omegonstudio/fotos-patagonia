@@ -24,6 +24,7 @@ import { useAuthStore } from "@/lib/store";
 import { usePhotographers } from "@/hooks/photographers/usePhotographers";
 import { useEarningsSummaryAll } from "@/hooks/earnings/useEarningsSummaryAll";
 import { useOrders } from "@/hooks/orders/useOrders";
+import { PhotographerDashboard } from "@/components/organisms/PhotographerDashboard";
 import { RecentSessions } from "@/components/organisms/RecentSessions";
 
 export default function AdminDashboard() {
@@ -45,7 +46,7 @@ export default function AdminDashboard() {
   const userIsAdmin = isAdmin(user);
 
   const filteredOrders = useMemo(() => {
-    if (ordersLoading || photosLoading) return [];
+    if (ordersLoading) return [];
 
     if (userIsAdmin || !photographerId) return orders;
 
@@ -53,8 +54,7 @@ export default function AdminDashboard() {
 
     orders.forEach((order) => {
       const photographerItems = (order.items || []).filter((item) => {
-        const photo = photos.find((p) => p.id === item.photo?.id);
-        return photo?.photographer_id === photographerId;
+        return item.photo?.photographer_id === photographerId;
       });
 
       if (photographerItems.length > 0) {
@@ -71,7 +71,7 @@ export default function AdminDashboard() {
     });
 
     return ordersWithPhotographerItems;
-  }, [orders, photos, photosLoading, ordersLoading, userIsAdmin, photographerId]);
+  }, [orders, ordersLoading, userIsAdmin, photographerId]);
 
   const stats = useMemo(() => {
     if (ordersLoading || photosLoading)
@@ -93,16 +93,15 @@ export default function AdminDashboard() {
   }, [filteredOrders, photos, photosLoading, ordersLoading, userIsAdmin, photographerId]);
 
   const toMillis = (value?: string | null) =>
-    value ? new Date(value).getTime() : 0
-  
-  const recentOrders = [...orders]
-  .sort((a, b) => {
-    const da = toMillis(a.created_at ?? a.createdAt)
-    const db = toMillis(b.created_at ?? b.createdAt)
-    return db - da // más reciente primero
-  })
-  .slice(0, 5)
+    value ? new Date(value).getTime() : 0;
 
+  const recentOrders = [...filteredOrders]
+    .sort((a, b) => {
+      const da = toMillis(a.created_at ?? a.createdAt);
+      const db = toMillis(b.created_at ?? b.createdAt);
+      return db - da; // más reciente primero
+    })
+    .slice(0, 5);
 
   // Textos dinámicos según el rol
   const isPhotographer = !userIsAdmin && !!photographerId;
@@ -129,9 +128,7 @@ export default function AdminDashboard() {
       ? "Últimos 5 pedidos con tus fotos"
       : "Últimos 5 pedidos realizados",
   };
-  /*  */
 
-  // === NUEVO === Fecha seleccionada por el admin
   const [startDateInput, setStartDateInput] = useState<string>("");
   const [endDateInput, setEndDateInput] = useState<string>("");
   const [appliedStartDate, setAppliedStartDate] = useState<string | undefined>(
@@ -141,7 +138,6 @@ export default function AdminDashboard() {
     undefined
   );
 
-  // === NUEVO === Resumen global de ingresos (solo admins)
   const {
     data: earningsAll,
     loading: earningsLoading,
@@ -149,9 +145,7 @@ export default function AdminDashboard() {
     enabled: userIsAdmin,
   });
 
-  // === NUEVO === Resumen individual (para fotógrafos)
   const { getPhotographerEarningsSummary } = usePhotographers();
-
   const [mySummary, setMySummary] = useState<number>(0);
 
   const handleApplyDateFilter = async () => {
@@ -159,7 +153,6 @@ export default function AdminDashboard() {
     const newEnd = endDateInput || undefined;
     setAppliedStartDate(newStart);
     setAppliedEndDate(newEnd);
-    // Admins refetcharán vía hook al cambiar dependencias; fotógrafos vía useEffect
   };
 
   useEffect(() => {
@@ -180,15 +173,12 @@ export default function AdminDashboard() {
     getPhotographerEarningsSummary,
   ]);
 
-  /*    */
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="mb-2 text-4xl font-bold">{texts.title}</h1>
         <p className="text-muted-foreground">{texts.subtitle}</p>
       </div>
-      {/* Filtro de fecha para ingresos (admin y fotógrafos) */}
       {(userIsAdmin || photographerId) && (
         <div className="mb-6 flex gap-4 items-end">
           <div>
@@ -202,7 +192,6 @@ export default function AdminDashboard() {
               onChange={(e) => setStartDateInput(e.target.value)}
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium mb-1">
               Fecha hasta
@@ -214,7 +203,6 @@ export default function AdminDashboard() {
               onChange={(e) => setEndDateInput(e.target.value)}
             />
           </div>
-
           <Button
             onClick={handleApplyDateFilter}
             disabled={earningsLoading && userIsAdmin}
@@ -225,7 +213,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Stats Grid */}
       <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="rounded-2xl border-gray-200">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -241,7 +228,6 @@ export default function AdminDashboard() {
             </p>
           </CardContent>
         </Card>
-
         <Card className="rounded-2xl border-gray-200">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -251,7 +237,6 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {" "}
               {userIsAdmin
                 ? `$${(
                     earningsAll?.reduce(
@@ -266,7 +251,6 @@ export default function AdminDashboard() {
             </p>
           </CardContent>
         </Card>
-
         <Card className="rounded-2xl border-gray-200">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -281,7 +265,6 @@ export default function AdminDashboard() {
             </p>
           </CardContent>
         </Card>
-
         <Card className="rounded-2xl border-gray-200">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -298,25 +281,43 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Quick Actions */}
       <div className="mb-8 grid gap-6 md:grid-cols-2">
-        <Card className="rounded-2xl border-gray-200">
-          <CardHeader>
-            <CardTitle>Gestión de Pedidos</CardTitle>
-            <CardDescription>
-              Ver y administrar todos los pedidos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/admin/pedidos">
-              <Button className="w-full rounded-xl bg-primary font-semibold text-foreground hover:bg-primary-hover">
-                Ver Pedidos
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
+        {userIsAdmin && (
+          <>
+            <Card className="rounded-2xl border-gray-200">
+              <CardHeader>
+                <CardTitle>Gestión de Pedidos</CardTitle>
+                <CardDescription>
+                  Ver y administrar todos los pedidos
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/admin/pedidos">
+                  <Button className="w-full rounded-xl bg-primary font-semibold text-foreground hover:bg-primary-hover">
+                    Ver Pedidos
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+            <Card className="rounded-2xl border-gray-200">
+              <CardHeader>
+                <CardTitle>Gestión de Contenidos (ABM)</CardTitle>
+                <CardDescription>
+                  Administrar álbumes, fotógrafos, tags y códigos
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link href="/admin/abm">
+                  <Button className="w-full rounded-xl bg-primary font-semibold text-foreground hover:bg-primary-hover">
+                    Gestionar Contenido
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </>
+        )}
         <Card className="rounded-2xl border-gray-200">
           <CardHeader>
             <CardTitle>Gestión de Fotos</CardTitle>
@@ -331,68 +332,55 @@ export default function AdminDashboard() {
             </Link>
           </CardContent>
         </Card>
-
-        <Card className="rounded-2xl border-gray-200">
-          <CardHeader>
-            <CardTitle>Gestión de Contenidos (ABM)</CardTitle>
-            <CardDescription>
-              Administrar álbumes, fotógrafos, tags y códigos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/admin/abm">
-              <Button className="w-full rounded-xl bg-primary font-semibold text-foreground hover:bg-primary-hover">
-                Gestionar Contenido
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Recent Activity */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Recent Orders */}
-        <Card className="rounded-2xl border-gray-200">
-          <CardHeader>
-            <CardTitle>{texts.recentOrdersTitle}</CardTitle>
-            <CardDescription>{texts.recentOrdersDesc}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {recentOrders.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">
-                {isPhotographer
-                  ? "No hay pedidos con tus fotos"
-                  : "No hay pedidos registrados"}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex items-center justify-between rounded-xl border border-gray-200 p-4"
-                  >
-                    <div className="flex-1">
-                      <p className="font-semibold">Pedido #{order.id}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {order.customer_email || "Sin email"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold">${order.total}</p>
-                      <p className="text-sm capitalize text-muted-foreground">
-                        {order.order_status?.replace("_", " ") || "Sin estado"}
-                      </p>
-                    </div>
+        {isPhotographer && photographerId ? (
+          <div className="md:col-span-2">
+            <PhotographerDashboard photographerId={photographerId} />
+          </div>
+        ) : (
+          <>
+            {/* Recent Orders for Admin */}
+            <Card className="rounded-2xl border-gray-200">
+              <CardHeader>
+                <CardTitle>{texts.recentOrdersTitle}</CardTitle>
+                <CardDescription>{texts.recentOrdersDesc}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {recentOrders.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground">
+                    No hay pedidos registrados
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Sessions */}
-        <RecentSessions />
+                ) : (
+                  <div className="space-y-3">
+                    {recentOrders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="flex items-center justify-between rounded-xl border border-gray-200 p-4"
+                      >
+                        <div className="flex-1">
+                          <p className="font-semibold">Pedido #{order.id}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {order.customer_email || "Sin email"}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">${order.total}</p>
+                          <p className="text-sm capitalize text-muted-foreground">
+                            {order.order_status?.replace("_", " ") || "Sin estado"}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            {/* Recent Sessions for Admin */}
+            <RecentSessions />
+          </>
+        )}
       </div>
     </div>
   );

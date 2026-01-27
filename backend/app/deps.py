@@ -57,6 +57,13 @@ def get_current_user(
     db: Session = Depends(get_db),
     token: str = Depends(reusable_oauth2)) -> User:
 
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])

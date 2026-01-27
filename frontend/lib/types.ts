@@ -299,6 +299,7 @@ export interface Earning {
   amount: number;
   earned_photo_fraction: number;
   created_at: string; // ISO date string
+  photo_filename?: string;
 }
 
 export interface PhotographerEarningsSummary {
