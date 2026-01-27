@@ -88,12 +88,31 @@ export default function PedidosPage() {
 
     // 🔎 búsqueda por ID / email
     if (searchTerm) {
-      filtered = filtered.filter(
-        (order) =>
-          order.id?.toString().includes(searchTerm) ||
-          order.user?.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      const term = searchTerm.toLowerCase().trim()
+    
+      filtered = filtered.filter((order) => {
+        const email =
+          order.customer_email ||
+          order.user?.email ||
+          ""
+    
+        const match =
+          order.id?.toString().includes(term) ||
+          email.toLowerCase().includes(term)
+    
+        /* if (!match && email) {
+          console.log("❌ no match:", {
+            term,
+            id: order.id,
+            email,
+          })
+        } */
+    
+        return match
+      })
     }
+    
+    
 
     // 📌 estado
     if (statusFilter !== "all") {
@@ -172,6 +191,8 @@ export default function PedidosPage() {
 
   useEffect(() => {
     if (ordersData) {
+/*       console.log("📦 ordersData raw:", ordersData)
+ */
       // Ensure data is always an array
       const loadedOrders = Array.isArray(ordersData)
         ? ordersData

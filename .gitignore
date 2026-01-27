@@ -38,7 +38,7 @@ Thumbs.db
 # Dependencias
 /frontend/node_modules/
 /backend/frontend/node_modules
-
+node_modules
 # Archivos de build y desarrollo de Next.js
 /frontend/.next/
 /frontend/out/
