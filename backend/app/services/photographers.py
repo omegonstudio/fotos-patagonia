@@ -1,14 +1,16 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from services.base import BaseService
 from fastapi import HTTPException, status
 from models.photographer import Photographer, PhotographerCreateSchema, PhotographerUpdateSchema
-from models.earning import Earning
+from models.earning import Earning, EarningSchema
 from models.user import User
 from core.permissions import Permissions
 from datetime import date, timedelta
 from typing import List
 from pydantic import BaseModel
+from schemas.pagination import PaginatedResponse
+from schemas.photographer import PhotoEarningSummary
 
 from models.order import OrderItem
 from models.photo import Photo
@@ -142,23 +144,58 @@ class PhotographerService(BaseService):
         self,
         photographer_id: int,
         current_user: User,
+        skip: int = 0,
+        limit: int = 15,
         start_date: date | None = None,
         end_date: date | None = None
-    ) -> List[Earning]:
+    ) -> PaginatedResponse[EarningSchema]:
         """
-        Returns a detailed list of earnings for a photographer within a date range.
+        Returns a paginated list of earnings for a photographer within a date range.
         """
         self._check_earnings_permission(photographer_id, current_user)
 
-        query = self.db.query(Earning).filter(Earning.photographer_id == photographer_id)
+        query = self.db.query(Earning).options(
+            joinedload(Earning.order_item).joinedload(OrderItem.photo)
+        ).filter(Earning.photographer_id == photographer_id)
 
         if start_date:
             query = query.filter(Earning.created_at >= start_date)
         if end_date:
             query = query.filter(Earning.created_at < end_date + timedelta(days=1))
 
-        earnings = query.order_by(Earning.created_at.desc()).all()
-        return earnings
+        total = query.count()
+        earnings = query.order_by(Earning.created_at.desc()).offset(skip).limit(limit).all()
+
+        result_schemas = []
+        for earning in earnings:
+            schema = EarningSchema.from_orm(earning)
+            if earning.order_item and earning.order_item.photo:
+                schema.photo_filename = earning.order_item.photo.filename
+            result_schemas.append(schema)
+
+        return PaginatedResponse(total=total, items=result_schemas)
+
+    def get_earnings_summary_by_photo(self, photographer_id: int, current_user: User, skip: int = 0, limit: int = 15) -> PaginatedResponse[PhotoEarningSummary]:
+        """
+        Returns a paginated summary of earnings grouped by photo.
+        """
+        self._check_earnings_permission(photographer_id, current_user)
+
+        summary_query = self.db.query(
+            Photo.id.label("photo_id"),
+            Photo.filename.label("photo_filename"),
+            func.sum(OrderItem.quantity).label("times_sold"),
+            func.sum(Earning.amount).label("total_earnings")
+        ).select_from(Earning)\
+         .join(Earning.order_item)\
+         .join(OrderItem.photo)\
+         .filter(Earning.photographer_id == photographer_id)\
+         .group_by(Photo.id, Photo.filename)
+
+        total = summary_query.count()
+        results = summary_query.order_by(func.sum(Earning.amount).desc()).offset(skip).limit(limit).all()
+
+        return PaginatedResponse(total=total, items=results)
 
     def get_photographer_earnings_summary(
         self,

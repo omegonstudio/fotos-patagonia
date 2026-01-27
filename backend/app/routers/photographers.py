@@ -56,11 +56,15 @@ def delete_photographer(
 from datetime import date
 from typing import List
 from models.earning import EarningSchema
+from schemas.photographer import PhotoEarningSummary
+from schemas.pagination import PaginatedResponse
 from services.photographers import EarningsSummarySchema
 
-@router.get("/{photographer_id}/earnings", response_model=List[EarningSchema])
+@router.get("/{photographer_id}/earnings", response_model=PaginatedResponse[EarningSchema])
 def get_photographer_earnings(
     photographer_id: int,
+    skip: int = 0,
+    limit: int = 15,
     start_date: date | None = None,
     end_date: date | None = None,
     db: Session = Depends(get_db),
@@ -71,6 +75,8 @@ def get_photographer_earnings(
     return PhotographerService(db).get_photographer_earnings(
         photographer_id=photographer_id,
         current_user=current_user,
+        skip=skip,
+        limit=limit,
         start_date=start_date,
         end_date=end_date
     )
@@ -90,4 +96,21 @@ def get_photographer_earnings_summary(
         current_user=current_user,
         start_date=start_date,
         end_date=end_date
+    )
+
+@router.get("/{photographer_id}/earnings/summary_by_photo", response_model=PaginatedResponse[PhotoEarningSummary])
+def get_earnings_summary_by_photo(
+    photographer_id: int,
+    skip: int = 0,
+    limit: int = 15,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(PermissionChecker(
+        [Permissions.VIEW_OWN_EARNINGS, Permissions.VIEW_ANY_EARNINGS], require_all=False
+    ))
+):
+    return PhotographerService(db).get_earnings_summary_by_photo(
+        photographer_id=photographer_id,
+        current_user=current_user,
+        skip=skip,
+        limit=limit
     )

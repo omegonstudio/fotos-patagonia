@@ -5,7 +5,8 @@ from models.order import Order, OrderItem, PaymentStatus
 from models.photo import Photo
 from models.photographer import Photographer
 from models.earning import Earning
-from schemas.admin import AdminDashboardSchema, AdminCommissionSummary
+from schemas.admin import AdminDashboardSchema, AdminCommissionSummary, RecentSessionInfo
+from schemas.statistics import PhotoSaleStat
 from typing import List
 
 class AdminService(BaseService):
@@ -86,3 +87,60 @@ class AdminService(BaseService):
             total_commissions=round(total_commissions, 2),
             commissions_by_photographer=commissions_by_photographer
         )
+
+    def get_recent_sessions(self) -> List[RecentSessionInfo]:
+        """
+        Retrieves a summary of the last 5 photo sessions for the admin dashboard.
+        """
+        from models.photo_session import PhotoSession
+        
+        sessions_query = self.db.query(
+            PhotoSession.id,
+            Photographer.name.label("photographer_name"),
+            func.to_char(PhotoSession.event_date, 'YYYY-MM-DD HH24:MI:SS').label("start_time"),
+            func.count(Photo.id).label("total_photos"),
+            case(
+                (func.count(Photo.id) > 0, "Completado"),
+                else_ = "Pendiente"
+            ).label("status")
+        ).join(Photographer, PhotoSession.photographer_id == Photographer.id)\
+         .outerjoin(Photo, PhotoSession.id == Photo.session_id)\
+         .group_by(PhotoSession.id, Photographer.name)\
+         .order_by(PhotoSession.event_date.desc())\
+         .limit(5)
+        
+        recent_sessions = sessions_query.all()
+        
+        return [
+            RecentSessionInfo(
+                id=r.id,
+                photographer_name=r.photographer_name,
+                start_time=r.start_time,
+                total_photos=r.total_photos,
+                status=r.status
+            ) for r in recent_sessions
+        ]
+
+    def get_photo_sales_statistics(self, photographer_id: int) -> List[PhotoSaleStat]:
+        from models.photo_session import PhotoSession
+        from models.album import Album
+
+        stats_query = self.db.query(
+            Photo.id.label("photo_id"),
+            Photo.filename.label("photo_filename"),
+            Album.name.label("album_name"),
+            func.sum(OrderItem.quantity).label("times_sold"),
+            func.sum(OrderItem.price * OrderItem.quantity).label("total_revenue")
+        ).select_from(Photo)\
+         .join(Photo.order_items)\
+         .join(OrderItem.order)\
+         .outerjoin(Photo.session)\
+         .outerjoin(PhotoSession.album)\
+         .filter(Photo.photographer_id == photographer_id)\
+         .filter(Order.payment_status == PaymentStatus.PAID)\
+         .group_by(Photo.id, Photo.filename, Album.name)\
+         .order_by(func.sum(OrderItem.quantity).desc())
+
+        results = stats_query.all()
+        return [PhotoSaleStat.from_orm(r) for r in results]
+
