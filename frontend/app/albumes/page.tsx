@@ -5,18 +5,11 @@ import { Header } from "@/components/organisms/header"
 import { useAlbums } from "@/hooks/albums/useAlbums"
 import { usePhotographers } from "@/hooks/photographers/usePhotographers"
 import Link from "next/link"
-import { Camera, Search, ArrowLeft, Loader2 } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Camera, ArrowLeft, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AlbumCard } from "@/components/molecules/album-card"
 import { parseUtcNaiveDate } from "@/lib/datetime"
+import { FilterBarAlbum } from "@/components/molecules/filter-bar-albums"
 
 interface AlbumWithDetails {
   id: number
@@ -113,7 +106,7 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
    * Filtros + orden
    */
   const filteredAlbums = useMemo(() => {
-    let filtered = albums.filter((album) => album.photoCount > 0)
+    let filtered = [...albums]
 
     // Texto
     if (searchQuery) {
@@ -213,64 +206,20 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
         </div>
 
         {/* Filtros */}
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar álbumes, eventos o lugares..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 rounded-xl border-gray-200"
-            />
-          </div>
+        <FilterBarAlbum
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          selectedPhotographer={selectedPhotographer}
+          onSelectedPhotographerChange={setSelectedPhotographer}
+          photographers={photographers}
+          selectedTag={selectedTag}
+          onSelectedTagChange={setSelectedTag}
+          allTags={allTags}
+          sortBy={sortBy}
+          onSortByChange={setSortBy}
+        />
 
-          <div className="flex gap-3 flex-wrap">
-            {/* Fotógrafo */}
-            <Select
-              value={selectedPhotographer}
-              onValueChange={setSelectedPhotographer}
-            >
-              <SelectTrigger className="w-[180px] rounded-xl border-gray-200">
-                <SelectValue placeholder="Fotógrafo" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#f2f2e4]">
-                <SelectItem value="all">Todos los fotógrafos</SelectItem>
-                {photographers.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Tags */}
-            <Select value={selectedTag} onValueChange={setSelectedTag}>
-              <SelectTrigger className="w-[180px] rounded-xl border-gray-200">
-                <SelectValue placeholder="Tag" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#f2f2e4]">
-                <SelectItem value="all">Todos los tags</SelectItem>
-                {allTags.map((tag) => (
-                  <SelectItem key={tag} value={tag}>
-                    {tag}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Orden */}
-            <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-              <SelectTrigger className="w-[180px] rounded-xl border-gray-200">
-                <SelectValue placeholder="Ordenar" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#f2f2e4]">
-                <SelectItem value="recent">Más recientes</SelectItem>
-                <SelectItem value="oldest">Más antiguos</SelectItem>
-                <SelectItem value="name">Nombre</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+     
 
         {/* Grid */}
         {filteredAlbums.length === 0 ? (

@@ -1,38 +1,55 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ShoppingCart, Heart, Tag, ArrowRight, Save, Upload, Trash2, Printer } from "lucide-react"
-import { Header } from "@/components/organisms/header"
+import {
+  ArrowLeft,
+  ArrowRight,
+  Heart,
+  Printer,
+  Save,
+  ShoppingCart,
+  Tag,
+  Trash2,
+  Upload,
+} from "lucide-react"
+
 import { CartItem } from "@/components/molecules/cart-item"
+import { DeleteConfirmationModal } from "@/components/molecules/delete-confirmation-modal"
 import { PrintFormatModal } from "@/components/molecules/print-format-modal"
 import { PhotoViewerModal } from "@/components/organisms/photo-viewer-modal"
+import { Header } from "@/components/organisms/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
-import { useCartStore, useAuthStore } from "@/lib/store"
-import { usePhotos } from "@/hooks/photos/usePhotos"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useCombos } from "@/hooks/combos/useCombos"
+import { usePhotos } from "@/hooks/photos/usePhotos"
 import { useToast } from "@/hooks/use-toast"
-import { isAdmin } from "@/lib/types"
-import type { Photo, PrintFormat } from "@/lib/types"
-import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
-import { getPackSize } from "@/lib/print-formats"
-import Loading from "./loading"
 import { apiFetch } from "@/lib/api"
 import { resolveAutoCombos } from "@/lib/combos/resolveAutoCombos"
+import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
+import { getPackSize } from "@/lib/print-formats"
+import { useAuthStore, useCartStore } from "@/lib/store"
+import { isAdmin } from "@/lib/types"
+import type { Photo, PrintFormat } from "@/lib/types"
+import Loading from "./loading"
+
+type DeleteAction =
+  | { type: "clear-cart" }
+  | { type: "clear-non-favorites" }
+  | { type: "remove-item"; photoId: string }
+  | null
 
 export default function CarritoPage() {
+  // --- Hooks de contexto y stores
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const { photos, refetch: fetchPhotos, fetchPhotosByIds, loading: isLoadingPhotos } = usePhotos()
-  const [isStoreHydrated, setIsStoreHydrated] = useState(false)
-  const photoCache = useRef(new Map<string, Photo>())
-
+  const { combos, loading: combosLoading } = useCombos()
+  const { user, isAuthenticated } = useAuthStore()
   const {
     items,
     printSelections,
@@ -67,13 +84,28 @@ export default function CarritoPage() {
     resetManualPrintsSubtotal,
     resetManualDigitalSubtotal,
   } = useCartStore()
-  
-  useEffect(() => {
-    // El store de zustand persistido se hidrata después del montaje inicial.
-    // Este efecto se asegura de que sepamos cuándo está listo.
-    setIsStoreHydrated(true)
-  }, [])
-  
+
+  // --- Estado local (useState)
+  const [isStoreHydrated, setIsStoreHydrated] = useState(false)
+  const [deleteAction, setDeleteAction] = useState<DeleteAction>(null)
+  const [localEmail, setLocalEmail] = useState(email || "")
+  const [localDiscountCode, setLocalDiscountCode] = useState("")
+  const [discountError, setDiscountError] = useState("")
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false)
+  const [sessionIdInput, setSessionIdInput] = useState("")
+  const [isLoadingSession, setIsLoadingSession] = useState(false)
+  const [albumComboIds, setAlbumComboIds] = useState<number[] | null>(null)
+  const [isLoadingAlbumCombos, setIsLoadingAlbumCombos] = useState(false)
+  const [comboError, setComboError] = useState<string | null>(null)
+  const [isFormatModalOpen, setIsFormatModalOpen] = useState(false)
+  const [photosForFormatSelection, setPhotosForFormatSelection] = useState<string[]>([])
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<"all" | "favorites" | "printer">("all")
+
+  // --- Referencias
+  const photoCache = useRef(new Map<string, Photo>())
+
+  // --- Estado derivado (useMemo)
   const itemPhotoIdsKey = useMemo(() => {
     if (items.length === 0) return ""
     return items
@@ -81,18 +113,6 @@ export default function CarritoPage() {
       .sort()
       .join(",")
   }, [items])
-  
-  useEffect(() => {
-    if (!isStoreHydrated) return
-
-    if (items.length === 0) {
-      photoCache.current.clear()
-      return
-    }
-
-    const photoIds = items.map((item) => parseInt(item.photoId, 10))
-    fetchPhotosByIds(photoIds)
-  }, [isStoreHydrated, itemPhotoIdsKey, fetchPhotosByIds])
 
   const mappedPhotos = useMemo(() => {
     return photos.map((backendPhoto) => {
@@ -106,7 +126,7 @@ export default function CarritoPage() {
       return mapped
     })
   }, [photos])
-  
+
   const photosMap = useMemo(() => {
     const map = new Map<string, Photo>()
     mappedPhotos.forEach((photo) => {
@@ -115,49 +135,10 @@ export default function CarritoPage() {
     return map
   }, [mappedPhotos])
 
-  const { user, isAuthenticated } = useAuthStore()
-
-  // Determinar si es usuario staff
-  // Staff users (admin o usuarios con photographer_id) tienen privilegios especiales
-  const isStaffUser = !!(isAuthenticated && user && (isAdmin(user) || user.photographer_id))
-
-  useEffect(() => {
-    if (!isStaffUser) {
-      // 1️⃣ limpiar flags printer en items
-      items.forEach((item) => {
-        if (item.printer) {
-          togglePrinter(item.photoId)
-        }
-      })
-  
-      // 2️⃣ limpiar selecciones de impresión
-      if (printSelections.length > 0) {
-        clearPrintSelections()
-      }
-    }
-  }, [
-    isStaffUser,
-    items,
-    printSelections.length,
-    togglePrinter,
-    clearPrintSelections,
-  ])
-
-  const [localEmail, setLocalEmail] = useState(email || "")
-  const [localDiscountCode, setLocalDiscountCode] = useState("")
-  const [discountError, setDiscountError] = useState("")
-  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false)
-  const [sessionIdInput, setSessionIdInput] = useState("")
-  const [isLoadingSession, setIsLoadingSession] = useState(false)
-  const { combos, loading: combosLoading } = useCombos()
-  const [albumComboIds, setAlbumComboIds] = useState<number[] | null>(null)
-  const [isLoadingAlbumCombos, setIsLoadingAlbumCombos] = useState(false)
-  const [comboError, setComboError] = useState<string | null>(null)
-  
-   // Estados para el modal de formato de impresión
-  const [isFormatModalOpen, setIsFormatModalOpen] = useState(false)
-  const [photosForFormatSelection, setPhotosForFormatSelection] = useState<string[]>([])
-  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+  const isStaffUser = useMemo(
+    () => !!(isAuthenticated && user && (isAdmin(user) || user.photographer_id)),
+    [isAuthenticated, user],
+  )
 
   const activeAlbumId = useMemo(() => {
     const albumIds = new Set<string>()
@@ -171,84 +152,20 @@ export default function CarritoPage() {
     return undefined
   }, [items, photosMap])
 
-  useEffect(() => {
-    const sessionParam = searchParams.get("session")
-    if (sessionParam && items.length === 0) {
-      handleLoadSession(sessionParam)
-    }
-  }, [searchParams])
-
-  useEffect(() => {
-    let isCancelled = false
-
-    const fetchAlbumCombos = async () => {
-      if (!activeAlbumId) {
-        setAlbumComboIds(null)
-        setComboError(null)
-        return
-      }
-
-      try {
-        setIsLoadingAlbumCombos(true)
-        const album = await apiFetch<any>(`/albums/${activeAlbumId}`)
-
-
-        if (isCancelled) return
-
-        const idsFromAlbum =
-          album?.combo_ids ??
-          album?.comboIds ??
-          (Array.isArray(album?.combos)
-            ? album.combos
-                .map((combo: any) => combo?.id)
-                .filter((id: number | undefined) => id !== undefined)
-            : null)
-
-            setAlbumComboIds(
-              Array.isArray(idsFromAlbum) && idsFromAlbum.length > 0
-                ? idsFromAlbum
-                : null
-            )
-            
-        setComboError(null)
-      } catch (error) {
-        if (isCancelled) return
-        setAlbumComboIds(null)
-        setComboError("No pudimos cargar los combos del álbum.")
-        console.error("Error obteniendo combos del álbum", error)
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingAlbumCombos(false)
-        }
-      }
-    }
-
-    fetchAlbumCombos()
-
-    return () => {
-      isCancelled = true
-    }
-  }, [activeAlbumId])
-
-  useEffect(() => {
-    setSelectedCombo(null)
-  }, [activeAlbumId, setSelectedCombo])
-
   const applicableCombos = useMemo(() => {
     const activeCombos = combos.filter((combo) => combo.active)
     if (Array.isArray(albumComboIds)) {
       return activeCombos.filter((combo) => albumComboIds.includes(combo.id))
     }
 
-    // Fallback consistente cuando el álbum no tiene combo_ids: mostrar combos activos.
     return activeCombos
   }, [albumComboIds, combos])
 
   const mappedPhotosKey = useMemo(
-    () => mappedPhotos.map(p => `${p.id}:${p.price}`).join("|"),
-    [mappedPhotos]
+    () => mappedPhotos.map((photo) => `${photo.id}:${photo.price}`).join("|"),
+    [mappedPhotos],
   )
-  
+
   const digitalUnitPrice = useMemo(() => {
     const prices = items.map((item) => photosMap.get(item.photoId)?.price ?? 0)
     const firstPositive = prices.find((price) => price > 0)
@@ -260,18 +177,14 @@ export default function CarritoPage() {
   const quantityCombos = useMemo(
     () =>
       applicableCombos.filter(
-        (c) =>
-          c.active &&
-          c.totalPhotos > 0 &&
-          !c.isFullAlbum // si existe el campo
+        (combo) => combo.active && combo.totalPhotos > 0 && !combo.isFullAlbum,
       ),
     [applicableCombos],
   )
-  
+
   const autoComboResolution = useMemo(() => {
     return resolveAutoCombos(items.length, quantityCombos)
   }, [items.length, quantityCombos])
-  
 
   const autoSelectedCombo = useMemo(() => {
     if (digitalManualEnabled) return null
@@ -290,39 +203,20 @@ export default function CarritoPage() {
   const autoDigitalSubtotal = useMemo(() => {
     if (digitalManualEnabled) return null
     if (autoComboResolution.applied.length === 0) return null
-    return autoComboResolution.totalComboPrice + autoComboResolution.remainingPhotos * digitalUnitPrice
+    return (
+      autoComboResolution.totalComboPrice + autoComboResolution.remainingPhotos * digitalUnitPrice
+    )
   }, [autoComboResolution, digitalManualEnabled, digitalUnitPrice])
-  
-  useEffect(() => {
-    if (!digitalManualEnabled) {
-      const nextCombo = autoSelectedCombo
-      const sameCombo =
-        (!selectedCombo && !nextCombo) ||
-        (selectedCombo &&
-          nextCombo &&
-          selectedCombo.id === nextCombo.id &&
-          selectedCombo.price === nextCombo.price &&
-          selectedCombo.totalPhotos === nextCombo.totalPhotos)
-
-      if (!sameCombo) {
-        setSelectedCombo(nextCombo)
-        return
-      }
-    }
-
-    updateTotals(mappedPhotos, { isStaff: isStaffUser })
-  }, [printSelections, discountInfo, mappedPhotosKey, isStaffUser, selectedCombo, autoSelectedCombo, digitalManualEnabled])
 
   const cartPhotos = useMemo(() => {
-    // No calcular hasta que las fotos y el carrito estén listos
     if (isLoadingPhotos || !isStoreHydrated) return []
     return items
       .map((item) => {
         const photo = photosMap.get(item.photoId)
         return photo ? { photo, cartItem: item } : null
       })
-      .filter((item): item is { photo: Photo; cartItem: typeof items[0] } => item !== null)
-  }, [items, photosMap, isLoadingPhotos, isStoreHydrated])
+      .filter((item): item is { photo: Photo; cartItem: (typeof items)[0] } => item !== null)
+  }, [isLoadingPhotos, isStoreHydrated, items, photosMap])
 
   const favoritePhotos = useMemo(() => {
     return cartPhotos.filter((item) => item.cartItem.favorite)
@@ -368,10 +262,172 @@ export default function CarritoPage() {
     [printerPhotos, printSelectionMap],
   )
 
+  const navigablePhotoIds = useMemo(() => {
+    switch (activeTab) {
+      case "favorites":
+        return favoritePhotos.map((item) => item.photo.id)
+      case "printer":
+        return printerPhotos.map((item) => item.photo.id)
+      default:
+        return cartPhotos.map((item) => item.photo.id)
+    }
+  }, [activeTab, cartPhotos, favoritePhotos, printerPhotos])
+
+  const viewerPhotoId = useMemo(
+    () => (viewerIndex !== null ? navigablePhotoIds[viewerIndex] : null),
+    [navigablePhotoIds, viewerIndex],
+  )
+
+  const viewerPhoto = useMemo(() => {
+    if (!viewerPhotoId) return null
+    return photosMap.get(viewerPhotoId) ?? null
+  }, [photosMap, viewerPhotoId])
+
+  // --- Efectos
+  useEffect(() => {
+    setIsStoreHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isStoreHydrated) return
+
+    if (items.length === 0) {
+      photoCache.current.clear()
+      return
+    }
+
+    const photoIds = items.map((item) => parseInt(item.photoId, 10))
+    fetchPhotosByIds(photoIds)
+  }, [fetchPhotosByIds, isStoreHydrated, itemPhotoIdsKey])
+
+  useEffect(() => {
+    if (!isStaffUser) {
+      items.forEach((item) => {
+        if (item.printer) {
+          togglePrinter(item.photoId)
+        }
+      })
+
+      if (printSelections.length > 0) {
+        clearPrintSelections()
+      }
+    }
+  }, [clearPrintSelections, isStaffUser, items, printSelections.length, togglePrinter])
+
+  useEffect(() => {
+    const sessionParam = searchParams.get("session")
+    if (!sessionParam || items.length > 0) return
+  
+    loadSession(sessionParam)
+  }, [searchParams, items.length, loadSession])
+  
+
+  useEffect(() => {
+    let isCancelled = false
+
+    const fetchAlbumCombos = async () => {
+      if (!activeAlbumId) {
+        setAlbumComboIds(null)
+        setComboError(null)
+        return
+      }
+
+      try {
+        setIsLoadingAlbumCombos(true)
+        const album = await apiFetch<any>(`/albums/${activeAlbumId}`)
+
+        if (isCancelled) return
+
+        const idsFromAlbum =
+          album?.combo_ids ??
+          album?.comboIds ??
+          (Array.isArray(album?.combos)
+            ? album.combos
+                .map((combo: any) => combo?.id)
+                .filter((id: number | undefined) => id !== undefined)
+            : null)
+
+        setAlbumComboIds(
+          Array.isArray(idsFromAlbum) && idsFromAlbum.length > 0 ? idsFromAlbum : null,
+        )
+
+        setComboError(null)
+      } catch (error) {
+        if (isCancelled) return
+        setAlbumComboIds(null)
+        setComboError("No pudimos cargar los combos del álbum.")
+        console.error("Error obteniendo combos del álbum", error)
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingAlbumCombos(false)
+        }
+      }
+    }
+
+    fetchAlbumCombos()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [activeAlbumId])
+
+  useEffect(() => {
+    setSelectedCombo(null)
+  }, [activeAlbumId, setSelectedCombo])
+
+  useEffect(() => {
+    if (!digitalManualEnabled) {
+      const nextCombo = autoSelectedCombo
+      const sameCombo =
+        (!selectedCombo && !nextCombo) ||
+        (selectedCombo &&
+          nextCombo &&
+          selectedCombo.id === nextCombo.id &&
+          selectedCombo.price === nextCombo.price &&
+          selectedCombo.totalPhotos === nextCombo.totalPhotos)
+
+      if (!sameCombo) {
+        setSelectedCombo(nextCombo)
+        return
+      }
+    }
+
+    updateTotals(mappedPhotos, { isStaff: isStaffUser })
+  }, [
+    printSelections,
+    discountInfo,
+    mappedPhotosKey,
+    isStaffUser,
+    selectedCombo,
+    autoSelectedCombo,
+    digitalManualEnabled,
+  ])
+
+  useEffect(() => {
+    if (!isStaffUser) {
+      if (printsManualEnabled) resetManualPrintsSubtotal()
+      if (digitalManualEnabled) resetManualDigitalSubtotal()
+    }
+  }, [
+    isStaffUser,
+    printsManualEnabled,
+    digitalManualEnabled,
+    resetManualPrintsSubtotal,
+    resetManualDigitalSubtotal,
+  ])
+
+  // --- Derivados simples
   const favoriteCount = favoritePhotos.length
   const printerCount = printerPhotos.length
   const totalCount = items.length
+  const isDeleteModalOpen = deleteAction !== null
+  const isEmailValid = localEmail.includes("@") && localEmail.includes(".")
+  const hasPrinterWithoutSelection = unassignedPrinterPhotos.length > 0
+  const effectiveSubtotalImpresas = printsSubtotalEffective
+  const effectiveSubtotalFotos = digitalSubtotalEffective
+  const effectiveTotal = totalEffective
 
+  // --- Handlers
   const handleEmailChange = (value: string) => {
     setLocalEmail(value)
     setEmail(value)
@@ -422,7 +478,9 @@ export default function CarritoPage() {
       })
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "No pudimos validar el descuento. Intenta nuevamente."
+        error instanceof Error
+          ? error.message
+          : "No pudimos validar el descuento. Intenta nuevamente."
       setDiscountError(message)
       toast({
         title: "No pudimos aplicar el descuento",
@@ -473,13 +531,13 @@ export default function CarritoPage() {
     }
   }
 
-  const handleClearNonFavorites = () => {
+ /*  const handleClearNonFavorites = () => {
     clearNonFavorites()
     toast({
       title: "Carrito actualizado",
       description: "Se eliminaron las fotos no marcadas como favoritas",
     })
-  }
+  } */
 
   const handleOpenFormatModal = () => {
     const unassigned = printerPhotosForModal
@@ -489,10 +547,10 @@ export default function CarritoPage() {
     setIsFormatModalOpen(true)
   }
 
-    const handleEditFormatForPhoto = (photoId: string) => {
-        setPhotosForFormatSelection([photoId])
-        setIsFormatModalOpen(true)
-      }
+  const handleEditFormatForPhoto = (photoId: string) => {
+    setPhotosForFormatSelection([photoId])
+    setIsFormatModalOpen(true)
+  }
 
   const handleSelectFormat = (format: PrintFormat, photoIds: string[]) => {
     addPrintSelection(format, photoIds)
@@ -507,65 +565,52 @@ export default function CarritoPage() {
     setPhotosForFormatSelection([])
   }
 
-  const isEmailValid = localEmail.includes("@") && localEmail.includes(".")
+  const handleConfirmDelete = () => {
+    if (!deleteAction) return
 
-  const hasPrinterWithoutSelection = unassignedPrinterPhotos.length > 0
+    switch (deleteAction.type) {
+      case "clear-cart":
+        clearCart()
+        break
+      case "clear-non-favorites":
+        clearNonFavorites()
+        break
+      case "remove-item":
+        removeItem(deleteAction.photoId)
+        break
+    }
 
-  const effectiveSubtotalImpresas = printsSubtotalEffective
-  const effectiveSubtotalFotos = digitalSubtotalEffective
-  const effectiveTotal = totalEffective
-
-useEffect(() => {
-  if (!isStaffUser) {
-    if (printsManualEnabled) resetManualPrintsSubtotal()
-    if (digitalManualEnabled) resetManualDigitalSubtotal()
+    setDeleteAction(null)
   }
-}, [isStaffUser, printsManualEnabled, digitalManualEnabled, resetManualPrintsSubtotal, resetManualDigitalSubtotal])
 
-      // movimiento de fotos en el modal de preview
-      
-      const [activeTab, setActiveTab] = useState<"all" | "favorites" | "printer">("all")
+  const handleBackToAlbum = () => {
+    if (!activeAlbumId) {
+      router.push("/albumes")
+      return
+    }
 
-      const navigablePhotoIds = useMemo(() => {
-        switch (activeTab) {
-          case "favorites":
-            return favoritePhotos.map((i) => i.photo.id)
-          case "printer":
-            return printerPhotos.map((i) => i.photo.id)
-          default:
-            return cartPhotos.map((i) => i.photo.id)
-        }
-      }, [activeTab, cartPhotos, favoritePhotos, printerPhotos])
-      
-      
-      const viewerPhotoId = viewerIndex !== null ? navigablePhotoIds[viewerIndex] : null
+    router.push(`/albumes/${activeAlbumId}`)
+  }
 
-      const viewerPhoto = useMemo(() => {
-        if (!viewerPhotoId) return null
-        return photosMap.get(viewerPhotoId) ?? null
-      }, [viewerPhotoId, photosMap])
+  const handleNext = () => {
+    setViewerIndex((prev) => {
+      if (prev === null || navigablePhotoIds.length === 0) return null
+      return (prev + 1) % navigablePhotoIds.length
+    })
+  }
 
-      const handleNext = () => {
-        setViewerIndex((prev) => {
-          if (prev === null || navigablePhotoIds.length === 0) return null
-          return (prev + 1) % navigablePhotoIds.length
-        })
-      }
+  const handlePrev = () => {
+    setViewerIndex((prev) => {
+      if (prev === null || navigablePhotoIds.length === 0) return null
+      return (prev - 1 + navigablePhotoIds.length) % navigablePhotoIds.length
+    })
+  }
 
-      const handlePrev = () => {
-        setViewerIndex((prev) => {
-          if (prev === null || navigablePhotoIds.length === 0) return null
-          return (prev - 1 + navigablePhotoIds.length) % navigablePhotoIds.length
-        })
-      }
-      
-      
-      // movimiento de fotos segun el tab activo en el modal de preview
-    
+  // --- Returns condicionales
   if (isLoadingPhotos || !isStoreHydrated) {
     return <Loading />
   }
-  
+
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background">
@@ -576,7 +621,9 @@ useEffect(() => {
               <ShoppingCart className="h-16 w-16 text-muted-foreground" />
             </div>
             <h1 className="mb-2 text-3xl font-heading">Tu carrito está vacío</h1>
-            <p className="mb-8 text-muted-foreground">Explora nuestra galería y agrega las fotos que más te gusten</p>
+            <p className="mb-8 text-muted-foreground">
+              Explora nuestra galería y agrega las fotos que más te gusten
+            </p>
 
             <div className="mb-8 w-full space-y-3 rounded-xl border-2 border-dashed border-gray-200 p-6">
               <Label className="text-sm font-medium">¿Tienes una sesión guardada?</Label>
@@ -611,17 +658,24 @@ useEffect(() => {
     )
   }
 
+  // --- JSX principal
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            onClick={handleBackToAlbum}
+            className="rounded-xl text-muted-foreground hover:bg-[#ffecce]"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" /> Volver al álbum
+          </Button>
+
           <div>
-            <h1 className="mb-2 text-4xl font-heading text-balance">Revisá tus fotos antes de descargar</h1>
-            {/* <p className="text-muted-foreground">
-              {favoriteCount} / {totalCount} {totalCount === 1 ? "foto" : "fotos"} marcadas como favoritas
-              {printerCount > 0 && ` • ${printerCount} para imprimir`}
-            </p> */}
+            <h1 className="mb-2 text-4xl font-heading text-balance">
+              Revisá tus fotos antes de descargar
+            </h1>
           </div>
           <div className="flex gap-3">
             {isStaffUser && printerCount > 0 && (
@@ -654,49 +708,57 @@ useEffect(() => {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-3">
-          {/* Cart Items */}
           <div className="lg:col-span-2">
-            <Tabs defaultValue="all" className="w-full" onValueChange={(value) =>
-                    setActiveTab(value as "all" | "favorites" | "printer")
-                  }>
+            <Tabs
+              defaultValue="all"
+              className="w-full"
+              onValueChange={(value) => setActiveTab(value as "all" | "favorites" | "printer")}
+            >
               <TabsList className="mb-6 grid w-full grid-cols-3 rounded-xl">
                 <TabsTrigger value="all" className="rounded-lg data-[state=active]:bg-[#ffecce]">
                   Todas ({totalCount})
                 </TabsTrigger>
-                <TabsTrigger value="favorites" className="rounded-lg data-[state=active]:bg-[#ffecce]">
+                <TabsTrigger
+                  value="favorites"
+                  className="rounded-lg data-[state=active]:bg-[#ffecce]"
+                >
                   <Heart className="mr-2 h-4 w-4" />
                   Favoritas ({favoriteCount}/{totalCount})
                 </TabsTrigger>
                 {isStaffUser && (
-                  <TabsTrigger value="printer" className="rounded-lg data-[state=active]:bg-[#ffecce]">
-                  <Printer className="mr-2 h-4 w-4" />
+                  <TabsTrigger
+                    value="printer"
+                    className="rounded-lg data-[state=active]:bg-[#ffecce]"
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
                     Imprimir ({printerCount}/{totalCount})
                   </TabsTrigger>
                 )}
               </TabsList>
 
               <TabsContent value="all" className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-
-                {cartPhotos.map((item) => (
-                  <CartItem
-                    key={item.photo.id}
-                    photo={item.photo}
-                    isFavorite={item.cartItem.favorite}
-                    isPrinter={item.cartItem.printer}
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {cartPhotos.map((item) => (
+                    <CartItem
+                      key={item.photo.id}
+                      photo={item.photo}
+                      isFavorite={item.cartItem.favorite}
+                      isPrinter={item.cartItem.printer}
                       printFormat={printSelectionMap.get(item.photo.id)?.format}
-                    onToggleFavorite={() => toggleFavorite(item.photo.id)}
-                    onTogglePrinter={() => togglePrinter(item.photo.id)}
-                    onRemove={() => removeItem(item.photo.id)}
-                    onPreview={() =>
-                      setViewerIndex(
-                        navigablePhotoIds.indexOf(item.photo.id)
-                      )
-                    }
-                    onEditPrintFormat={item.cartItem.printer ? () => handleEditFormatForPhoto(item.photo.id) : undefined}
-                    isStaffUser={isStaffUser}
-                  />
-                ))}
+                      onToggleFavorite={() => toggleFavorite(item.photo.id)}
+                      onTogglePrinter={() => togglePrinter(item.photo.id)}
+                      onRemove={() =>
+                        setDeleteAction({ type: "remove-item", photoId: item.photo.id })
+                      }
+                      onPreview={() => setViewerIndex(navigablePhotoIds.indexOf(item.photo.id))}
+                      onEditPrintFormat={
+                        item.cartItem.printer
+                          ? () => handleEditFormatForPhoto(item.photo.id)
+                          : undefined
+                      }
+                      isStaffUser={isStaffUser}
+                    />
+                  ))}
                 </div>
               </TabsContent>
 
@@ -705,34 +767,34 @@ useEffect(() => {
                   <div className="flex min-h-[300px] items-center justify-center rounded-2xl bg-muted">
                     <div className="text-center">
                       <Heart className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                      <p className="text-lg font-semibold text-muted-foreground">No hay favoritas</p>
-                      <p className="text-sm text-muted-foreground">Marca tus fotos favoritas con el ícono de corazón</p>
+                      <p className="text-lg font-semibold text-muted-foreground">
+                        No hay favoritas
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Marca tus fotos favoritas con el ícono de corazón
+                      </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {favoritePhotos.map((item) => (
-                    <CartItem
-                      isStaffUser={isStaffUser}
-                      key={item.photo.id}
-                      photo={item.photo}
-                      isFavorite={item.cartItem.favorite}
-                      isPrinter={item.cartItem.printer}
-                      printFormat={printSelectionMap.get(item.photo.id)?.format}
-                      onToggleFavorite={() => toggleFavorite(item.photo.id)}
-                      onTogglePrinter={() => togglePrinter(item.photo.id)}
-                      onRemove={() => removeItem(item.photo.id)}
-                      onPreview={() =>
-                        setViewerIndex(
-                          navigablePhotoIds.indexOf(item.photo.id)
-                        )
-                      }
-                      
-                      
-                    />
-                  ))}
-                </div>  
-              )}
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {favoritePhotos.map((item) => (
+                      <CartItem
+                        isStaffUser={isStaffUser}
+                        key={item.photo.id}
+                        photo={item.photo}
+                        isFavorite={item.cartItem.favorite}
+                        isPrinter={item.cartItem.printer}
+                        printFormat={printSelectionMap.get(item.photo.id)?.format}
+                        onToggleFavorite={() => toggleFavorite(item.photo.id)}
+                        onTogglePrinter={() => togglePrinter(item.photo.id)}
+                        onRemove={() =>
+                          setDeleteAction({ type: "remove-item", photoId: item.photo.id })
+                        }
+                        onPreview={() => setViewerIndex(navigablePhotoIds.indexOf(item.photo.id))}
+                      />
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="printer" className="space-y-4">
@@ -740,51 +802,52 @@ useEffect(() => {
                   <div className="flex min-h-[300px] items-center justify-center rounded-2xl bg-muted">
                     <div className="text-center">
                       <Printer className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                      <p className="text-lg font-semibold text-muted-foreground">No hay fotos para imprimir</p>
-                      <p className="text-sm text-muted-foreground">Marca tus fotos para imprimir con el ícono de impresora</p>
+                      <p className="text-lg font-semibold text-muted-foreground">
+                        No hay fotos para imprimir
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Marca tus fotos para imprimir con el ícono de impresora
+                      </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {printerPhotos.map((item) => (
-                        <CartItem
-                          isStaffUser={isStaffUser}
-                          key={item.photo.id}
-                          photo={item.photo}
-                          isFavorite={item.cartItem.favorite}
-                          isPrinter={item.cartItem.printer}
-                          printFormat={printSelectionMap.get(item.photo.id)?.format}
-                          onToggleFavorite={() => toggleFavorite(item.photo.id)}
-                          onTogglePrinter={() => togglePrinter(item.photo.id)}
-                          onRemove={() => removeItem(item.photo.id)}
-                          onPreview={() =>
-                            setViewerIndex(
-                              navigablePhotoIds.indexOf(item.photo.id)
-                            )
-                          }
-                          
-                          
-                        />
-                      ))}
-                    </div>
-                  )}
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {printerPhotos.map((item) => (
+                      <CartItem
+                        isStaffUser={isStaffUser}
+                        key={item.photo.id}
+                        photo={item.photo}
+                        isFavorite={item.cartItem.favorite}
+                        isPrinter={item.cartItem.printer}
+                        printFormat={printSelectionMap.get(item.photo.id)?.format}
+                        onToggleFavorite={() => toggleFavorite(item.photo.id)}
+                        onTogglePrinter={() => togglePrinter(item.photo.id)}
+                        onRemove={() =>
+                          setDeleteAction({ type: "remove-item", photoId: item.photo.id })
+                        }
+                        onPreview={() => setViewerIndex(navigablePhotoIds.indexOf(item.photo.id))}
+                      />
+                    ))}
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
 
             <div className="mt-6 flex gap-3">
-             
               {favoriteCount > 0 && favoriteCount < totalCount && (
-            <Button variant="outline" onClick={handleClearNonFavorites}  
-            className="flex-1 rounded-xl border-destructive text-destructive hover:bg-[#ffecce] bg-transparent"
->
-              <Trash2 className="mr-2 h-4 w-4" />
-              Limpiar no favoritas
-            </Button>
-          )}
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteAction({ type: "clear-non-favorites" })}
+                  className="flex-1 rounded-xl border-destructive bg-transparent text-destructive hover:bg-[#ffecce]"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Limpiar no favoritas
+                </Button>
+              )}
               <Button
                 variant="outline"
-                onClick={clearCart}
-                className="flex-1 rounded-xl border-destructive text-destructive hover:bg-[#ffecce] bg-transparent"
+                onClick={() => setDeleteAction({ type: "clear-cart" })}
+                className="flex-1 rounded-xl border-destructive bg-transparent text-destructive hover:bg-[#ffecce]"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Vaciar carrito
@@ -799,7 +862,6 @@ useEffect(() => {
             )}
           </div>
 
-          {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-6 rounded-2xl bg-card p-6 shadow-lg">
               <h2 className="text-2xl font-heading">Resumen</h2>
@@ -816,10 +878,11 @@ useEffect(() => {
                   onChange={(e) => handleEmailChange(e.target.value)}
                   className="rounded-xl"
                 />
-                {localEmail && !isEmailValid && <p className="text-xs text-destructive">Ingresa un email válido</p>}
+                {localEmail && !isEmailValid && (
+                  <p className="text-xs text-destructive">Ingresa un email válido</p>
+                )}
               </div>
 
-              {/* Discount Code - Solo para visitantes */}
               {false && (
                 <div className="space-y-3 border-t border-gray-200 pt-6">
                   <Label className="flex items-center gap-2 text-sm font-medium">
@@ -841,7 +904,10 @@ useEffect(() => {
                     {discountInfo ? (
                       <Button
                         onClick={() => {
-                          useCartStore.setState({ discountCode: undefined, discountInfo: undefined })
+                          useCartStore.setState({
+                            discountCode: undefined,
+                            discountInfo: undefined,
+                          })
                           setLocalDiscountCode("")
                         }}
                         variant="outline"
@@ -860,113 +926,110 @@ useEffect(() => {
                     )}
                   </div>
                   {discountError && <p className="text-sm text-destructive">{discountError}</p>}
-                {/*   {discountInfo && (
-                    <Badge className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400">
-                      {discountInfo.type === "percent" ? `${discountInfo.value}%` : `$${discountInfo.value}`} de descuento
-                      aplicado
-                    </Badge>
-                  )} */}
                 </div>
               )}
 
-              {/* Discount Code - Solo para visitantes */}
-              {true && (
-                <div className="space-y-3 border-t border-gray-200 pt-6">
-                  <Label className="flex items-center gap-2 text-sm font-medium">
-                    <Tag className="h-4 w-4" />
-                    Combos
-                  </Label>
-                  {!activeAlbumId ? (
-                    <p className="text-sm text-muted-foreground">
-                      No pudimos determinar el álbum del carrito para sugerir combos.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {(combosLoading || isLoadingAlbumCombos) && (
-                        <p className="text-xs text-muted-foreground">Calculando combos…</p>
-                      )}
-                      {comboError && <p className="text-xs text-destructive">{comboError}</p>}
-                      {!combosLoading && !isLoadingAlbumCombos && (
-                        <div className="space-y-2 rounded-lg bg-muted p-3 text-xs">
-                          <p className="font-medium">Combos aplicados automáticamente</p>
-                          {applicableCombos.length === 0 ? (
-                            <p className="text-muted-foreground">
-                              No hay combos disponibles para este álbum por el momento.
-                            </p>
-                          ) : autoComboResolution.applied.length === 0 ? (
-                            <p className="text-muted-foreground">
-                              Aún no aplican combos para {items.length} foto{items.length === 1 ? "" : "s"}.
-                            </p>
-                          ) : (
-                            <>
-                              <div className="space-y-1">
-                                {autoComboResolution.applied.map(({ combo, count }) => (
-                                  <div key={combo.id} className="flex items-center justify-between gap-2">
-                                    <span>
-                                      • {count} x {combo.totalPhotos} foto{combo.totalPhotos === 1 ? "" : "s"}
-                                    </span>
-                                    <span>${combo.price} c/u</span>
-                                  </div>
-                                ))}
-                              </div>
-                              {autoComboResolution.remainingPhotos > 0 && (
-                                <p className="text-muted-foreground">
-                                  {autoComboResolution.remainingPhotos} foto
-                                  {autoComboResolution.remainingPhotos === 1 ? "" : "s"} fuera de combo a $
-                                  {digitalUnitPrice} c/u.
-                                </p>
-                              )}
-                              {!digitalManualEnabled && autoDigitalSubtotal !== null && (
-                                <p className="text-green-600 dark:text-green-400">
-                                  Subtotal digital estimado: ${Math.round(autoDigitalSubtotal)}
-                                </p>
-                              )}
-                              {digitalManualEnabled && (
-                                <p className="text-orange-600 dark:text-orange-400">
-                                  Subtotal digital editado manualmente; se respeta tu override.
-                                </p>
-                              )}
+              <div className="space-y-3 border-t border-gray-200 pt-6">
+                <Label className="flex items-center gap-2 text-sm font-medium">
+                  <Tag className="h-4 w-4" />
+                  Combos
+                </Label>
+                {!activeAlbumId ? (
+                  <p className="text-sm text-muted-foreground">
+                    No pudimos determinar el álbum del carrito para sugerir combos.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {(combosLoading || isLoadingAlbumCombos) && (
+                      <p className="text-xs text-muted-foreground">Calculando combos…</p>
+                    )}
+                    {comboError && <p className="text-xs text-destructive">{comboError}</p>}
+                    {!combosLoading && !isLoadingAlbumCombos && (
+                      <div className="space-y-2 rounded-lg bg-muted p-3 text-xs">
+                        <p className="font-medium">Combos aplicados automáticamente</p>
+                        {applicableCombos.length === 0 ? (
+                          <p className="text-muted-foreground">
+                            No hay combos disponibles para este álbum por el momento.
+                          </p>
+                        ) : autoComboResolution.applied.length === 0 ? (
+                          <p className="text-muted-foreground">
+                            Aún no aplican combos para {items.length} foto
+                            {items.length === 1 ? "" : "s"}.
+                          </p>
+                        ) : (
+                          <>
+                            <div className="space-y-1">
+                              {autoComboResolution.applied.map(({ combo, count }) => (
+                                <div
+                                  key={combo.id}
+                                  className="flex items-center justify-between gap-2"
+                                >
+                                  <span>
+                                    • {count} x {combo.totalPhotos} foto
+                                    {combo.totalPhotos === 1 ? "" : "s"}
+                                  </span>
+                                  <span>${combo.price}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {autoComboResolution.remainingPhotos > 0 && (
                               <p className="text-muted-foreground">
-                                Los combos solo ajustan el subtotal digital. Las impresiones y descuentos siguen su
-                                cálculo actual.
+                                {autoComboResolution.remainingPhotos} foto
+                                {autoComboResolution.remainingPhotos === 1 ? "" : "s"} fuera de
+                                combo a ${digitalUnitPrice} c/u.
                               </p>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+                            )}
+                            {!digitalManualEnabled && autoDigitalSubtotal !== null && (
+                              <p className="text-green-600 dark:text-green-400">
+                                Subtotal digital estimado: ${Math.round(autoDigitalSubtotal)}
+                              </p>
+                            )}
+                            {digitalManualEnabled && (
+                              <p className="text-orange-600 dark:text-orange-400">
+                                Subtotal digital editado manualmente; se respeta tu override.
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
-              {/* Price Breakdown */}
               <div className="space-y-3 border-t border-gray-200 pt-6">
                 {isStaffUser ? (
-                  // Vista para usuarios staff con montos editables
                   <>
-                    {/* Fotos Impresas */}
                     {printerCount > 0 && (
-                      <div className="space-y-2 pb-3 border-b border-gray-200">
+                      <div className="space-y-2 border-b border-gray-200 pb-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-muted-foreground">IMPRESAS</span>
+                          <span className="text-sm font-semibold text-muted-foreground">
+                            IMPRESAS
+                          </span>
                           <span className="text-xs text-muted-foreground">
                             {printerCount} {printerCount === 1 ? "foto" : "fotos"}
                           </span>
                         </div>
-                        
-                        <div className="text-xs text-muted-foreground space-y-2">
+
+                        <div className="space-y-2 text-xs text-muted-foreground">
                           {printSelectionSummary.length === 0 ? (
-                            <p className="text-destructive">Asigná un formato a cada foto para imprimir.</p>
+                            <p className="text-destructive">
+                              Asigná un formato a cada foto para imprimir.
+                            </p>
                           ) : (
                             printSelectionSummary.map((selection) => (
-                              <div key={selection.id} className="flex items-start justify-between gap-3">
+                              <div
+                                key={selection.id}
+                                className="flex items-start justify-between gap-3"
+                              >
                                 <div className="space-y-1">
                                   <span className="block font-semibold">
                                     • {selection.format.name} ({selection.format.size})
                                   </span>
                                   <span className="block text-[11px] text-muted-foreground">
                                     {selection.photoIds.length} fotos • {selection.packs} pack(s) de{" "}
-                                    {getPackSize(selection.format)} foto{getPackSize(selection.format) > 1 ? "s" : ""}
+                                    {getPackSize(selection.format)} foto
+                                    {getPackSize(selection.format) > 1 ? "s" : ""}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -975,7 +1038,9 @@ useEffect(() => {
                                     size="sm"
                                     variant="ghost"
                                     className="h-7 px-2 text-destructive"
-                                    onClick={() => removePhotosFromSelection(selection.id, selection.photoIds)}
+                                    onClick={() =>
+                                      removePhotosFromSelection(selection.id, selection.photoIds)
+                                    }
                                   >
                                     Quitar
                                   </Button>
@@ -984,10 +1049,12 @@ useEffect(() => {
                             ))
                           )}
                         </div>
-                        
+
                         <div className="flex items-center gap-2">
-                          <Label className="text-sm text-muted-foreground whitespace-nowrap">Subtotal:</Label>
-                          <div className="flex items-center gap-1 flex-1">
+                          <Label className="whitespace-nowrap text-sm text-muted-foreground">
+                            Subtotal:
+                          </Label>
+                          <div className="flex flex-1 items-center gap-1">
                             <span className="text-sm">$</span>
                             <Input
                               type="number"
@@ -996,9 +1063,8 @@ useEffect(() => {
                                 const newImpresas = Number(e.target.value)
                                 setManualPrintsSubtotal(newImpresas)
                               }}
-                              className="rounded-lg h-8 text-sm font-medium"
+                              className="h-8 rounded-lg text-sm font-medium"
                             />
-
                           </div>
                         </div>
                         {printsManualEnabled && (
@@ -1006,28 +1072,28 @@ useEffect(() => {
                             <Button
                               size="sm"
                               variant="link"
-                              className="px-0 h-auto text-xs text-muted-foreground"
+                              className="h-auto px-0 text-xs text-muted-foreground"
                               onClick={resetManualPrintsSubtotal}
                             >
                               Volver al cálculo automático
                             </Button>
                           </div>
                         )}
-                        
-                        </div>
+                      </div>
                     )}
 
-                    {/* Fotos Digitales */}
-                    <div className="space-y-2 pb-3 border-b border-gray-200">
+                    <div className="space-y-2 border-b border-gray-200 pb-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-muted-foreground">FOTOS</span>
                         <span className="text-xs text-muted-foreground">
-                          {totalCount} {totalCount  === 1 ? "foto" : "fotos"}
+                          {totalCount} {totalCount === 1 ? "foto" : "fotos"}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Label className="text-sm text-muted-foreground whitespace-nowrap">Subtotal:</Label>
-                        <div className="flex items-center gap-1 flex-1">
+                        <Label className="whitespace-nowrap text-sm text-muted-foreground">
+                          Subtotal:
+                        </Label>
+                        <div className="flex flex-1 items-center gap-1">
                           <span className="text-sm">$</span>
                           <Input
                             type="number"
@@ -1036,9 +1102,8 @@ useEffect(() => {
                               const newFotos = Number(e.target.value)
                               setManualDigitalSubtotal(newFotos)
                             }}
-                            className="rounded-lg h-8 text-sm font-medium"
+                            className="h-8 rounded-lg text-sm font-medium"
                           />
-
                         </div>
                       </div>
                       {digitalManualEnabled && (
@@ -1046,7 +1111,7 @@ useEffect(() => {
                           <Button
                             size="sm"
                             variant="link"
-                            className="px-0 h-auto text-xs text-muted-foreground"
+                            className="h-auto px-0 text-xs text-muted-foreground"
                             onClick={resetManualDigitalSubtotal}
                           >
                             Volver al cálculo automático
@@ -1055,28 +1120,22 @@ useEffect(() => {
                       )}
                     </div>
 
-                   {/* Total calculado automáticamente */}
                     <div className="space-y-2 pt-3">
                       <div className="flex items-center gap-2">
-                        <Label className="text-lg font-bold whitespace-nowrap">Total:</Label>
-                        <div className="flex items-center gap-1 flex-1">
+                        <Label className="whitespace-nowrap text-lg font-bold">Total:</Label>
+                        <div className="flex flex-1 items-center gap-1">
                           <span className="text-lg font-bold text-primary">$</span>
                           <Input
                             type="number"
                             value={effectiveTotal}
                             readOnly
-                            className="
-                              rounded-lg h-10 text-lg font-bold text-primary
-                              bg-muted cursor-not-allowed
-                            "
+                            className="h-10 cursor-not-allowed rounded-lg bg-muted text-lg font-bold text-primary"
                           />
-
                         </div>
                       </div>
                     </div>
                   </>
                 ) : (
-                  // Vista para visitantes (sin cambios)
                   <>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Subtotal</span>
@@ -1101,13 +1160,9 @@ useEffect(() => {
                 )}
               </div>
 
-                <Button
+              <Button
                 onClick={() => router.push("/checkout")}
-                disabled={
-                  !isEmailValid ||
-                  items.length === 0 ||
-                  hasPrinterWithoutSelection
-                }
+                disabled={!isEmailValid || items.length === 0 || hasPrinterWithoutSelection}
                 className="w-full rounded-xl bg-primary py-6 text-lg font-semibold text-foreground hover:bg-primary-hover disabled:opacity-50"
               >
                 Proceder al pago
@@ -1129,7 +1184,6 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Modal de selección de formato */}
       <PrintFormatModal
         isOpen={isFormatModalOpen}
         onClose={() => setIsFormatModalOpen(false)}
@@ -1137,16 +1191,29 @@ useEffect(() => {
         printerPhotos={printerPhotosForModal}
         defaultSelectedPhotoIds={photosForFormatSelection}
       />
+
       {viewerPhoto && (
-      <PhotoViewerModal
-        photo={viewerPhoto}
-        onClose={() => setViewerIndex(null)}
-        onNext={handleNext}
-        onPrev={handlePrev}
+        <PhotoViewerModal
+          photo={viewerPhoto}
+          onClose={() => setViewerIndex(null)}
+          onNext={handleNext}
+          onPrev={handlePrev}
+        />
+      )}
+
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        title="Confirmar eliminación"
+        entityName={
+          deleteAction?.type === "clear-cart"
+            ? "el carrito completo"
+            : deleteAction?.type === "clear-non-favorites"
+              ? "las fotos no favoritas"
+              : "esta foto"
+        }
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteAction(null)}
       />
-    )}
-
-
     </div>
   )
 }

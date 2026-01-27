@@ -27,6 +27,11 @@ export function AlbumCard({ album }: { album: AlbumWithDetails }) {
   const { url: coverPhotoUrl, loading: isLoading } = usePresignedUrl(
     thumbObjectName
   );
+  const hasPhotos = album.photoCount > 0;
+  const photoLabel = hasPhotos ? album.photoCount : "Sin fotos";
+  const badgeAriaLabel = hasPhotos
+    ? `${album.photoCount} fotos`
+    : "Álbum sin fotos";
 
   return (
     <Link href={`/albumes/${album.id}`} className="group">
@@ -53,9 +58,13 @@ export function AlbumCard({ album }: { album: AlbumWithDetails }) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
           {/* Photo Count Badge */}
-          <div className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-black/70 px-3 py-1 text-sm text-white backdrop-blur-sm">
+          <div
+            className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-black/70 px-3 py-1 text-sm text-white backdrop-blur-sm"
+            aria-label={badgeAriaLabel}
+            title={badgeAriaLabel}
+          >
             <Camera className="h-3 w-3" />
-            <span>{album.photoCount}</span>
+            <span>{photoLabel}</span>
           </div>
         </div>
 

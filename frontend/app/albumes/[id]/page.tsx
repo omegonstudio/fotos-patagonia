@@ -19,6 +19,8 @@ import { formatDateOnly, parseUtcNaiveDate } from "@/lib/datetime"
 import { photoHourKey } from "@/lib/datetime"
 import { findClosestHourWithPhotos } from "@/lib/time-slots"
 import { isAdmin } from "@/lib/types"
+import { FilterBarAlbum } from "@/components/molecules/filter-bar-albums"
+import { FilterBarPhotos } from "@/components/molecules/filterBarPhotos"
 
 
 export default function AlbumDetailPage() {
@@ -30,7 +32,10 @@ export default function AlbumDetailPage() {
   const { user,isAuthenticated } = useAuthStore()
   const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
   const eventDateMs = (value?: string | null) => parseUtcNaiveDate(value)?.getTime() ?? 0
-
+  const [selectedPhotographer, setSelectedPhotographer] = useState("all")
+  const [selectedTag, setSelectedTag] = useState("all")
+  const [sortBy, setSortBy] = useState<"recent" | "oldest">("recent")
+  
   // Transform backend data
   const album = albumData && !Array.isArray(albumData) ? albumData : null
   // Debug: registrar el orden crudo de sesiones recibido
@@ -166,7 +171,14 @@ export default function AlbumDetailPage() {
     return sortedPhotos
   }, [album])
   
-
+  const photoTags = useMemo(() => {
+    const set = new Set<string>()
+    albumPhotos.forEach((photo: any) => {
+      photo.tags?.forEach((t: any) => set.add(String(t.name ?? t)))
+    })
+    return Array.from(set).sort()
+  }, [albumPhotos])
+  
   const baseFilteredPhotos = useMemo(() => {
     return albumPhotos.filter((photo) => {
       const photoDate = photo.takenAt?.split("T")[0]
@@ -186,16 +198,66 @@ export default function AlbumDetailPage() {
   }
 
   const photosToDisplay = useMemo(() => {
-    if (!filters.time) return baseFilteredPhotos
+    let result = [...baseFilteredPhotos]
   
-    // si no hay ninguna hora con fotos, volvemos al base
-    if (!effectiveHourKey) return baseFilteredPhotos
+    // Fotógrafo
+    if (selectedPhotographer !== "all") {
+      result = result.filter(
+        (p: any) =>
+          String(p.photographer?.id ?? p.session?.photographer_id) ===
+          selectedPhotographer,
+      )
+    }
   
-    return baseFilteredPhotos.filter(
-      (photo) => photoHourKey(photo) === effectiveHourKey
+    // Tag
+    if (selectedTag !== "all") {
+      result = result.filter((p: any) =>
+        p.tags?.some((t: any) =>
+          String(t.name ?? t) === selectedTag
+        ),
+      )
+    }
+  
+    // Hora (ya existente)
+    if (filters.time && effectiveHourKey) {
+      result = result.filter(
+        (photo) => photoHourKey(photo) === effectiveHourKey
+      )
+    }
+  
+    // Orden
+    result.sort((a, b) => {
+      const da = eventDateMs(a.takenAt ?? null)
+      const db = eventDateMs(b.takenAt ?? null)
+      return sortBy === "recent" ? db - da : da - db
+    })
+  
+    return result
+  }, [
+    baseFilteredPhotos,
+    selectedPhotographer,
+    selectedTag,
+    sortBy,
+    filters.time,
+    effectiveHourKey,
+  ])
+  
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return
+    if (!albumPhotos.length) return
+  
+    console.log("[AlbumDetail] photographer debug")
+    console.table(
+      albumPhotos.slice(0, 10).map((p: any) => ({
+        photoId: p.id,
+        photographerId: p.photographerId,
+        photographer_nested_id: p.photographer?.id,
+        session_photographer_id: p.session?.photographer_id,
+        session_photographer_nested_id: p.session?.photographer?.id,
+      })),
     )
-  }, [baseFilteredPhotos, filters.time, effectiveHourKey])
-    
+  }, [albumPhotos])
+  
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return
 
@@ -344,8 +406,23 @@ export default function AlbumDetailPage() {
         </div>
 
         <div className="mb-8">
-          <FilterBar onFilterChange={handleFilterChange} />
-        </div>
+        <FilterBar onFilterChange={handleFilterChange} />
+      </div>
+
+      <div className="mb-8">
+        <FilterBarPhotos
+          photographers={albumPhotographers}
+          tags={photoTags}
+          selectedPhotographer={selectedPhotographer}
+          onSelectedPhotographerChange={setSelectedPhotographer}
+          selectedTag={selectedTag}
+          onSelectedTagChange={setSelectedTag}
+          sortBy={sortBy}
+          onSortByChange={setSortBy}
+        />
+      </div>
+
+   
 
         {albumPhotos.length === 0 ? (
           <div className="py-20 text-center">

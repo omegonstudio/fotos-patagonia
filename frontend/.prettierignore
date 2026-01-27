@@ -1,0 +1,17 @@
+# deps / builds
+node_modules
+.next
+dist
+build
+coverage
+
+# si no querés tocar assets
+public
+
+# backend completo (Python)
+backend
+backend/**
+
+# o si el backend está en otra carpeta (ejemplos)
+server
+api
