@@ -46,8 +46,9 @@ export async function POST(req: Request) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Origin: "http://localhost", // requerido por EmailJS
+          Origin: "https://somosfotospatagonia.com",
         },
+        
         body: JSON.stringify({
           service_id: process.env.EMAILJS_SERVICE_ID,
           template_id: process.env.EMAILJS_TEMPLATE_ID,
