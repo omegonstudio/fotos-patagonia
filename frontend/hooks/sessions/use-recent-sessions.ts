@@ -8,7 +8,7 @@ export interface RecentSession {
   photographer_name: string;
   start_time: string;
   total_photos: number;
-  successful_uploads: number;
+  status: string;
 }
 
 export function useRecentSessions() {
