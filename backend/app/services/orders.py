@@ -133,7 +133,7 @@ class OrderService(BaseService):
                 <div class="contact-info">
                     <h4>¿Tuviste algún problema con la descarga?</h4>
                     <p>Escribinos y te ayudamos:</p>
-                    <p>📩 <a href="mailto:contacto@fotospatagonia.com">contacto@fotospatagonia.com</a></p>
+                    <p>📩 <a href="mailto:somos.fotos.patagonia@gmail.com">somos.fotos.patagonia@gmail.com</a></p>
                 </div>
 
                 <p>Somos Fotos Patagonia.</p>

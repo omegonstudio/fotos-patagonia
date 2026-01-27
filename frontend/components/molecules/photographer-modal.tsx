@@ -157,7 +157,7 @@ export default function PhotographerModal({
               name="contact_info"
               value={formData.contact_info}
               onChange={handleChange}
-              placeholder="contacto@fotospatagonia.com / +54 9 ..."
+              placeholder="somos.fotos.patagonia@gmail.com / +54 9 ..."
               className="rounded-lg border-gray-200"
             />
           </div>
