@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, Plus, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { PhotoModal } from "@/components/organisms/photo-modal";
 import { usePhotos, type BackendPhoto } from "@/hooks/photos/usePhotos";
 import { useSessions } from "@/hooks/sessions/useSessions";
@@ -25,8 +24,57 @@ import { AdminPhotoCard } from "@/components/molecules/admin-photo-card"; // <- 
 import type { UploadingPhoto } from "@/lib/types";
 import { AlertCircle } from "lucide-react";
 
+type Cursor = { createdAt: string; id: number } | null;
+
+// Debounce ligero para inputs
+function useDebouncedValue<T>(value: T, delay = 220) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
+type ThrottledFn<T extends (...args: any[]) => void> = ((...args: Parameters<T>) => void) & {
+  cancel: () => void;
+};
+
+function createThrottle<T extends (...args: any[]) => void>(fn: T, wait: number): ThrottledFn<T> {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  let lastArgs: Parameters<T> | null = null;
+  let lastCall = 0;
+
+  const throttled = ((...args: Parameters<T>) => {
+    const now = Date.now();
+    lastArgs = args;
+
+    const invoke = () => {
+      lastCall = Date.now();
+      timeout = null;
+      fn(...(lastArgs as Parameters<T>));
+    };
+
+    if (now - lastCall >= wait) {
+      invoke();
+    } else if (!timeout) {
+      timeout = setTimeout(invoke, wait - (now - lastCall));
+    }
+  }) as ThrottledFn<T>;
+
+  throttled.cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+  };
+
+  return throttled;
+}
+
 export default function FotosPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebouncedValue(searchTerm, 220);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [selectedPhoto, setSelectedPhoto] = useState<BackendPhoto | undefined>(
@@ -41,48 +89,73 @@ export default function FotosPage() {
   const [uploadingPhotos, setUploadingPhotos] = useState<UploadingPhoto[]>([]);
   const [newPhotos, setNewPhotos] = useState<BackendPhoto[]>([]);
   const [oldPhotos, setOldPhotos] = useState<BackendPhoto[]>([]);
-  const [offset, setOffset] = useState(0);
+  const [cursor, setCursor] = useState<Cursor>(null);
   const LIMIT = 10;
   const [hasMore, setHasMore] = useState(true);
 
   // Obtener fotos y sesiones del backend
-  const { loading, deletePhoto, fetchPhotosPage, getPhoto } = usePhotos();
+  const { loading, deletePhoto, fetchPhotosCursor, getPhoto } = usePhotos();
   const { sessions } = useSessions();
 
-  const combinedPhotos = [...newPhotos, ...oldPhotos];
-
-  const filteredPhotos = combinedPhotos.filter((photo) => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      photo.filename?.toLowerCase().includes(searchLower) ||
-      photo.description?.toLowerCase().includes(searchLower) ||
-      photo.photographer?.name?.toLowerCase().includes(searchLower)
+  // Mantener ids existentes sin re-crear deps en handleLoadMore
+  const existingIdsRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    existingIdsRef.current = new Set(
+      [...newPhotos, ...oldPhotos].map((p) => p.id)
     );
-  });
+  }, [newPhotos, oldPhotos]);
 
-  const getSessionName = (sessionId?: number) => {
-    if (!sessionId) return "Sin sesión";
-    const session = sessions.find((s) => s.id === sessionId);
-    return session?.event_name || "Sin sesión";
-  };
+  const combinedPhotos = useMemo(
+    () => [...newPhotos, ...oldPhotos],
+    [newPhotos, oldPhotos]
+  );
 
-  const handleAddPhoto = () => {
+  const filteredPhotos = useMemo(() => {
+    console.time?.("photos/filter");
+    const searchLower = debouncedSearch.toLowerCase();
+    const result = combinedPhotos.filter((photo) => {
+      if (!searchLower) return true;
+      return (
+        photo.filename?.toLowerCase().includes(searchLower) ||
+        photo.description?.toLowerCase().includes(searchLower) ||
+        photo.photographer?.name?.toLowerCase().includes(searchLower)
+      );
+    });
+    console.timeEnd?.("photos/filter");
+    return result;
+  }, [combinedPhotos, debouncedSearch]);
+
+  const selectedIdsSet = useMemo(
+    () => new Set(selectedPhotoIds),
+    [selectedPhotoIds]
+  );
+
+  const getSessionName = useCallback(
+    (sessionId?: number) => {
+      if (!sessionId) return "Sin sesión";
+      const session = sessions.find((s) => s.id === sessionId);
+      return session?.event_name || "Sin sesión";
+    },
+    [sessions]
+  );
+
+  const handleAddPhoto = useCallback(() => {
     setModalMode("add");
     setSelectedPhoto(undefined);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleEditPhoto = (photo: BackendPhoto) => {
+  const handleEditPhoto = useCallback((photo: BackendPhoto) => {
     setModalMode("edit");
     setSelectedPhoto(photo);
     setIsModalOpen(true);
-  };
+  }, []);
 
   // Preparar eliminación individual: reutiliza el modal de confirmación
-  const handleDeletePhoto = (photo: BackendPhoto) => {
+  const handleDeletePhoto = useCallback((photo: BackendPhoto) => {
     setDeleteTargetIds([photo.id]);
     setIsConfirmOpen(true);
-  };
+  }, []);
 
   // Preparar eliminación múltiple
   const handleDeleteSelected = () => {
@@ -129,18 +202,24 @@ export default function FotosPage() {
     }
   };
 
-  const toggleSelect = (id: number) => {
+  const toggleSelect = useCallback((id: number) => {
     setSelectedPhotoIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
-  };
+  }, []);
 
-  const handleCheckboxClick = (e: React.MouseEvent, id?: number) => {
-    e.stopPropagation();
-    if (id !== undefined) toggleSelect(id);
-  };
+  const handleCheckboxClick = useCallback(
+    (e: React.MouseEvent, id?: number) => {
+      e.stopPropagation();
+      if (id !== undefined) toggleSelect(id);
+    },
+    [toggleSelect]
+  );
 
-  const isSelected = (id: number) => selectedPhotoIds.includes(id);
+  const isSelected = useCallback(
+    (id: number) => selectedIdsSet.has(id),
+    [selectedIdsSet]
+  );
 
 
   //sellecccionar todas las fotos
@@ -150,37 +229,56 @@ export default function FotosPage() {
     allFilteredIds.length > 0 &&
     allFilteredIds.every((id) => selectedPhotoIds.includes(id));
   
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     if (areAllFilteredSelected) {
-      // Deseleccionar todas las visibles
       setSelectedPhotoIds((prev) =>
         prev.filter((id) => !allFilteredIds.includes(id))
       );
     } else {
-      // Seleccionar todas las visibles (sin duplicados)
       setSelectedPhotoIds((prev) =>
         Array.from(new Set([...prev, ...allFilteredIds]))
       );
     }
-  };
+  }, [areAllFilteredSelected, allFilteredIds]);
 
-  const handleUploadStart = (items: UploadingPhoto[]) => {
+  const handleUploadStart = useCallback((items: UploadingPhoto[]) => {
     if (!items.length) return;
     setUploadingPhotos((prev) => [...items, ...prev]);
-  };
+  }, []);
 
-  const handleUploadProgress = (tempIds: string[], progress: number) => {
-    if (!tempIds.length) return;
-    setUploadingPhotos((prev) =>
-      prev.map((photo) =>
-        tempIds.includes(photo.tempId)
-          ? { ...photo, progress, status: photo.status === "error" ? "error" : "uploading" }
-          : photo
-      )
-    );
-  };
+  const throttledUploadProgress = useMemo(
+    () =>
+      createThrottle((tempIds: string[], progress: number) => {
+        if (!tempIds.length) return;
+        setUploadingPhotos((prev) =>
+          prev.map((photo) =>
+            tempIds.includes(photo.tempId)
+              ? {
+                  ...photo,
+                  progress,
+                  status: photo.status === "error" ? "error" : "uploading",
+                }
+              : photo
+          )
+        );
+      }, 150),
+    []
+  );
 
-  const handleUploadComplete = (result: {
+  useEffect(() => {
+    return () => {
+      throttledUploadProgress.cancel();
+    };
+  }, [throttledUploadProgress]);
+
+  const handleUploadProgress = useCallback(
+    (tempIds: string[], progress: number) => {
+      throttledUploadProgress(tempIds, progress);
+    },
+    [throttledUploadProgress]
+  );
+
+  const handleUploadComplete = useCallback((result: {
     success: string[];
     failed: string[];
     createdPhotos?: BackendPhoto[];
@@ -208,9 +306,9 @@ export default function FotosPage() {
         prev.filter((photo) => !createdIds.has(photo.id))
       );
     }
-  };
+  }, []);
 
-  const handleUploadError = (tempIds: string[]) => {
+  const handleUploadError = useCallback((tempIds: string[]) => {
     if (!tempIds.length) return;
     setUploadingPhotos((prev) =>
       prev.map((photo) =>
@@ -219,32 +317,37 @@ export default function FotosPage() {
           : photo
       )
     );
-  };
+  }, []);
 
-  const handleLoadMore = async () => {
+  const handleLoadMore = useCallback(async () => {
     if (!hasMore || loading) return;
-  
+
+    console.time?.("photos/loadMore");
     try {
-      const data =
-        (await fetchPhotosPage({ offset, limit: LIMIT })) ?? [];
-  
-      // evitar duplicados
-      const filtered = data.filter(
-        (photo) =>
-          !newPhotos.some((p) => p.id === photo.id) &&
-          !oldPhotos.some((p) => p.id === photo.id)
-      );
-  
-      setOldPhotos((prev) => [...prev, ...filtered]);
-      setOffset((prev) => prev + LIMIT);
-  
-      if (data.length < LIMIT) {
-        setHasMore(false);
-      }
+      const data = await fetchPhotosCursor({ cursor, limit: LIMIT });
+      const items = data?.items ?? [];
+      const next = data?.nextCursor ?? null;
+
+      setOldPhotos((prev) => {
+        const merged = new Map<number, BackendPhoto>();
+        // mantener orden previo
+        prev.forEach((p) => merged.set(p.id, p));
+        items.forEach((photo) => {
+          if (!existingIdsRef.current.has(photo.id)) {
+            merged.set(photo.id, photo);
+          }
+        });
+        return Array.from(merged.values());
+      });
+
+      setCursor(next);
+      setHasMore(next !== null);
     } catch (error) {
       console.error("Error cargando más fotos", error);
+    } finally {
+      console.timeEnd?.("photos/loadMore");
     }
-  };
+  }, [hasMore, loading, fetchPhotosCursor, cursor]);
   
   
   return (

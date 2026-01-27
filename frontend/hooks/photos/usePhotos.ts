@@ -92,6 +92,27 @@ export function usePhotos() {
       `/photos/?offset=${offset}&limit=${limit}`
     );
   };
+
+  const fetchPhotosCursor = async ({
+    cursor,
+    limit,
+  }: {
+    cursor?: { createdAt: string; id: number } | null;
+    limit: number;
+  }): Promise<{
+    items: BackendPhoto[];
+    nextCursor: { createdAt: string; id: number } | null;
+  }> => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor?.createdAt && cursor?.id !== undefined) {
+      params.set("cursorCreatedAt", cursor.createdAt);
+      params.set("cursorId", String(cursor.id));
+    }
+    return apiFetch<{
+      items: BackendPhoto[];
+      nextCursor: { createdAt: string; id: number } | null;
+    }>(`/photos/?${params.toString()}`);
+  };
   
 
   const getPhoto = async (photoId: number): Promise<BackendPhoto> => {
@@ -152,5 +173,6 @@ export function usePhotos() {
     deletePhoto,
     setPhotoTags,
     fetchPhotosPage,
+    fetchPhotosCursor,
   };
 }

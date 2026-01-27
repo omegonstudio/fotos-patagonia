@@ -198,9 +198,9 @@ export default function AlbumDetailPage() {
   }
 
   const photosToDisplay = useMemo(() => {
-    let result = [...baseFilteredPhotos]
-  
-    // Fotógrafo
+    performance.mark?.("album-filters-start")
+    let result: any[] = baseFilteredPhotos
+
     if (selectedPhotographer !== "all") {
       result = result.filter(
         (p: any) =>
@@ -208,8 +208,7 @@ export default function AlbumDetailPage() {
           selectedPhotographer,
       )
     }
-  
-    // Tag
+
     if (selectedTag !== "all") {
       result = result.filter((p: any) =>
         p.tags?.some((t: any) =>
@@ -217,21 +216,18 @@ export default function AlbumDetailPage() {
         ),
       )
     }
-  
-    // Hora (ya existente)
+
     if (filters.time && effectiveHourKey) {
       result = result.filter(
         (photo) => photoHourKey(photo) === effectiveHourKey
       )
     }
-  
-    // Orden
-    result.sort((a, b) => {
-      const da = eventDateMs(a.takenAt ?? null)
-      const db = eventDateMs(b.takenAt ?? null)
-      return sortBy === "recent" ? db - da : da - db
-    })
-  
+
+    // Mantener orden base (ya descendente). Para "oldest" solo se revierte.
+    result = sortBy === "oldest" ? [...result].reverse() : [...result]
+
+    performance.mark?.("album-filters-end")
+    performance.measure?.("album-filters", "album-filters-start", "album-filters-end")
     return result
   }, [
     baseFilteredPhotos,
@@ -289,6 +285,11 @@ export default function AlbumDetailPage() {
   const { addItem, items, toggleFavorite, togglePrinter, toggleSelected } = useCartStore()
   const { setPhotos } = useGalleryStore()
   const { isOpen, currentPhotoId, open, close, next, prev } = useLightboxStore()
+
+  const cartMap = useMemo(
+    () => new Map(items.map((item) => [item.photoId, item])),
+    [items]
+  )
 
   // Derivar selectedPhotos del cart store
   const selectedPhotos = useMemo(() => 
@@ -446,7 +447,7 @@ export default function AlbumDetailPage() {
             </div>
             <div className="grid-photo-select">
             {photosToDisplay.map((photo) => {
-                const cartItem = items.find((item) => item.photoId === photo.id)
+                const cartItem = cartMap.get(photo.id)
                 return (
                   <PhotoThumbnail
                     isStaffUser={!!isStaffUser}

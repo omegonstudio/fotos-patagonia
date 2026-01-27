@@ -28,7 +28,6 @@ import { useTags } from "@/hooks/tags/useTags";
 import { apiFetch } from "@/lib/api";
 import type { BackendPhoto } from "@/hooks/photos/usePhotos";
 import type { UploadingPhoto } from "@/lib/types";
-import { generateThumbnailDataUrl } from "@/lib/photo-thumbnails";
 import { useUploadQueueStore } from "@/hooks/upload/useUploadQueue";
 
 interface PhotoModalProps {
@@ -137,6 +136,17 @@ export function PhotoModal({
     }
   }, [open, photo, isAddMode, albumId]);
 
+  useEffect(() => {
+    if (open) return;
+    if (previewUrls.length) {
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+      setPreviewUrls([]);
+    }
+    if (uploadedFiles.length) {
+      setUploadedFiles([]);
+    }
+  }, [open, previewUrls, uploadedFiles]);
+
  /*  const handleAlbumChange = useCallback((value: string) => {
     setSelectedAlbum(value);
     const album = albums.find((a) => a.id.toString() === value);
@@ -162,17 +172,13 @@ export function PhotoModal({
     setIsDragging(false);
   }, []);
 
-  const handleFiles = useCallback(async (files: File[]) => {
+  const handleFiles = useCallback((files: File[]) => {
     if (!files.length) return;
-    setUploadedFiles((prev) => [...prev, ...files]);
-
-    const previews = await Promise.all(
-      files.map((file) => generateThumbnailDataUrl(file).catch(() => ""))
-    );
-    setPreviewUrls((prev) => [
-      ...prev,
-      ...previews.filter((url) => Boolean(url)),
-    ]);
+    const validFiles = files.filter((file) => file.type.startsWith("image/"));
+    if (!validFiles.length) return;
+    const urls = validFiles.map((file) => URL.createObjectURL(file));
+    setUploadedFiles((prev) => [...prev, ...validFiles]);
+    setPreviewUrls((prev) => [...prev, ...urls]);
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -197,10 +203,14 @@ export function PhotoModal({
     [handleFiles]
   );
 
-  const removeFile = (index: number) => {
+  const removeFile = useCallback((index: number) => {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
-    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
-  };
+    setPreviewUrls((prev) => {
+      const url = prev[index];
+      if (url) URL.revokeObjectURL(url);
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
 
   const toggleTagSelection = (tagId: string) => {
     setSelectedTagIds((prev) =>

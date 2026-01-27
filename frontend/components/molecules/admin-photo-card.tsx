@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo } from "react";
 import Image from "next/image";
 import { Check, Pencil, Trash, Image as ImageIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -18,7 +18,7 @@ interface AdminPhotoCardProps {
   onDelete: () => void;
 }
 
-export function AdminPhotoCard({
+function AdminPhotoCardComponent({
   photo,
   isSelected,
   onCheckboxClick,
@@ -101,3 +101,17 @@ export function AdminPhotoCard({
     </Card>
   );
 }
+
+export const AdminPhotoCard = memo(
+  AdminPhotoCardComponent,
+  (prev, next) => {
+    const samePhoto =
+      prev.photo.id === next.photo.id &&
+      prev.photo.filename === next.photo.filename &&
+      prev.photo.description === next.photo.description &&
+      prev.photo.thumbnail_object_name === next.photo.thumbnail_object_name &&
+      prev.photo.object_name === next.photo.object_name &&
+      prev.photo.price === next.photo.price;
+    return samePhoto && prev.isSelected === next.isSelected;
+  }
+);

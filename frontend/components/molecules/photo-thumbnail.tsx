@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { memo, useState } from "react"
 import type { Photo } from "@/lib/types"
 import { formatPhotoDate } from "@/lib/datetime"
 import { cn } from "@/lib/utils"
@@ -23,7 +23,7 @@ interface PhotoThumbnailProps {
   isStaffUser: boolean
 }
 
-export function PhotoThumbnail({
+function PhotoThumbnailComponent({
   photo,
   onClick,
   onShiftClick,
@@ -161,3 +161,22 @@ export function PhotoThumbnail({
     </div>
   )
 }
+
+export const PhotoThumbnail = memo(
+  PhotoThumbnailComponent,
+  (prev, next) => {
+    const samePhoto =
+      prev.photo.id === next.photo.id &&
+      prev.photo.objectName === next.photo.objectName &&
+      prev.photo.previewObjectName === next.photo.previewObjectName &&
+      prev.photo.takenAt === next.photo.takenAt;
+
+    return (
+      samePhoto &&
+      prev.isSelected === next.isSelected &&
+      prev.isFavorite === next.isFavorite &&
+      prev.isPrinter === next.isPrinter &&
+      prev.isStaffUser === next.isStaffUser
+    );
+  }
+);

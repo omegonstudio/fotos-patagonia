@@ -5,6 +5,8 @@ export interface Photo {
   sessionId?: string;
   photographerId?: string;
   photographerName?: string;
+  createdAt: string; // ISO string UTC ← 🔴 NECESARIO
+  updatedAt?: string; // opcional, pero recomendado
   takenAt?: string; // ISO date string
   place?: string;
   timeSlot?: string; // "18:30", range, etc.

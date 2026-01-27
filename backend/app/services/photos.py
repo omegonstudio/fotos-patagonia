@@ -7,7 +7,7 @@ from services.base import BaseService
 from services.storage import storage_service
 from pydantic import BaseModel
 from typing import List
-from sqlalchemy import select
+from sqlalchemy import select, and_, or_
 from models.user import User
 from core.permissions import Permissions
 from datetime import datetime
@@ -100,6 +100,51 @@ class PhotoService(BaseService):
             joinedload(Photo.session).joinedload(PhotoSession.album)
         ).order_by(Photo.id.desc()).offset(offset).limit(limit).all()
         return [self._generate_presigned_urls(p) for p in photos]
+
+    def list_photos_cursor(
+        self,
+        limit: int = 10,
+        cursor_created_at: datetime | None = None,
+        cursor_id: int | None = None,
+    ) -> dict:
+        """
+        Keyset pagination ordered by created_at DESC, id DESC.
+        Compatible con inserts/deletes sin duplicados.
+        """
+        if limit < 1:
+            limit = 1
+        if limit > 100:
+            limit = 100
+
+        query = (
+            self.db.query(Photo)
+            .options(
+                joinedload(Photo.photographer),
+                joinedload(Photo.session).joinedload(PhotoSession.album),
+            )
+            .order_by(Photo.created_at.desc(), Photo.id.desc())
+        )
+
+        if cursor_created_at is not None and cursor_id is not None:
+            query = query.filter(
+                or_(
+                    Photo.created_at < cursor_created_at,
+                    and_(Photo.created_at == cursor_created_at, Photo.id < cursor_id),
+                )
+            )
+
+        photos = query.limit(limit).all()
+        items = [self._generate_presigned_urls(p) for p in photos]
+
+        next_cursor = None
+        if len(photos) == limit:
+            last = photos[-1]
+            next_cursor = {
+                "createdAt": last.created_at,
+                "id": last.id,
+            }
+
+        return {"items": items, "nextCursor": next_cursor}
 
     def get_photo(self, photo_id: int) -> PhotoSchema:
         """Returns a specific photo by its ID with presigned URLs."""

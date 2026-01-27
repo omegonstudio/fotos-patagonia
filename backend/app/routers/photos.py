@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
 from deps import get_db, PermissionChecker
 from services.photos import PhotoService, PhotoCompletionRequest
 from models.photo import PhotoSchema, PhotoUpdateSchema
@@ -23,6 +24,16 @@ class TagRequest(BaseModel):
 
 class PresignedUrlResponse(BaseModel):
     url: str
+
+
+class Cursor(BaseModel):
+    createdAt: datetime
+    id: int
+
+
+class PhotoCursorResponse(BaseModel):
+    items: List[PhotoSchema]
+    nextCursor: Cursor | None
 
 @router.get("/presigned-url/", response_model=PresignedUrlResponse)
 def get_presigned_url(object_name: str, db: Session = Depends(get_db)):
@@ -60,9 +71,35 @@ def complete_upload(
             detail=f"Failed to finalize photo uploads: {str(e)}"
         )
 
-@router.get("/", response_model=List[PhotoSchema])
-def list_photos(offset: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+@router.get("/", response_model=PhotoCursorResponse | List[PhotoSchema])
+def list_photos(
+    offset: int = 0,
+    limit: int = 10,
+    cursorCreatedAt: datetime | None = None,
+    cursorId: int | None = None,
+    db: Session = Depends(get_db),
+):
+    if cursorCreatedAt is not None and cursorId is not None:
+        return PhotoService(db).list_photos_cursor(
+            limit=limit, cursor_created_at=cursorCreatedAt, cursor_id=cursorId
+        )
     return PhotoService(db).list_photos(offset=offset, limit=limit)
+
+
+@router.get("/cursor", response_model=PhotoCursorResponse)
+def list_photos_cursor(
+    limit: int = 10,
+    cursorCreatedAt: datetime | None = None,
+    cursorId: int | None = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Keyset pagination: ORDER BY created_at DESC, id DESC.
+    Compatible con frontend que usa cursorCreatedAt & cursorId.
+    """
+    return PhotoService(db).list_photos_cursor(
+        limit=limit, cursor_created_at=cursorCreatedAt, cursor_id=cursorId
+    )
 
 class PhotoIdsRequest(BaseModel):
     photo_ids: List[int]

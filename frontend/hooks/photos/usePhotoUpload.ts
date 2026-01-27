@@ -81,10 +81,49 @@ export interface UploadListeners {
 }
 
 // Pass a function to refetch photos after upload
-export function usePhotoUpload(refetchPhotos?: () => void) {
+export function usePhotoUpload(
+  refetchPhotos?: () => void,
+  options?: { maxConcurrentUploads?: number; progressThrottleMs?: number }
+) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  type ThrottledFn<T extends (...args: any[]) => void> = ((...args: Parameters<T>) => void) & {
+    cancel: () => void;
+  };
+
+  const createThrottle = <T extends (...args: any[]) => void>(fn: T, wait: number): ThrottledFn<T> => {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    let lastArgs: Parameters<T> | null = null;
+    let lastCall = 0;
+
+    const throttled = ((...args: Parameters<T>) => {
+      const now = Date.now();
+      lastArgs = args;
+
+      const invoke = () => {
+        lastCall = Date.now();
+        timeout = null;
+        fn(...(lastArgs as Parameters<T>));
+      };
+
+      if (now - lastCall >= wait) {
+        invoke();
+      } else if (!timeout) {
+        timeout = setTimeout(invoke, wait - (now - lastCall));
+      }
+    }) as ThrottledFn<T>;
+
+    throttled.cancel = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+    };
+
+    return throttled;
+  };
 
   // Normaliza el nombre de archivo de thumbnail para evitar carpetas duplicadas.
   const getThumbFilename = (
@@ -217,14 +256,23 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
     { files, photographer_id, price, description, album_id }: UploadPhotoParams,
     listeners?: UploadListeners
   ): Promise<BackendPhoto[]> => {
+    const maxConcurrentUploads =
+      options?.maxConcurrentUploads ?? 3;
+    const progressThrottleMs = options?.progressThrottleMs ?? 150;
+
     setUploading(true);
     setError(null);
     setProgress(0);
 
-    const pushProgress = (pct: number) => {
-      setProgress(pct);
-      listeners?.onProgress?.(pct);
-    };
+    const throttledProgress = createThrottle(
+      (pct: number) => {
+        setProgress(pct);
+        listeners?.onProgress?.(pct);
+      },
+      progressThrottleMs
+    );
+
+    const pushProgress = (pct: number) => throttledProgress(pct);
 
     const maxAttempts = 3;
     const originalResults: UploadFileResult[] = [];
@@ -460,7 +508,6 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
       };
 
       // 4) Ejecutar uploads en paralelo limitada
-      const maxConcurrentUploads = 3;
       await new Promise<void>((resolve) => {
         let cursor = 0;
         let active = 0;
@@ -566,6 +613,7 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
       listeners?.onSettle?.(batchResult);
       throw err;
     } finally {
+      throttledProgress.cancel();
       setUploading(false);
     }
   };

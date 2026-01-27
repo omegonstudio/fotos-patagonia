@@ -1,5 +1,7 @@
+from datetime import datetime
 from pydantic import BaseModel, root_validator
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Text, DateTime
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from typing import List, Optional
 from db.base import Base
@@ -30,6 +32,8 @@ class PhotoInDBBaseSchema(PhotoBaseSchema):
     session_id: int
     album_id: Optional[int] = None   # 👈 NUEVO
     tags: List[TagSchema] = []
+    created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -79,6 +83,8 @@ class Photo(Base):
     object_name = Column(Text, nullable=False)
     photographer_id = Column(Integer, ForeignKey("photographers.id"))
     session_id = Column(Integer, ForeignKey("photo_sessions.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     photographer = relationship("Photographer", back_populates="photos")
     session = relationship("PhotoSession", back_populates="photos")
