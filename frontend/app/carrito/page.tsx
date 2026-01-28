@@ -28,7 +28,7 @@ import { useCombos } from "@/hooks/combos/useCombos"
 import { usePhotos } from "@/hooks/photos/usePhotos"
 import { useToast } from "@/hooks/use-toast"
 import { apiFetch } from "@/lib/api"
-import { resolveAutoCombos } from "@/lib/combos/resolveAutoCombos"
+import { resolveAutoCombosWithFullAlbum } from "@/lib/combos/resolveAutoCombosWithFullAlbum"
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 import { getPackSize } from "@/lib/print-formats"
 import { useAuthStore, useCartStore } from "@/lib/store"
@@ -174,23 +174,30 @@ export default function CarritoPage() {
     return prices.reduce((sum, price) => sum + price, 0) / prices.length
   }, [items, photosMap])
 
-  const quantityCombos = useMemo(
-    () =>
-      applicableCombos.filter(
-        (combo) => combo.active && combo.totalPhotos > 0 && !combo.isFullAlbum,
-      ),
-    [applicableCombos],
-  )
-
   const autoComboResolution = useMemo(() => {
-    return resolveAutoCombos(items.length, quantityCombos)
-  }, [items.length, quantityCombos])
+    return resolveAutoCombosWithFullAlbum({
+      photoCount: items.length,
+      combos: applicableCombos,
+      fullAlbumMinPhotos: 11,
+    })
+  }, [items.length, applicableCombos])
 
   const autoSelectedCombo = useMemo(() => {
     if (digitalManualEnabled) return null
     if (!activeAlbumId) return null
     const coveredPhotos = items.length - autoComboResolution.remainingPhotos
     if (autoComboResolution.applied.length === 0 || coveredPhotos <= 0) return null
+
+    if (autoComboResolution.isFullAlbum) {
+      const full = autoComboResolution.applied[0]?.combo
+      if (!full) return null
+      return {
+        id: full.id,
+        name: "Pack completo del álbum",
+        price: autoComboResolution.totalComboPrice,
+        totalPhotos: coveredPhotos,
+      }
+    }
 
     return {
       id: -1,
