@@ -286,7 +286,7 @@ export default function AlbumDetailPage() {
     return Array.from(photographers.values())
   }, [album])
 
-  const { addItem, items, toggleFavorite, togglePrinter, toggleSelected } = useCartStore()
+  const { addItem, items, toggleFavorite, togglePrinter, toggleSelected, removeFromCartIfUnselected } = useCartStore()
   const { setPhotos } = useGalleryStore()
   const { isOpen, currentPhotoId, open, close, next, prev } = useLightboxStore()
 
@@ -447,6 +447,7 @@ export default function AlbumDetailPage() {
             <div className="grid-photo-select">
             {photosToDisplay.map((photo) => {
                 const cartItem = items.find((item) => item.photoId === photo.id)
+                const isSelected = !!cartItem?.selected
                 return (
                   <PhotoThumbnail
                     isStaffUser={!!isStaffUser}
@@ -455,7 +456,17 @@ export default function AlbumDetailPage() {
                     onClick={() => handlePhotoClick(photo.id)}
                     onShiftClick={() => handleShiftClick(photo.id)}
                     isSelected={cartItem?.selected || false}
-                    onToggleSelect={() => toggleSelected(photo.id)}
+                    onToggleSelect={() => {
+                      if (isSelected) {
+                        // deselección → posible limpieza
+                        toggleSelected(photo.id)
+                        removeFromCartIfUnselected(photo.id)
+                      } else {
+                        // selección → siempre permitir agregar
+                        toggleSelected(photo.id)
+                      }
+                    }}
+                    
                     isFavorite={cartItem?.favorite || false}
                     isPrinter={cartItem?.printer || false}
                     onToggleFavorite={() => toggleFavorite(photo.id)}

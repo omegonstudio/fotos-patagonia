@@ -57,6 +57,8 @@ const computeDiscountedTotal = (
 interface CartStore extends CartState {
   addItem: (photoId: string) => void
   removeItem: (photoId: string) => void
+  removeFromCartExplicit: (photoId: string) => void
+  removeFromCartIfUnselected: (photoId: string) => void
   toggleSelected: (photoId: string) => void
   toggleFavorite: (photoId: string) => void
   togglePrinter: (photoId: string) => void
@@ -120,8 +122,26 @@ export const useCartStore = create<CartStore>()(
         })
       },
 
-      // Helper: verifica si un item debe permanecer en carrito
-      // Item válido si: selected || favorite || printer
+      // Eliminación explícita (carrito / menú ⋮)
+      removeFromCartExplicit: (photoId: string) => {
+        set({
+          items: get().items.filter((item) => item.photoId !== photoId),
+          printSelections: removePhotoFromSelections(get().printSelections, photoId),
+        })
+      },
+
+      // Eliminación condicional (galería/álbum): solo si no hay intención activa
+      removeFromCartIfUnselected: (photoId: string) => {
+        const { items } = get()
+        const existing = items.find((i) => i.photoId === photoId)
+        if (!existing) return
+        if (existing.favorite || existing.printer) return
+        // Sin intención activa → se puede eliminar
+        set({
+          items: items.filter((i) => i.photoId !== photoId),
+          printSelections: removePhotoFromSelections(get().printSelections, photoId),
+        })
+      },
 
       toggleSelected: (photoId: string) => {
         const { items } = get()
@@ -135,12 +155,10 @@ export const useCartStore = create<CartStore>()(
         
         // Toggle selected
         const newSelectedState = !existingItem.selected
-        const updatedItems = items
-          .map((item) => {
-            if (item.photoId !== photoId) return item
-            return { ...item, selected: newSelectedState }
-          })
-          .filter((item) => item.selected || item.favorite || item.printer)
+        const updatedItems = items.map((item) => {
+          if (item.photoId !== photoId) return item
+          return { ...item, selected: newSelectedState }
+        })
         set({ items: updatedItems })
       },
 
@@ -155,21 +173,14 @@ export const useCartStore = create<CartStore>()(
         }
         
         const newFavoriteState = !existingItem.favorite
-        const updatedItems = items
-          .map((item) => {
-            if (item.photoId !== photoId) return item
-            if (!newFavoriteState) {
-              // Al desmarcar favorite: también apagar printer
-              return { ...item, favorite: false, printer: false }
-            }
-            return { ...item, favorite: true }
-          })
-          .filter((item) => item.selected || item.favorite || item.printer)
+        const updatedItems = items.map((item) => {
+          if (item.photoId !== photoId) return item
+          return { ...item, favorite: newFavoriteState }
+        })
         set({
           items: updatedItems,
-          printSelections: newFavoriteState
-            ? get().printSelections
-            : removePhotoFromSelections(get().printSelections, photoId),
+          // Mantener selections; solo limpiar si se desactiva printer explicitamente
+          printSelections: get().printSelections,
         })
       },
 
@@ -184,17 +195,15 @@ export const useCartStore = create<CartStore>()(
         }
         
         const newPrinterState = !existingItem.printer
-        const updatedItems = items
-          .map((item) => {
-            if (item.photoId !== photoId) return item
-            if (newPrinterState) {
-              // Al marcar printer: también marcar favorite
-              return { ...item, printer: true, favorite: true }
-            }
-            // Al desmarcar printer: solo desmarcar printer
-            return { ...item, printer: false }
-          })
-          .filter((item) => item.selected || item.favorite || item.printer)
+        const updatedItems = items.map((item) => {
+          if (item.photoId !== photoId) return item
+          if (newPrinterState) {
+            // Al marcar printer: también marcar favorite
+            return { ...item, printer: true, favorite: true }
+          }
+          // Al desmarcar printer: solo desmarcar printer, mantener item
+          return { ...item, printer: false }
+        })
         set({
           items: updatedItems,
           printSelections: newPrinterState

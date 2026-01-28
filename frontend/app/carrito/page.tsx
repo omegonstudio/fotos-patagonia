@@ -64,9 +64,9 @@ export default function CarritoPage() {
     digitalSubtotalEffective,
     digitalManualEnabled,
     totalEffective,
-    removeItem,
     toggleFavorite,
     togglePrinter,
+    removeFromCartExplicit,
     addPrintSelection,
     removePhotosFromSelection,
     clearPrintSelections,
@@ -576,7 +576,7 @@ export default function CarritoPage() {
         clearNonFavorites()
         break
       case "remove-item":
-        removeItem(deleteAction.photoId)
+        removeFromCartExplicit(deleteAction.photoId)
         break
     }
 
@@ -833,7 +833,7 @@ export default function CarritoPage() {
               </TabsContent>
             </Tabs>
 
-            <div className="mt-6 flex gap-3">
+            <div className="mt-26 flex gap-3">
               {favoriteCount > 0 && favoriteCount < totalCount && (
                 <Button
                   variant="outline"

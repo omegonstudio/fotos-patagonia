@@ -11,7 +11,7 @@ interface PhotoViewerItemActionsProps {
 }
 
 export function PhotoViewerItemActions({ photo }: PhotoViewerItemActionsProps) {
-  const { items, toggleFavorite, toggleSelected } = useCartStore()
+  const { items, toggleFavorite, toggleSelected, removeFromCartIfUnselected } = useCartStore()
 
   const cartItem = items.find((i) => i.photoId === photo.id)
   const isInCart = !!cartItem
@@ -38,7 +38,10 @@ export function PhotoViewerItemActions({ photo }: PhotoViewerItemActionsProps) {
 
       {/* 🛒 AGREGAR AL CARRITO */}
       <button
-        onClick={() => toggleSelected(photo.id)}
+        onClick={() => {
+          toggleSelected(photo.id)
+          removeFromCartIfUnselected(photo.id)
+        }}
         className={cn(
           "photo-viewer-item-btn",
           isInCart && "is-active"

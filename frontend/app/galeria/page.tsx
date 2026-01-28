@@ -15,7 +15,7 @@ import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 
 export default function GaleriaPage() {
   const { photos: backendPhotos, loading, error, refetch } = usePhotos()
-  const { addItem, items, toggleFavorite, togglePrinter, toggleSelected } = useCartStore()
+  const { addItem, items, toggleFavorite, togglePrinter, toggleSelected, removeFromCartIfUnselected } = useCartStore()
   const { isOpen, currentPhotoId, photos, open, close, next, prev } = useLightboxStore()
   const { filters, setFilters, setPhotos } = useGalleryStore()
 
@@ -111,6 +111,7 @@ export default function GaleriaPage() {
       const item = items.find((i) => i.photoId === photoId)
       if (item?.selected) {
         toggleSelected(photoId)
+        removeFromCartIfUnselected(photoId)
       }
     })
     setShowBulkActions(false)
@@ -187,7 +188,10 @@ export default function GaleriaPage() {
                   onClick={() => handlePhotoClick(photo.id)}
                   onShiftClick={() => handleShiftClick(photo.id)}
                   isSelected={cartItem?.selected || false}
-                  onToggleSelect={() => toggleSelected(photo.id)}
+                  onToggleSelect={() => {
+                    toggleSelected(photo.id)
+                    removeFromCartIfUnselected(photo.id)
+                  }}
                   isFavorite={cartItem?.favorite || false}
                   isPrinter={cartItem?.printer || false}
                   onToggleFavorite={() => toggleFavorite(photo.id)}

@@ -29,7 +29,7 @@ interface PhotoViewerModalProps {
 
 
 export function PhotoViewerModal({ photo,  nextPhoto, onClose, onNext, onPrev }: PhotoViewerModalProps) {
-  const { items, removeItem, toggleSelected, toggleFavorite, togglePrinter } = useCartStore()
+  const { items, toggleSelected, toggleFavorite, togglePrinter, removeFromCartIfUnselected } = useCartStore()
 
   const {
     displayUrl,
@@ -86,11 +86,8 @@ export function PhotoViewerModal({ photo,  nextPhoto, onClose, onNext, onPrev }:
   
 
   const handleToggleCart = () => {
-    if (isInCart) {
-      removeItem(photo.id)
-    } else {
-      toggleSelected(photo.id)
-    }
+    toggleSelected(photo.id)
+    removeFromCartIfUnselected(photo.id)
   }
 
   const handleToggleFavorite = () => {

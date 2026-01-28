@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Heart, Trash2, Printer, ImageIcon, Pencil, Car } from "lucide-react"
+import { Heart, Trash2, Printer, ImageIcon, Pencil, MoreVertical } from "lucide-react"
 import type { Photo, PrintFormat } from "@/lib/types"
 import { IconButton } from "@/components/atoms/icon-button"
 import { cn } from "@/lib/utils"
@@ -10,6 +10,12 @@ import { Badge } from "@/components/ui/badge"
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
 import { buildThumbObjectName } from "@/lib/photo-thumbnails"
 import { memo } from "react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface CartItemProps {
   photo: Photo
@@ -130,29 +136,49 @@ function CartItemComponent({
         {/* Botones de acción */}
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
-            <IconButton
-              icon={Heart}
-              onClick={onToggleFavorite}
-              className={cn(isFavorite && "text-primary hover:text-primary")}
-              ariaLabel={isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
-            />
+          <IconButton
+            icon={Heart}
+            onClick={onToggleFavorite}
+            ariaLabel={isFavorite ? "Quitar de favoritos" : "Marcar como favorito"}
+            aria-pressed={isFavorite}
+            iconProps={isFavorite ? { fill: "currentColor" } : undefined}
+            className={cn(
+              "transition-all",
+              isFavorite
+                ? "text-primary scale-110"
+                : "text-muted-foreground hover:text-primary"
+            )}
+          />
+
             {isStaffUser && (
               <IconButton
-              icon={Printer}
-              onClick={onTogglePrinter}
-              className={cn(isPrinter && "text-secondary hover:text-secondary/80")}
-              ariaLabel={isPrinter ? "Quitar de impresión" : "Marcar para imprimir"}
+                icon={Printer}
+                onClick={onTogglePrinter}
+                className={cn(
+                  "transition-colors",
+                  isPrinter && "text-secondary hover:text-secondary/80"
+                )}
+                ariaLabel={isPrinter ? "Quitar de impresión" : "Marcar para imprimir"}
+                aria-pressed={isPrinter}
               />
             )}
           </div>
-          {isStaffUser && (
-            <IconButton
-            icon={Trash2}
-            onClick={onRemove}
-            className="text-destructive hover:text-destructive/80"
-            ariaLabel="Eliminar del carrito"
-            />
-          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <IconButton icon={MoreVertical} ariaLabel="Más acciones" />
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive bg"
+                onClick={onRemove}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar del carrito
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>
