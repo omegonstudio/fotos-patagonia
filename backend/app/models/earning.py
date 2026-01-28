@@ -9,11 +9,13 @@ from pydantic import BaseModel
 class EarningSchema(BaseModel):
     id: int
     photographer_id: int
+    order_id: int
     order_item_id: int
     amount: float
     commission_applied: float
     earned_photo_fraction: float # Nuevo campo
     created_at: datetime
+    photo_filename: str | None = None
 
     class Config:
         from_attributes = True
