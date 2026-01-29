@@ -8,6 +8,7 @@ import {
   LEGACY_TOKEN_KEY,
   getTokenExpiration,
   isTimestampExpired,
+  EXPIRATION_GRACE_MS,
   readStoredAuthSnapshot,
   type StoredAuthSnapshot,
   writeStoredAuthSnapshot,
@@ -611,6 +612,7 @@ interface AuthStore extends AuthState {
   setUser: (user: User | null) => void
   setSession: (session: { token: string; expiresAt: number; user: User }) => void
   isTokenExpired: (graceMs?: number) => boolean
+  revalidateExpiration: (trigger?: string) => void
   logout: (options?: LogoutOptions) => void
   init: () => void
 }
@@ -623,15 +625,10 @@ const initialAuthState: AuthState = {
   initialized: false,
 }
 
-/* const computeIsAuthenticated = (snapshot: StoredAuthSnapshot) => {
-  if (!snapshot.token || !snapshot.user) return false
-  if (!snapshot.expiresAt) return false
-  return snapshot.expiresAt > Date.now()
-} */
 
   const computeIsAuthenticated = (snapshot: StoredAuthSnapshot) => {
     if (!snapshot.token) return false
-    if (!snapshot.expiresAt) return false
+    if (!snapshot.expiresAt) return true
     return snapshot.expiresAt > Date.now()
   }
   
@@ -662,14 +659,14 @@ const LOGOUT_MESSAGES: Record<LogoutReason, { title: string; description: string
 const DEFAULT_LOGIN_ROUTE = "/"
 let logoutInFlight = false
 let storageListenerRegistered = false
+let revalidationListenersRegistered = false
 
 // ✅ Tipo universal (Node + Browser)
 let expirationTimer: ReturnType<typeof setTimeout> | null = null
 
 const scheduleExpirationCheck = (
   expiresAt: number | null,
-  logoutFn: (options?: LogoutOptions) => void,
-  reason: LogoutReason = "expired",
+  revalidate: () => void,
 ) => {
   if (typeof window === "undefined") return
 
@@ -681,15 +678,17 @@ const scheduleExpirationCheck = (
   if (!expiresAt) return
 
   const remaining = expiresAt - Date.now()
-
   if (remaining <= 0) {
-    logoutFn({ reason })
+    // Forzar revalidación inmediata; no logout directo
+    revalidate()
     return
   }
 
+  // Despertar antes de la expiración para revalidar (mitiga sleep)
+  const wakeIn = Math.max(1_000, remaining - EXPIRATION_GRACE_MS / 2)
   expirationTimer = setTimeout(() => {
-    logoutFn({ reason })
-  }, remaining)
+    revalidate()
+  }, wakeIn)
 }
 
 const clearExpirationTimer = () => {
@@ -714,6 +713,36 @@ const persistSnapshot = (snapshot: StoredAuthSnapshot | null) => {
 export const useAuthStore = create<AuthStore>((set, get) => ({
   ...initialAuthState,
 
+  // Revalidación centralizada para evitar timeouts falsos tras sleep
+  revalidateExpiration: (trigger?: string) => {
+    const { expiresAt, token } = get()
+
+    if (token && !expiresAt) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[auth] Token presente sin expiresAt; no se desloguea automáticamente")
+      }
+      return
+    }
+
+    if (!expiresAt) return
+
+    const expired = isTimestampExpired(expiresAt, EXPIRATION_GRACE_MS)
+    if (!expired) {
+      scheduleExpirationCheck(expiresAt, () => get().revalidateExpiration("timer"))
+      return
+    }
+
+    const hasActiveUploads =
+      typeof window !== "undefined" &&
+      Boolean((window as any).__fpActiveUploads || (window as any).__fpActiveLoads)
+
+    get().logout({
+      reason: "expired",
+      redirect: !hasActiveUploads,
+      silent: false,
+    })
+  },
+
   setToken: (token: string | null, expiresAt: number | null) => {
     set((state) => {
       const normalizedExpiresAt = token && expiresAt ? expiresAt : null
@@ -730,7 +759,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         isAuthenticated: computeIsAuthenticated(snapshot),
       }
     })
-    scheduleExpirationCheck(get().expiresAt, get().logout)
+    scheduleExpirationCheck(get().expiresAt, () => get().revalidateExpiration("timer"))
   },
 
   setUser: (user: User | null) => {
@@ -765,10 +794,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         isAuthenticated: computeIsAuthenticated(snapshot),
       }
     })
-    scheduleExpirationCheck(expiresAt, get().logout)
+    scheduleExpirationCheck(expiresAt, () => get().revalidateExpiration("timer"))
   },
 
-  isTokenExpired: (graceMs = 0) => {
+  isTokenExpired: (graceMs = EXPIRATION_GRACE_MS) => {
     const { expiresAt } = get()
     if (!expiresAt) return true
     return isTimestampExpired(expiresAt, graceMs)
@@ -851,13 +880,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         return
       }
 
-      scheduleExpirationCheck(snapshot.expiresAt ?? null, get().logout)
+      scheduleExpirationCheck(snapshot.expiresAt ?? null, () => get().revalidateExpiration("timer"))
     }
 
-    // TODO: Implementar un mecanismo más robusto para la sincronización entre pestañas
-    // que distinga entre un cierre de sesión local y un nuevo inicio de sesión en otro dispositivo.
-    // Para más detalles, revisar la conversación con el asistente de desarrollo.
-    // registerStorageSync() // Deshabilitado para evitar cierres de sesión inesperados en múltiples dispositivos.
+    // Revalidar al volver del sleep / cambios de visibilidad
+    if (!revalidationListenersRegistered) {
+      const wake = () => get().revalidateExpiration("visibility")
+      window.addEventListener("visibilitychange", wake)
+      window.addEventListener("focus", wake)
+      window.addEventListener("pageshow", wake)
+      revalidationListenersRegistered = true
+    }
+
     set({ initialized: true })
   },
 }))
