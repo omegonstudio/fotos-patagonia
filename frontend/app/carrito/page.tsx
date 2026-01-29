@@ -174,27 +174,28 @@ export default function CarritoPage() {
     return prices.reduce((sum, price) => sum + price, 0) / prices.length
   }, [items, photosMap])
 
-  const autoComboResolution = useMemo(() => {
-    return resolveAutoCombosWithFullAlbum({
-      photoCount: items.length,
-      combos: applicableCombos,
-      fullAlbumMinPhotos: 11,
-    })
+  const comboResolution = useMemo(() => {
+    return resolveAutoCombosWithFullAlbum(
+      items.length,
+      applicableCombos ?? [],
+      { fullAlbumMinPhotos: 11 },
+    )
   }, [items.length, applicableCombos])
+  
 
   const autoSelectedCombo = useMemo(() => {
     if (digitalManualEnabled) return null
     if (!activeAlbumId) return null
-    const coveredPhotos = items.length - autoComboResolution.remainingPhotos
-    if (autoComboResolution.applied.length === 0 || coveredPhotos <= 0) return null
+    const coveredPhotos = items.length - comboResolution.remainingPhotos
+    if (comboResolution.applied.length === 0 || coveredPhotos <= 0) return null
 
-    if (autoComboResolution.isFullAlbum) {
-      const full = autoComboResolution.applied[0]?.combo
+    if (comboResolution.isFullAlbum) {
+      const full = comboResolution.applied[0]?.combo
       if (!full) return null
       return {
         id: full.id,
         name: "Pack completo del álbum",
-        price: autoComboResolution.totalComboPrice,
+        price: comboResolution.totalComboPrice,
         totalPhotos: coveredPhotos,
       }
     }
@@ -202,18 +203,30 @@ export default function CarritoPage() {
     return {
       id: -1,
       name: "Combos automáticos",
-      price: autoComboResolution.totalComboPrice,
+      price: comboResolution.totalComboPrice,
       totalPhotos: coveredPhotos,
     }
-  }, [activeAlbumId, autoComboResolution, digitalManualEnabled, items.length])
+  }, [activeAlbumId, comboResolution, digitalManualEnabled, items.length])
 
   const autoDigitalSubtotal = useMemo(() => {
     if (digitalManualEnabled) return null
-    if (autoComboResolution.applied.length === 0) return null
+    if (comboResolution.applied.length === 0) return null
     return (
-      autoComboResolution.totalComboPrice + autoComboResolution.remainingPhotos * digitalUnitPrice
+      comboResolution.totalComboPrice + comboResolution.remainingPhotos * digitalUnitPrice
     )
-  }, [autoComboResolution, digitalManualEnabled, digitalUnitPrice])
+  }, [comboResolution, digitalManualEnabled, digitalUnitPrice])
+
+  const originalPhotosSubtotal = useMemo(() => {
+    const sum = items.reduce((acc, item) => {
+      const price = photosMap.get(item.photoId)?.price ?? 0
+      return acc + price
+    }, 0)
+    // fallback si faltan precios pero hay items
+    if (sum === 0 && items.length > 0) {
+      return items.length * digitalUnitPrice
+    }
+    return sum
+  }, [items, photosMap, digitalUnitPrice])
 
   const cartPhotos = useMemo(() => {
     if (isLoadingPhotos || !isStoreHydrated) return []
@@ -958,7 +971,7 @@ export default function CarritoPage() {
                           <p className="text-muted-foreground">
                             No hay combos disponibles para este álbum por el momento.
                           </p>
-                        ) : autoComboResolution.applied.length === 0 ? (
+                        ) : comboResolution.applied.length === 0 ? (
                           <p className="text-muted-foreground">
                             Aún no aplican combos para {items.length} foto
                             {items.length === 1 ? "" : "s"}.
@@ -966,34 +979,58 @@ export default function CarritoPage() {
                         ) : (
                           <>
                             <div className="space-y-1">
-                              {autoComboResolution.applied.map(({ combo, count }) => (
-                                <div
-                                  key={combo.id}
-                                  className="flex items-center justify-between gap-2"
-                                >
+                              {comboResolution.isFullAlbum ? (
+                                <div className="flex items-center justify-between gap-2">
+                                  <span>• Pack completo del álbum</span>
                                   <span>
-                                    • {count} x {combo.totalPhotos} foto
-                                    {combo.totalPhotos === 1 ? "" : "s"}
+                                    ${comboResolution.applied[0]?.combo.price ?? 0}
                                   </span>
-                                  <span>${combo.price}</span>
                                 </div>
-                              ))}
+                              ) : (
+                                comboResolution.applied.map(({ combo, count }) => (
+                                  <div
+                                    key={combo.id}
+                                    className="flex items-center justify-between gap-2"
+                                  >
+                                    <span>
+                                      • {count} x {combo.totalPhotos} foto
+                                      {combo.totalPhotos === 1 ? "" : "s"}
+                                    </span>
+                                    <span>${combo.price}</span>
+                                  </div>
+                                ))
+                              )}
                             </div>
-                            {autoComboResolution.remainingPhotos > 0 && (
+                            {!comboResolution.isFullAlbum && comboResolution.remainingPhotos > 0 && (
                               <p className="text-muted-foreground">
-                                {autoComboResolution.remainingPhotos} foto
-                                {autoComboResolution.remainingPhotos === 1 ? "" : "s"} fuera de
+                                {comboResolution.remainingPhotos} foto
+                                {comboResolution.remainingPhotos === 1 ? "" : "s"} fuera de
                                 combo a ${digitalUnitPrice} c/u.
-                              </p>
-                            )}
-                            {!digitalManualEnabled && autoDigitalSubtotal !== null && (
-                              <p className="text-green-600 dark:text-green-400">
-                                Subtotal digital estimado: ${Math.round(autoDigitalSubtotal)}
                               </p>
                             )}
                             {digitalManualEnabled && (
                               <p className="text-orange-600 dark:text-orange-400">
                                 Subtotal digital editado manualmente; se respeta tu override.
+                              </p>
+                            )}
+                            {!digitalManualEnabled && autoDigitalSubtotal !== null && (
+                              <div className="space-y-1 text-muted-foreground">
+                                <p className="text-foreground">
+                                  Precio original (sin combo): ${Math.round(originalPhotosSubtotal)}
+                                </p>
+                                <p className="text-foreground">
+                                  Precio con combo: ${Math.round(autoDigitalSubtotal)}
+                                </p>
+                                {originalPhotosSubtotal > autoDigitalSubtotal && (
+                                  <p className="text-green-600 dark:text-green-400">
+                                    Ahorro: ${Math.round(originalPhotosSubtotal - autoDigitalSubtotal)}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                            {!digitalManualEnabled && autoDigitalSubtotal !== null && (
+                              <p className="text-green-600 dark:text-green-400">
+                                Subtotal digital estimado: ${Math.round(autoDigitalSubtotal)}
                               </p>
                             )}
                           </>

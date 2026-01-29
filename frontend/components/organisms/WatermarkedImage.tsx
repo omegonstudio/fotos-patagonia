@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
-import { isAdmin } from "@/lib/types";
+import { isAdmin, getUserRoleName } from "@/lib/types";
 
 type Props = {
   src: string;
@@ -43,16 +43,18 @@ export default function WatermarkedImage({
   // - Si showWatermark está definido, usar ese valor (override manual)
   // - Si no hay usuario -> mostrar marca de agua
   // - Si el usuario es admin o tiene permisos especiales -> NO mostrar marca de agua
+  const roleName = getUserRoleName(user)?.toLowerCase();
   const userIsAdmin = isAdmin(user);
+  const userIsPhotographer = roleName === "photographer"
   const shouldShowWatermark =
-    showWatermark !== undefined ? showWatermark : !user || !userIsAdmin;
+  showWatermark !== undefined
+    ? showWatermark
+    : !user || (!userIsAdmin && !userIsPhotographer);
+  
+
 
   return (
-    <div
-      className={cn("relative w-full h-full", className)}
-      onContextMenu={(e) => e.preventDefault()}
-      onDragStart={(e) => e.preventDefault()}
-    >
+    <div className={cn("relative w-full h-full", className)}>
       {/* Imagen original (sin marca guardada físicamente) */}
       <Image
         src={src}
@@ -82,7 +84,7 @@ export default function WatermarkedImage({
           {/* Texto legal grande en el centro */}
           <div className="absolute inset-0 flex items-center justify-center">
             <span
-              className="font-bold uppercase tracking-[0.35em] text-center px-6 py-3 rounded-md text-white"
+              className="font-bold uppercase tracking-[0.35em] text-center px-6 py-3 rounded-md bg-black/0 text-white"
               style={{
                 transform: `rotate(${rotateDeg}deg)`,
                 fontSize: textFontSize,

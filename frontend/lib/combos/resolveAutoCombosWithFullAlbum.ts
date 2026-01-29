@@ -17,18 +17,26 @@ export interface AutoComboResult {
  * de fullAlbumMinPhotos. Si aplica full, no se ejecutan combos por cantidad.
  * Si no aplica, delega a resolveAutoCombos (solo combos por cantidad).
  */
-export function resolveAutoCombosWithFullAlbum({
-  photoCount,
-  combos,
-  fullAlbumMinPhotos = 11,
-}: {
-  photoCount: number
-  combos: Array<Combo & { isFullAlbum?: boolean }>
-  fullAlbumMinPhotos?: number
-}): AutoComboResult {
-  const fullAlbumCombo = combos.find((c) => c.isFullAlbum)
+export function resolveAutoCombosWithFullAlbum(
+  photoCount: number,
+  combos: Array<Combo & { isFullAlbum?: boolean; active?: boolean }> = [],
+  options?: { fullAlbumMinPhotos?: number },
+): AutoComboResult {
+  const fullAlbumMinPhotos = options?.fullAlbumMinPhotos ?? 11
 
-  // Aplica FULL solo si existe, y se cumplen las fotos mínimas
+  if (!Array.isArray(combos) || combos.length === 0) {
+    return {
+      applied: [],
+      remainingPhotos: photoCount,
+      totalComboPrice: 0,
+      isFullAlbum: false,
+    }
+  }
+
+  const fullAlbumCombo = combos.find(
+    (c) => c.active && c.isFullAlbum,
+  )
+
   if (fullAlbumCombo && photoCount >= fullAlbumMinPhotos) {
     return {
       applied: [{ combo: fullAlbumCombo, count: 1 }],
@@ -38,8 +46,10 @@ export function resolveAutoCombosWithFullAlbum({
     }
   }
 
-  // Filtrar combos por cantidad (no full y totalPhotos > 0)
-  const quantityCombos = combos.filter((c) => !c.isFullAlbum && c.totalPhotos > 0)
+  const quantityCombos = combos.filter(
+    (c) => c.active && !c.isFullAlbum && c.totalPhotos > 0,
+  )
+
   const base = resolveAutoCombos(photoCount, quantityCombos)
 
   return {
@@ -47,4 +57,5 @@ export function resolveAutoCombosWithFullAlbum({
     isFullAlbum: false,
   }
 }
+
 
