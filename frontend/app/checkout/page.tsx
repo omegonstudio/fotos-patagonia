@@ -27,6 +27,7 @@ import {
 import { useCartStore, useAuthStore } from "@/lib/store";
 import { usePhotos } from "@/hooks/photos/usePhotos";
 import { isAdmin } from "@/lib/types";
+import { isStaff } from "@/lib/permissions";
 import type { Order, OrderDraftItem, OrderItem, Photo, PrintFormat } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos";
@@ -134,8 +135,7 @@ export default function CheckoutPage() {
 
   // Determinar el canal según el tipo de usuario
   // Staff users (admin o usuarios con photographer_id) pueden usar el canal "local"
-  const isStaffUser =
-    isAuthenticated && user && (isAdmin(user) || user.photographer_id);
+  const isStaffUser = isAuthenticated && isStaff(user);
   const defaultChannel = isStaffUser ? "local" : "web";
   const orderChannel = isStaffUser ? "local" : "web"
   const canShowPrints = orderChannel === "local"

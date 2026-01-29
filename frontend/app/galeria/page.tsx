@@ -7,6 +7,7 @@ import { PhotoThumbnail } from "@/components/molecules/photo-thumbnail"
 import { PhotoViewerModal } from "@/components/organisms/photo-viewer-modal"
 import { usePhotos } from "@/hooks/photos/usePhotos"
 import { useCartStore, useLightboxStore, useGalleryStore, useAuthStore } from "@/lib/store"
+import { isStaff } from "@/lib/permissions"
 import { ArrowLeft, Info, ShoppingCart, X, Loader2, Camera } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -20,7 +21,7 @@ export default function GaleriaPage() {
   const { filters, setFilters, setPhotos } = useGalleryStore()
 
     const { user, isAuthenticated } = useAuthStore()
-  const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
+  const isStaffUser = isAuthenticated && isStaff(user)
 
   // Transform backend photos to match expected format
   const galleryPhotos = useMemo(() => {

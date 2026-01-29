@@ -4,6 +4,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { isAdmin, getUserRoleName } from "@/lib/types";
+import { isStaff } from "@/lib/permissions";
 
 type Props = {
   src: string;
@@ -43,13 +44,11 @@ export default function WatermarkedImage({
   // - Si showWatermark está definido, usar ese valor (override manual)
   // - Si no hay usuario -> mostrar marca de agua
   // - Si el usuario es admin o tiene permisos especiales -> NO mostrar marca de agua
-  const roleName = getUserRoleName(user)?.toLowerCase();
-  const userIsAdmin = isAdmin(user);
-  const userIsPhotographer = roleName === "photographer"
+  
   const shouldShowWatermark =
   showWatermark !== undefined
     ? showWatermark
-    : !user || (!userIsAdmin && !userIsPhotographer);
+    : !user || !isStaff(user);
   
 
 

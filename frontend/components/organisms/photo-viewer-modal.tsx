@@ -17,6 +17,7 @@ import Link from "next/link"
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
 import { buildThumbObjectName } from "@/lib/photo-thumbnails"
 import { PhotoViewerItemActions } from "@/components/atoms/PhotoViewerItemActions"
+import { isStaff } from "@/lib/permissions";
 
 
 interface PhotoViewerModalProps {
@@ -99,7 +100,7 @@ export function PhotoViewerModal({ photo,  nextPhoto, onClose, onNext, onPrev }:
   }
   const { user, isAuthenticated } = useAuthStore()
 
-  const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
+  const isStaffUser = isAuthenticated && isStaff(user);
 
   function NextPhotoPreview({ photo }: { photo: Photo }) {
     const previewObjectName =

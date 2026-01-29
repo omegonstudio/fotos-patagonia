@@ -33,6 +33,7 @@ import { mapBackendPhotoToPhoto } from "@/lib/mappers/photos"
 import { getPackSize } from "@/lib/print-formats"
 import { useAuthStore, useCartStore } from "@/lib/store"
 import { isAdmin } from "@/lib/types"
+import { isStaff } from "@/lib/permissions"
 import type { Photo, PrintFormat } from "@/lib/types"
 import Loading from "./loading"
 
@@ -135,10 +136,7 @@ export default function CarritoPage() {
     return map
   }, [mappedPhotos])
 
-  const isStaffUser = useMemo(
-    () => !!(isAuthenticated && user && (isAdmin(user) || user.photographer_id)),
-    [isAuthenticated, user],
-  )
+  const isStaffUser = useMemo(() => !!(isAuthenticated && isStaff(user)), [isAuthenticated, user])
 
   const activeAlbumId = useMemo(() => {
     const albumIds = new Set<string>()

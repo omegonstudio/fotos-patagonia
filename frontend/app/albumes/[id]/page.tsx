@@ -19,6 +19,7 @@ import { formatDateOnly, parseUtcNaiveDate } from "@/lib/datetime"
 import { photoHourKey } from "@/lib/datetime"
 import { findClosestHourWithPhotos } from "@/lib/time-slots"
 import { isAdmin } from "@/lib/types"
+import { isStaff } from "@/lib/permissions"
 import { FilterBarAlbum } from "@/components/molecules/filter-bar-albums"
 import { FilterBarPhotos } from "@/components/molecules/filterBarPhotos"
 
@@ -30,7 +31,7 @@ export default function AlbumDetailPage() {
   const [filters, setFilters] = useState<{ date?: string; place?: string; time?: string }>({})
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const { user,isAuthenticated } = useAuthStore()
-  const isStaffUser = isAuthenticated && user && (isAdmin(user) || user.photographer_id)
+  const isStaffUser = isAuthenticated && isStaff(user)
   const eventDateMs = (value?: string | null) => parseUtcNaiveDate(value)?.getTime() ?? 0
   const [selectedPhotographer, setSelectedPhotographer] = useState("all")
   const [selectedTag, setSelectedTag] = useState("all")
