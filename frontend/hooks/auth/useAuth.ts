@@ -51,7 +51,7 @@ export function useAuth() {
         .catch((err: unknown) => {
           if (err instanceof ApiError && err.status === 401) {
             setUser(null);
-            logoutStore({ reason: "invalid" });
+            useAuthStore.getState().revalidateExpiration("auth/me-401");
           } else if (err instanceof Error) {
             setError(err.message);
           } else {
@@ -67,7 +67,7 @@ export function useAuth() {
       authPromise = request;
       return request;
     },
-    [token, setUser, logoutStore]
+    [token, setUser]
   );
 
   const login = useCallback(

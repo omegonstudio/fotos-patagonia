@@ -57,6 +57,9 @@ export function isTimestampExpired(expiresAt: number | null, offsetMs = 0): bool
   return expiresAt - offsetMs <= Date.now()
 }
 
+// Período de gracia para evitar expiraciones falsas tras sleep.
+export const EXPIRATION_GRACE_MS = 60_000
+
 export function readStoredAuthSnapshot(): StoredAuthSnapshot | null {
   if (typeof window === "undefined") return null
   try {
