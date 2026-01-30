@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Header } from "@/components/organisms/header"
-import { useAlbums } from "@/hooks/albums/useAlbums"
 import { usePhotographers } from "@/hooks/photographers/usePhotographers"
 import Link from "next/link"
 import { Camera, ArrowLeft, Loader2 } from "lucide-react"
@@ -10,29 +9,16 @@ import { Button } from "@/components/ui/button"
 import { AlbumCard } from "@/components/molecules/album-card"
 import { parseUtcNaiveDate } from "@/lib/datetime"
 import { FilterBarAlbum } from "@/components/molecules/filter-bar-albums"
-
-interface AlbumWithDetails {
-  id: number
-  name: string
-  description?: string | null
-  sessions: any[]
-  photoCount: number
-  coverPhotoObjectName?: string
-  location?: string
-  event?: string
-  photographerName?: string
-  photographerId?: number
-  createdAt?: string
-  tags: string[]
-}
+import { useAlbumsList } from "@/hooks/albums/useAlbumsList"
 
 export default function AlbumesPage({ main }: { main?: boolean }) {
   const {
-    data: albumsData,
-    loading: albumsLoading,
-    error: albumsError,
-    refetch: refetchAlbums,
-  } = useAlbums()
+    albums,
+    loading,
+    fetching,
+    error,
+    refetch,
+  } = useAlbumsList()
 
   const { photographers, loading: photographersLoading } = usePhotographers()
 
@@ -40,57 +26,9 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
   const [selectedPhotographer, setSelectedPhotographer] = useState<string>("all")
   const [selectedTag, setSelectedTag] = useState<string>("all")
   const [sortBy, setSortBy] = useState<"recent" | "oldest" | "name">("recent")
+  const [visibleCount, setVisibleCount] = useState(8)
 
-  /**
-   * Normalizamos los álbumes
-   */
-  const albums = useMemo<AlbumWithDetails[]>(() => {
-    if (!Array.isArray(albumsData)) return []
-
-    return albumsData.map((album: any) => {
-      const firstSession = album.sessions?.[0]
-
-      const photoCount =
-        album.sessions?.reduce(
-          (total: number, session: any) =>
-            total + (session.photos?.length || 0),
-          0,
-        ) || 0
-
-      // Tags: soporta album.tags o session.tags
-      const tags: string[] = Array.from(
-        new Set<string>(
-          (
-            album.tags?.map((t: any) => String(t.name ?? t)) ??
-            album.sessions?.flatMap(
-              (s: any) => s.tags?.map((t: any) => String(t.name ?? t)) ?? [],
-            ) ??
-            []
-          ).filter(Boolean)
-        )
-      )
-      
-
-      return {
-        id: album.id,
-        name: album.name,
-        description: album.description,
-        sessions: album.sessions || [],
-        photoCount,
-        coverPhotoObjectName: firstSession?.photos?.[0]?.object_name,
-        location: firstSession?.location,
-        event: firstSession?.event_name,
-        photographerName: firstSession?.photographer?.name,
-        photographerId: firstSession?.photographer_id,
-        createdAt: firstSession?.event_date || new Date().toISOString(),
-        tags,
-      }
-    })
-  }, [albumsData])
-
-  /**
-   * Lista única de tags para el select
-   */
+  /** Tags únicas */
   const allTags = useMemo(() => {
     const set = new Set<string>()
     albums.forEach((album) => {
@@ -102,13 +40,10 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
   const toMillis = (value?: string | null) =>
     parseUtcNaiveDate(value)?.getTime() ?? 0
 
-  /**
-   * Filtros + orden
-   */
+  /** Filtros + orden */
   const filteredAlbums = useMemo(() => {
     let filtered = [...albums]
 
-    // Texto
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       filtered = filtered.filter(
@@ -119,21 +54,18 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
       )
     }
 
-    // Fotógrafo
     if (selectedPhotographer !== "all") {
       filtered = filtered.filter(
         (album) => album.photographerId === Number(selectedPhotographer),
       )
     }
 
-    // Tag
     if (selectedTag !== "all") {
       filtered = filtered.filter((album) =>
         album.tags.includes(selectedTag),
       )
     }
 
-    // Orden
     filtered.sort((a, b) => {
       if (sortBy === "recent") return toMillis(b.createdAt) - toMillis(a.createdAt)
       if (sortBy === "oldest") return toMillis(a.createdAt) - toMillis(b.createdAt)
@@ -143,10 +75,13 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
     return filtered
   }, [albums, searchQuery, selectedPhotographer, selectedTag, sortBy])
 
-  /**
-   * Loading
-   */
-  if (albumsLoading || photographersLoading) {
+  // Resetear el paginado visual al cambiar filtros/orden.
+  useEffect(() => {
+    setVisibleCount(8)
+  }, [searchQuery, selectedPhotographer, selectedTag, sortBy])
+
+  /** Loading inicial */
+  if (loading || photographersLoading) {
     return (
       <div className="min-h-screen bg-background">
         {!main && <Header />}
@@ -164,10 +99,8 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
     )
   }
 
-  /**
-   * Error
-   */
-  if (albumsError) {
+  /** Error */
+  if (error) {
     return (
       <div className="min-h-screen bg-background">
         {!main && <Header />}
@@ -176,7 +109,7 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
             <p className="text-lg text-destructive mb-4">
               Error al cargar los álbumes
             </p>
-            <Button onClick={refetchAlbums}>Reintentar</Button>
+            <Button onClick={refetch}>Reintentar</Button>
           </div>
         </main>
       </div>
@@ -219,7 +152,11 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
           onSortByChange={setSortBy}
         />
 
-     
+        {fetching && (
+          <div className="flex justify-center py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
 
         {/* Grid */}
         {filteredAlbums.length === 0 ? (
@@ -242,9 +179,22 @@ export default function AlbumesPage({ main }: { main?: boolean }) {
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredAlbums.map((album) => (
+            {filteredAlbums.slice(0, visibleCount).map((album) => (
               <AlbumCard key={album.id} album={album} />
             ))}
+          </div>
+        )}
+
+        {filteredAlbums.length > visibleCount && (
+          <div className="mt-10 flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setVisibleCount((prev) => prev + 4)}
+              className="rounded-xl"
+            >
+              Ver más
+            </Button>
           </div>
         )}
       </main>

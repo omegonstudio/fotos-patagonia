@@ -1,32 +1,45 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Camera, MapPin, Calendar } from "lucide-react";
+import { Camera, Calendar } from "lucide-react";
 import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl";
 import { buildThumbObjectName } from "@/lib/photo-thumbnails";
 import { formatDateOnly } from "@/lib/datetime";
+import type { AlbumListItem } from "@/lib/types";
 
-// Mantenemos la misma definición de tipo que en la página
-interface AlbumWithDetails {
-  id: number;
-  name: string;
-  description?: string | null;
-  sessions: any[];
-  photoCount: number;
-  coverPhotoObjectName?: string; // <-- Cambio de nombre
-  location?: string;
-  event?: string;
-  photographerName?: string;
-  photographerId?: number;
-  createdAt?: string;
-}
+export function AlbumCard({ album }: { album: AlbumListItem }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
 
-export function AlbumCard({ album }: { album: AlbumWithDetails }) {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isVisible) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect(); // evitar re-disparos
+        }
+      },
+      { rootMargin: "100px" },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isVisible]);
+
   const thumbObjectName = buildThumbObjectName(album.coverPhotoObjectName);
-  const { url: coverPhotoUrl, loading: isLoading } = usePresignedUrl(
-    thumbObjectName
-  );
+  const { url: coverPhotoUrl, loading: isLoading } = usePresignedUrl(thumbObjectName, {
+    enabled: isVisible,
+  });
+
   const hasPhotos = album.photoCount > 0;
   const photoLabel = hasPhotos ? album.photoCount : "Sin fotos";
   const badgeAriaLabel = hasPhotos
@@ -35,14 +48,19 @@ export function AlbumCard({ album }: { album: AlbumWithDetails }) {
 
   return (
     <Link href={`/albumes/${album.id}`} className="group">
-      <div className="overflow-hidden rounded-2xl bg-card shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+      <div
+        ref={containerRef}
+        className="overflow-hidden rounded-2xl bg-card shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+      >
         {/* Cover Image */}
         <div className="relative aspect-square overflow-hidden bg-secondary">
-          {isLoading ? (
+          {!isVisible || isLoading ? (
             <div className="flex h-full w-full animate-pulse items-center justify-center bg-gray-200">
               <Camera className="h-16 w-16 text-gray-400" />
             </div>
-          ) : album.coverPhotoObjectName ? (
+          ) : album.coverPhotoObjectName &&
+            coverPhotoUrl &&
+            coverPhotoUrl !== "/placeholder.svg" ? (
             <Image
               src={coverPhotoUrl}
               alt={album.name}
@@ -55,6 +73,7 @@ export function AlbumCard({ album }: { album: AlbumWithDetails }) {
               <Camera className="h-16 w-16 text-muted-foreground" />
             </div>
           )}
+
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
           {/* Photo Count Badge */}
@@ -74,15 +93,7 @@ export function AlbumCard({ album }: { album: AlbumWithDetails }) {
             {album.name}
           </h3>
 
-{/*           {album.event && <p className="mb-2 text-sm text-muted-foreground line-clamp-1">{album.event}</p>}
- */}
           <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-           {/*  {album.location && (
-              <div className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                <span className="line-clamp-1">{album.location}</span>
-              </div>
-            )} */}
             {album.createdAt && (
               <div className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
@@ -90,12 +101,6 @@ export function AlbumCard({ album }: { album: AlbumWithDetails }) {
               </div>
             )}
           </div>
-
-         {/*  {album.photographerName && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Por {album.photographerName}
-            </p>
-          )} */}
         </div>
       </div>
     </Link>

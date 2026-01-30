@@ -15,14 +15,12 @@ export function usePresignedUrl(objectName?: string | null, options?: { enabled?
   const { enabled = true } = options ?? {}
 
   const cachedInitialUrl =
-  objectName && urlCache.has(objectName)
-    ? urlCache.get(objectName)!
-    : "/placeholder.svg"
+    objectName && urlCache.has(objectName) ? urlCache.get(objectName)! : PLACEHOLDER_URL
 
-const [url, setUrl] = useState<string>(cachedInitialUrl)
-const [loading, setLoading] = useState<boolean>(
-  !!objectName && !urlCache.has(objectName)
-)
+  const [url, setUrl] = useState<string>(cachedInitialUrl)
+  const [loading, setLoading] = useState<boolean>(
+    Boolean(enabled && objectName && !urlCache.has(objectName)),
+  )
 
   const [error, setError] = useState<string | null>(null)
 
@@ -73,7 +71,7 @@ const [loading, setLoading] = useState<boolean>(
     return () => {
       cancelled = true
     }
-  }, [objectName])
+  }, [objectName, enabled])
 
   return { url, loading, error }
 }

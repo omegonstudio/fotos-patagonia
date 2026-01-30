@@ -361,3 +361,29 @@ export interface PhotoCombo {
   isFullAlbum: boolean; // Si es un combo de álbum completo
   createdAt?: string; // Solo frontend, no viene del backend
 }
+
+// Para listados (público + admin)
+export interface AlbumListItem {
+  id: number
+  name: string
+  description?: string | null
+  coverPhotoObjectName?: string
+  createdAt?: string
+  location?: string
+  event?: string
+  photographerName?: string
+  photographerId?: number
+  photoCount: number
+  tags: string[]
+}
+
+// Para detalle / ABM
+export interface AlbumDetail {
+  id: number
+  name: string
+  description?: string | null
+  default_photo_price?: number
+  sessions?: any[]
+  tags?: any[]
+  combos?: any[]
+}
