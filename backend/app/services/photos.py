@@ -18,6 +18,7 @@ from sqlalchemy.exc import NoResultFound
 class PhotoCompletionRequest(BaseModel):
     object_name: str
     original_filename: str
+    contentHash: str # Añadido para detección de duplicados
     description: str | None = None
     price: float
     photographer_id: int
@@ -134,6 +135,23 @@ class PhotoService(BaseService):
         )
         return [self._generate_presigned_urls(p) for p in photos]
 
+    def check_duplicate_photos(self, hashes: List[str], photographer_id: int) -> List[str]:
+        """
+        Checks if any of the given photo hashes already exist for a specific photographer.
+        Returns a list of content hashes that are found to be duplicates.
+        """
+        if not hashes:
+            return []
+        
+        # Buscar fotos que coincidan con los hashes y el fotógrafo
+        existing_photos = self.db.query(Photo.content_hash).filter(
+            Photo.content_hash.in_(hashes),
+            Photo.photographer_id == photographer_id
+        ).all()
+        
+        # Extraer los hashes de las fotos existentes
+        duplicate_hashes = [p.content_hash for p in existing_photos if p.content_hash is not None]
+        return duplicate_hashes
 
     def create_photo(self, photo_in: PhotoCreateSchema) -> Photo:
         """Creates a new photo record in the database."""
@@ -317,6 +335,7 @@ class PhotoService(BaseService):
                     description=photo_data.description,
                     price=price_to_use,
                     object_name=photo_data.object_name,
+                    content_hash=photo_data.contentHash, # Incluir el hash
                     photographer_id=photo_data.photographer_id,
                     session_id=batch_session_id,
                 )
