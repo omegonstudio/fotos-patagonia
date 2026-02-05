@@ -368,7 +368,7 @@ export default function DescargarPage() {
             <CardContent className="space-y-2 text-sm text-muted-foreground">
               <p>• Las fotos están disponibles en alta resolución</p>
               <p>• Puedes descargarlas cuantas veces necesites</p>
-              <p>• Si tienes problemas, contacta a soporte@fotospatagonia.com</p>
+              <p>• Si tienes problemas, contacta a somosfotospatagonia@gmail.com</p>
             </CardContent>
           </Card>
         </div>

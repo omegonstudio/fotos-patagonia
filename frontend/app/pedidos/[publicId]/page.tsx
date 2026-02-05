@@ -162,9 +162,26 @@ export default function PublicOrderDetailPage() {
     return statusConfig[status as keyof typeof statusConfig]
   }
 
-  const allOrderPhotos = (order?.items ?? [])
+ /*  const allOrderPhotos = (order?.items ?? [])
     .map((item) => item.photo)
-    .filter((photo): photo is NonNullable<OrderItemPhoto> => Boolean(photo))
+    .filter((photo): photo is NonNullable<OrderItemPhoto> => Boolean(photo)) */
+
+    const digitalOrderPhotos = useMemo(() => {
+      if (!order?.items) return [];
+    
+      const seen = new Set<number>();
+    
+      return order.items
+        .filter((item) => !item.format) // 👉 SOLO DIGITALES
+        .map((item) => item.photo)
+        .filter((photo): photo is OrderItemPhoto => {
+          if (!photo) return false;
+          if (seen.has(photo.id)) return false;
+          seen.add(photo.id);
+          return true;
+        });
+    }, [order?.items]);
+    
 
   const statusInfo = getStatusBadge(order?.order_status)
 
@@ -197,11 +214,11 @@ export default function PublicOrderDetailPage() {
 
 
   const handleDownloadAll = async () => {
-    if (!allOrderPhotos.length || isDownloading) return;
+    if (!digitalOrderPhotos.length || isDownloading) return;
   
     setIsDownloading(true);
     try {
-      const downloadPromises = allOrderPhotos.map(async (photo) => {
+      const downloadPromises = digitalOrderPhotos.map(async (photo) => {
         const url = photo.url || photo.watermark_url;
         if (!url) return;
   
@@ -279,11 +296,11 @@ export default function PublicOrderDetailPage() {
           </Card>
 
           {/* Semántica de ítems para futuras vistas de UI */}
-          <Card className="mb-6 rounded-2xl border-gray-200 shadow-lg">
+        {/*   <Card className="mb-6 rounded-2xl border-gray-200 shadow-lg">
             <CardHeader>
               <CardTitle>Detalle de ítems</CardTitle>
               <CardDescription>
-                Separá en UI: fotos digitales vs ítems de impresión (formato aún no persistido en backend).
+                Separá en UI: fotos digitales vs ítems de impresión 
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
@@ -321,7 +338,7 @@ export default function PublicOrderDetailPage() {
                 )}
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
 
           {/* Download All Button - Mostrar solo si está pagado/completado */}
           {isPaidOrCompleted && (
@@ -332,21 +349,21 @@ export default function PublicOrderDetailPage() {
                 className="w-full rounded-xl bg-primary py-6 text-lg font-semibold text-foreground hover:bg-primary-hover"
               >
                 <Download className="mr-2 h-5 w-5" />
-                {isDownloading ? "Descargando..." : `Descargar Todas las Fotos (${allOrderPhotos.length})`}
+                {isDownloading ? "Descargando..." : `Descargar Todas las Fotos (${digitalOrderPhotos.length})`}
               </Button>
             </div>
           )}
 
           {/* Photos Grid - Mostrar solo si hay fotos y si está pagado/completado */}
-          {allOrderPhotos.length > 0 && isPaidOrCompleted && (
+          {digitalOrderPhotos.length > 0 && isPaidOrCompleted && (
             <Card className="rounded-2xl border-gray-200 shadow-lg">
               <CardHeader>
-                <CardTitle>Tus Fotos ({allOrderPhotos.length})</CardTitle>
+                <CardTitle>Tus Fotos ({digitalOrderPhotos.length})</CardTitle>
                 <CardDescription>Haz clic en cada foto para descargarla individualmente</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                  {allOrderPhotos.map((photo) => (
+                  {digitalOrderPhotos.map((photo) => (
                     <PhotoGridItem key={photo.id} photo={photo} />
                   ))}
                 </div>
@@ -362,7 +379,7 @@ export default function PublicOrderDetailPage() {
             <CardContent className="space-y-2 text-sm text-muted-foreground">
               <p>• Las fotos están disponibles en alta resolución</p>
               <p>• Puedes descargarlas cuantas veces necesites</p>
-              <p>• Si tienes problemas, contacta a soporte@fotospatagonia.com</p>
+              <p>• Si tienes problemas, contacta a somosfotospatagonia@gmail.com</p>
             </CardContent>
           </Card>
         </div>

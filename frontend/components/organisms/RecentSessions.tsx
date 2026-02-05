@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { formatDateTime } from "@/lib/datetime";
+
 
 export function RecentSessions() {
   const { data: recentSessions, loading, error } = useRecentSessions();
@@ -62,8 +64,12 @@ export function RecentSessions() {
                       <div className="flex-1">
                         <p className="font-semibold">{session.photographer_name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(session.start_time).toLocaleString()}
+                          {formatDateTime(session.start_time, {
+                            month: "short",
+                            includeYear: false,
+                          })}
                         </p>
+
                       </div>
                       <div className="text-right">
                         <p className="font-semibold">
