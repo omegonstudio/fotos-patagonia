@@ -36,6 +36,7 @@ import { isAdmin } from "@/lib/types"
 import { isStaff } from "@/lib/permissions"
 import type { Photo, PrintFormat } from "@/lib/types"
 import Loading from "./loading"
+import { formatARS } from "@/lib/formatCurrency"
 
 type DeleteAction =
   | { type: "clear-cart" }
@@ -394,32 +395,35 @@ export default function CarritoPage() {
   }, [activeAlbumId, setSelectedCombo])
 
   useEffect(() => {
-    if (!digitalManualEnabled) {
-      const nextCombo = autoSelectedCombo
-      const sameCombo =
-        (!selectedCombo && !nextCombo) ||
-        (selectedCombo &&
-          nextCombo &&
-          selectedCombo.id === nextCombo.id &&
-          selectedCombo.price === nextCombo.price &&
-          selectedCombo.totalPhotos === nextCombo.totalPhotos)
-
-      if (!sameCombo) {
-        setSelectedCombo(nextCombo)
-        return
-      }
+    if (digitalManualEnabled) return
+  
+    const nextCombo = autoSelectedCombo
+    const sameCombo =
+      (!selectedCombo && !nextCombo) ||
+      (selectedCombo &&
+        nextCombo &&
+        selectedCombo.id === nextCombo.id &&
+        selectedCombo.price === nextCombo.price &&
+        selectedCombo.totalPhotos === nextCombo.totalPhotos)
+  
+    if (!sameCombo) {
+      setSelectedCombo(nextCombo)
     }
+  }, [autoSelectedCombo, digitalManualEnabled, selectedCombo])
+  
 
+  useEffect(() => {
     updateTotals(mappedPhotos, { isStaff: isStaffUser })
   }, [
-    printSelections,
-    discountInfo,
     mappedPhotosKey,
-    isStaffUser,
+    printSelections,
     selectedCombo,
-    autoSelectedCombo,
+    discountInfo,
+    printsManualEnabled,
     digitalManualEnabled,
+    isStaffUser,
   ])
+  
 
   useEffect(() => {
     if (!isStaffUser) {
@@ -444,6 +448,7 @@ export default function CarritoPage() {
   const effectiveSubtotalImpresas = printsSubtotalEffective
   const effectiveSubtotalFotos = digitalSubtotalEffective
   const effectiveTotal = totalEffective
+  const finalTotal = total
 
   // --- Handlers
   const handleEmailChange = (value: string) => {
@@ -901,7 +906,7 @@ export default function CarritoPage() {
                 )}
               </div>
 
-              {false && (
+              {isStaffUser && (
                 <div className="space-y-3 border-t border-gray-200 pt-6">
                   <Label className="flex items-center gap-2 text-sm font-medium">
                     <Tag className="h-4 w-4" />
@@ -910,7 +915,7 @@ export default function CarritoPage() {
                   <div className="flex gap-2">
                     <Input
                       type="text"
-                      placeholder="Ej: PATAGONIA10"
+                      placeholder={discountCode ? discountCode : "Ej: PATAGONIA10"}
                       value={localDiscountCode}
                       onChange={(e) => {
                         setLocalDiscountCode(e.target.value)
@@ -964,7 +969,7 @@ export default function CarritoPage() {
                     {comboError && <p className="text-xs text-destructive">{comboError}</p>}
                     {!combosLoading && !isLoadingAlbumCombos && (
                       <div className="space-y-2 rounded-lg bg-muted p-3 text-xs">
-                        <p className="font-medium">Combos aplicados automáticamente</p>
+                       
                         {applicableCombos.length === 0 ? (
                           <p className="text-muted-foreground">
                             No hay combos disponibles para este álbum por el momento.
@@ -991,7 +996,7 @@ export default function CarritoPage() {
                                     className="flex items-center justify-between gap-2"
                                   >
                                     <span>
-                                      • {count} x {combo.totalPhotos} foto
+                                      • {count} combo{count === 1 ? "" : "s"} x {combo.totalPhotos} foto
                                       {combo.totalPhotos === 1 ? "" : "s"}
                                     </span>
                                     <span>${combo.price}</span>
@@ -1003,7 +1008,7 @@ export default function CarritoPage() {
                               <p className="text-muted-foreground">
                                 {comboResolution.remainingPhotos} foto
                                 {comboResolution.remainingPhotos === 1 ? "" : "s"} fuera de
-                                combo a ${digitalUnitPrice} c/u.
+                                combo a {formatARS(digitalUnitPrice)}{comboResolution.remainingPhotos === 1 ? "" : "c/u"}.
                               </p>
                             )}
                             {digitalManualEnabled && (
@@ -1013,24 +1018,24 @@ export default function CarritoPage() {
                             )}
                             {!digitalManualEnabled && autoDigitalSubtotal !== null && (
                               <div className="space-y-1 text-muted-foreground">
-                                <p className="text-foreground">
+                               {/*  <p className="text-foreground">
                                   Precio original (sin combo): ${Math.round(originalPhotosSubtotal)}
-                                </p>
-                                <p className="text-foreground">
+                                </p> */}
+                              {/*   <p className="text-foreground">
                                   Precio con combo: ${Math.round(autoDigitalSubtotal)}
-                                </p>
-                                {originalPhotosSubtotal > autoDigitalSubtotal && (
+                                </p> */}
+                                { (
                                   <p className="text-green-600 dark:text-green-400">
-                                    Ahorro: ${Math.round(originalPhotosSubtotal - autoDigitalSubtotal)}
+                                    Ahorro: {formatARS(originalPhotosSubtotal - autoDigitalSubtotal)}
                                   </p>
                                 )}
                               </div>
                             )}
-                            {!digitalManualEnabled && autoDigitalSubtotal !== null && (
+                        {/*     {!digitalManualEnabled && autoDigitalSubtotal !== null && (
                               <p className="text-green-600 dark:text-green-400">
                                 Subtotal digital estimado: ${Math.round(autoDigitalSubtotal)}
                               </p>
-                            )}
+                            )} */}
                           </>
                         )}
                       </div>
@@ -1163,13 +1168,31 @@ export default function CarritoPage() {
                     </div>
 
                     <div className="space-y-2 pt-3">
+                      {discountInfo?.type === "percent" && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            Precio original
+                          </span>
+                          <span className="font-medium line-through text-muted-foreground">
+                            ${Math.round(effectiveTotal)}
+                          </span>
+                        </div>
+                      )}
+                      {discountInfo?.type === "percent" && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Descuento</span>
+                          <span className="font-medium text-green-600 dark:text-green-400">
+                            –{discountInfo.value}%
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2">
                         <Label className="whitespace-nowrap text-lg font-bold">Total:</Label>
                         <div className="flex flex-1 items-center gap-1">
                           <span className="text-lg font-bold text-primary">$</span>
                           <Input
                             type="number"
-                            value={effectiveTotal}
+                            value={Math.round(finalTotal)}
                             readOnly
                             className="h-10 cursor-not-allowed rounded-lg bg-muted text-lg font-bold text-primary"
                           />
