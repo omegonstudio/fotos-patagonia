@@ -284,9 +284,13 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
     let createdPhotos: BackendPhoto[] = [];
 
     try {
-      // 0) Comprimir originales para reducir peso antes de pedir URLs
+      // 0) Calcular hash de originales y LUEGO comprimir
       const filesWithMetadata = await Promise.all(
         files.map(async (file) => {
+          // 1. Calcular hash del archivo ORIGINAL
+          const contentHash = await calculateFileHash(file);
+          
+          // 2. Comprimir la imagen (para la subida)
           const processedFile = await compressImageVisuallyLossless(file).catch((err) => {
             console.warn(
               "⚠️ Compresión fallida, se usa original:",
@@ -295,12 +299,13 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
             );
             return file;
           });
-          const contentHash = await calculateFileHash(processedFile);
+
           return {
-            file: processedFile,
+            file: processedFile, // el archivo comprimido para subir
+            originalFile: file, // mantenemos referencia al original si es necesario
             filename: file.name,
             contentType: file.type,
-            contentHash,
+            contentHash, // el hash del archivo ORIGINAL
           };
         })
       );
@@ -618,14 +623,17 @@ export function usePhotoUpload(refetchPhotos?: () => void) {
 
       if (successfulOriginals.length > 0) {
         const photosData: PhotoCompletionData[] = successfulOriginals.map(
-          (result) => ({
-            object_name: result.objectName,
-            original_filename: result.filename,
-            contentHash: uploadTasks.find(t => t.objectName === result.objectName)?.contentHash || '',
-            description: description ?? undefined,
-            price,
-            photographer_id,
-          })
+          (result) => {
+            const task = uploadTasks.find(t => t.urlData.object_name === result.objectName);
+            return {
+              object_name: result.objectName,
+              original_filename: result.filename,
+              contentHash: task?.contentHash || '',
+              description: description ?? undefined,
+              price,
+              photographer_id,
+            };
+          }
         );
 
         createdPhotos = await completeUpload(photosData, album_id);
