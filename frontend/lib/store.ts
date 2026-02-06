@@ -296,16 +296,15 @@ export const useCartStore = create<CartStore>()(
       applyDiscount: (discount) => {
         set((state) => {
           const totalEffective = state.printsSubtotalEffective + state.digitalSubtotalEffective
-          const total = computeDiscountedTotal(totalEffective, {
-            type: discount.type,
-            value: discount.value,
-          })
-      
+          const nextDiscountInfo = { type: discount.type, value: discount.value } as const
+          const total = computeDiscountedTotal(totalEffective, nextDiscountInfo)
+
           return {
             discountCode: discount.code,
-            discountInfo: { type: discount.type, value: discount.value },
+            discountInfo: nextDiscountInfo,
+            // Mantener el contrato: subtotal/totalEffective = pre-descuento
             subtotal: totalEffective,
-            totalEffective,
+            // No recalcular subtotales aquí; updateTotals es la fuente de verdad para eso.
             total,
           }
         })
