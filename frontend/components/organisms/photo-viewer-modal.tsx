@@ -18,6 +18,7 @@ import { usePresignedUrl } from "@/hooks/photos/usePresignedUrl"
 import { buildThumbObjectName } from "@/lib/photo-thumbnails"
 import { PhotoViewerItemActions } from "@/components/atoms/PhotoViewerItemActions"
 import { isStaff } from "@/lib/permissions";
+import { useGesture } from "@use-gesture/react"
 
 
 interface PhotoViewerModalProps {
@@ -130,6 +131,24 @@ export function PhotoViewerModal({ photo,  nextPhoto, onClose, onNext, onPrev }:
     )
   }
   
+  const bind = useGesture(
+    {
+      onDragEnd: ({ movement: [mx], velocity: [vx], direction: [dx], event }) => {
+        if ((event.target as HTMLElement).closest("button")) return
+  
+        if (mx < -80 || (vx > 0.2 && dx < 0)) onNext?.()
+        if (mx > 80 || (vx > 0.2 && dx > 0)) onPrev?.()
+      },
+    },
+    {
+      drag: {
+        axis: "x",
+        filterTaps: true,
+      },
+    }
+  )
+  
+  
 
   
 
@@ -164,7 +183,12 @@ export function PhotoViewerModal({ photo,  nextPhoto, onClose, onNext, onPrev }:
           <div className="flex-1 m-4 lg:m-10 max-h-[90vh]">
          
           <div className="photo-viewer-mobile lg:hidden flex flex-col h-full">
-          <div className="photo-viewer-mobile-item flex-1 relative">
+          <div
+            {...bind()}
+            style={{ touchAction: "pan-y" }}
+            className="photo-viewer-mobile-item flex-1 relative"
+          >
+
 
                 {displayUrl && (
                   <WatermarkedImage
@@ -329,7 +353,13 @@ export function PhotoViewerModal({ photo,  nextPhoto, onClose, onNext, onPrev }:
         </div>
       </div>
       {isFullscreen && (
-  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black">
+        <div
+          {...bind()}
+          style={{ touchAction: "pan-y" }}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black"
+        >
+
+
     {/* Cerrar */}
     <button
       onClick={() => setIsFullscreen(false)}
@@ -352,13 +382,26 @@ export function PhotoViewerModal({ photo,  nextPhoto, onClose, onNext, onPrev }:
     >
       <Heart className={cn("h-6 w-6", isFavorite && "fill-current")} />
     </button>
+    <button
+      onClick={onPrev}
+      className="absolute left-6 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+    >
+      <ChevronLeft className="h-8 w-8" />
+    </button>
+
+    <button
+      onClick={onNext}
+      className="absolute right-6 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+    >
+      <ChevronRight className="h-8 w-8" />
+    </button>
 
     {/* Imagen alta calidad */}
     {originalUrl && (
       <img
         src={originalUrl}
         alt={`Foto en alta resolución de ${photo.place || "Patagonia"}`}
-        className="max-h-screen max-w-screen object-contain"
+        className="max-h-screen max-w-screen object-contain pointer-events-none select-none"
         draggable={false}
         onContextMenu={(e) => e.preventDefault()}
       />
