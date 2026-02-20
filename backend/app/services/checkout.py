@@ -1,8 +1,17 @@
 import mercadopago
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
-from models.order import Order, OrderItem, OrderCreateSchema, PaymentMethod
+from models.order import (
+    Order,
+    OrderItem,
+    OrderCreateSchema,
+    PaymentMethod,
+    PaymentStatus,
+    OrderStatus,
+)
+from models.photo import Photo
 from services.base import BaseService
 from core.config import settings
 
@@ -138,6 +147,33 @@ class CheckoutService(BaseService):
 
                 print(f"✅ Payment with ID {payment_id} was approved for Order ID: {order_id}")
                 
+                # --- Validar monto cobrado vs total de la orden ---
+                order = self.db.query(Order).filter(Order.id == order_id).first()
+                if not order:
+                    print(f"ERROR: Payment {payment_id} approved but Order ID {order_id} does not exist.")
+                    return {"status": "error, order not found"}
+
+                try:
+                    paid_amount = Decimal(str(payment.get("transaction_amount"))).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP
+                    )
+                    order_total = Decimal(str(order.total)).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP
+                    )
+                except (InvalidOperation, TypeError):
+                    print(
+                        f"ERROR: Could not parse amounts for payment {payment_id}. "
+                        f"transaction_amount={payment.get('transaction_amount')} order.total={order.total}"
+                    )
+                    return {"status": "error, invalid amounts"}
+
+                if paid_amount != order_total:
+                    print(
+                        f"❌ Amount mismatch for payment {payment_id} / order {order_id}: "
+                        f"paid={paid_amount} expected={order_total}. Not confirming order."
+                    )
+                    return {"status": "error, amount mismatch"}
+                
                 # --- Usar el servicio de órdenes para marcar como pagada ---
                 from services.orders import OrderService
 
@@ -175,30 +211,95 @@ class CheckoutService(BaseService):
         return {"message": "CheckoutService: Register local sale logic"}
 
     def create_order(self, order_in: OrderCreateSchema) -> Order:
+        # --- Blindaje de precios ---
+        # Ignorar order_in.total e item_in.price; recalcular desde DB (Photo.price).
+        if not order_in.items or len(order_in.items) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot create an order without items.",
+            )
+
+        # Validar cantidades primero y recolectar IDs
+        requested_photo_ids: list[int] = []
+        for item in order_in.items:
+            if not item.photo_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Order item is missing photo_id.",
+                )
+            if not item.quantity or item.quantity <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid quantity for photo_id={item.photo_id}.",
+                )
+            requested_photo_ids.append(int(item.photo_id))
+
+        # Cargar fotos en una sola query
+        photos = (
+            self.db.query(Photo)
+            .filter(Photo.id.in_(list(set(requested_photo_ids))))
+            .all()
+        )
+        photo_map = {p.id: p for p in photos}
+
+        missing = [pid for pid in set(requested_photo_ids) if pid not in photo_map]
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Photos not found: {sorted(missing)}",
+            )
+
+        # Calcular total server-side con precisión decimal
+        total = Decimal("0.00")
+        computed_items: list[tuple[int, Decimal, int, str | None]] = []
+        for item in order_in.items:
+            photo = photo_map[int(item.photo_id)]
+            unit = Decimal(str(photo.price)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            if unit <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cannot create an order with non-positive photo price for photo_id={photo.id}.",
+                )
+            qty = int(item.quantity or 1)
+            line_total = (unit * Decimal(qty)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            total += line_total
+
+            # format se mantiene (compatibilidad), pero el precio SIEMPRE viene de Photo.price
+            computed_items.append((photo.id, unit, qty, item.format))
+
+        total = total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if total <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Order total must be greater than 0.",
+            )
+
         db_order = Order(
             user_id=order_in.user_id,
             guest_id=order_in.guest_id,
             customer_email=order_in.customer_email,
-            total=order_in.total,
+            total=float(total),
             payment_method=order_in.payment_method,
-            payment_status=order_in.payment_status,
-            order_status=order_in.order_status,
-            external_payment_id=order_in.external_payment_id,
-            discount_id=order_in.discount_id
+            # Forzar estados seguros
+            payment_status=PaymentStatus.PENDING,
+            order_status=OrderStatus.PENDING,
+            external_payment_id=None,
+            discount_id=order_in.discount_id,
         )
         self.db.add(db_order)
-        self.db.flush()  # Flush to get the order ID
+        self.db.flush()  # obtener ID de orden sin commit
 
-        for item_in in order_in.items:
-            db_order_item = OrderItem(
-                order_id=db_order.id,
-                photo_id=item_in.photo_id,
-                price=item_in.price,
-                quantity=item_in.quantity,
-                format=item_in.format
+        for (photo_id, unit_price, qty, fmt) in computed_items:
+            self.db.add(
+                OrderItem(
+                    order_id=db_order.id,
+                    photo_id=photo_id,
+                    price=float(unit_price),
+                    quantity=qty,
+                    format=fmt,
+                )
             )
-            self.db.add(db_order_item)
-        
+
         self.db.commit()
         self.db.refresh(db_order)
 

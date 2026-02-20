@@ -212,7 +212,24 @@ class OrderService(BaseService):
         Marks an order as paid, processes earnings, and sends a confirmation email.
         This is the central function for confirming a payment.
         """
-        order = self.get_order_details(order_id)
+        # --- Concurrencia: bloquear la orden durante la confirmación ---
+        # Esto evita doble procesamiento si llegan dos webhooks al mismo tiempo.
+        order: Order | None = (
+            self.db.query(Order)
+            .options(
+                joinedload(Order.user),
+                joinedload(Order.items).joinedload(OrderItem.photo).joinedload(Photo.session),
+                joinedload(Order.discount),
+                joinedload(Order.earnings),
+            )
+            .filter(Order.id == order_id)
+            .with_for_update()
+            .first()
+        )
+        if not order:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+        # Rechequear dentro del lock
         if order.payment_status == PaymentStatus.PAID:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -224,10 +241,13 @@ class OrderService(BaseService):
         order.order_status = OrderStatus.PAID
         if external_payment_id:
             order.external_payment_id = external_payment_id
-        
-        self.process_earnings_for_order(order)
 
-        self._save_and_refresh(order)
+        # Persistir estado + earnings en una única confirmación
+        # (Nota: la idempotencia se garantiza por el lock + chequeo de estado)
+        self.process_earnings_for_order(order)
+        self.db.add(order)
+        self.db.commit()
+        self.db.refresh(order)
 
         # --- Vaciar el carrito asociado a la orden ---
         cart_service = CartService(self.db)

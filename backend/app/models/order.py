@@ -117,7 +117,9 @@ class Order(Base):
     payment_method = Column(SQLAlchemyEnum(PaymentMethod), nullable=False)
     payment_status = Column(SQLAlchemyEnum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False)
     order_status = Column(SQLAlchemyEnum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
-    external_payment_id = Column(String, nullable=True)
+    # ID externo del proveedor de pago (ej. Mercado Pago payment_id).
+    # Debe ser único para evitar asociar el mismo pago a múltiples órdenes.
+    external_payment_id = Column(String, nullable=True, unique=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone(timedelta(hours=-3))), nullable=True)
 
     user = relationship("User", back_populates="orders")
