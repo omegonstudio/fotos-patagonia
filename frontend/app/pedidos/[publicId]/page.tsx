@@ -15,6 +15,7 @@ import { apiFetch } from "@/lib/api"
 import Image from "next/image"
 import { Logo } from "@/components/atoms/logo"
 import { formatDateTime } from "@/lib/datetime"
+import { downloadFile, downloadMultiple } from "@/lib/download"
 
 // Define un tipo para el pedido que incluye los detalles de las fotos en los items
 // Usamos OrderItemPhoto directamente, ya que ahora el backend las devuelve con url y watermark_url
@@ -44,39 +45,6 @@ const splitOrderItems = (items: OrderItem[]) => {
   return { digital, print };
 };
 
-/* const triggerFileDownload = (url: string, filename: string) => {
-  if (!url || typeof document === "undefined") return
-  const anchor = document.createElement("a")
-  anchor.href = url
-  anchor.download = filename
-  anchor.target = "_blank"
-  anchor.rel = "noopener noreferrer" // Seguridad
-  document.body.appendChild(anchor)
-  anchor.click()
-  document.body.removeChild(anchor)
-}
- */
-const triggerFileDownload = async (url: string, filename: string) => {
-  try {
-    const response = await fetch(url, { credentials: "omit" });
-    if (!response.ok) throw new Error("Error al descargar archivo");
-
-    const blob = await response.blob();
-    const objectUrl = window.URL.createObjectURL(blob);
-
-    const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = filename;
-    document.body.appendChild(anchor);
-    anchor.click();
-
-    document.body.removeChild(anchor);
-    window.URL.revokeObjectURL(objectUrl);
-  } catch (error) {
-    console.error("Download failed", error);
-  }
-};
-
 function PhotoGridItem({ photo }: { photo: OrderItemPhoto }) {
   // El backend ya debería proveer photo.url y photo.watermark_url
   // Usamos photo.url directamente, ya que es la versión sin marca de agua
@@ -95,7 +63,7 @@ function PhotoGridItem({ photo }: { photo: OrderItemPhoto }) {
       <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
         <Button
           size="sm"
-          onClick={() => triggerFileDownload(imageUrl, buildPhotoFilename(photo))}
+          onClick={() => downloadFile(imageUrl, buildPhotoFilename(photo))}
           className="gap-2 rounded-lg bg-primary text-foreground"
         >
           <Download className="h-4 w-4" />
@@ -218,15 +186,15 @@ export default function PublicOrderDetailPage() {
   
     setIsDownloading(true);
     try {
-      const downloadPromises = digitalOrderPhotos.map(async (photo) => {
-        const url = photo.url || photo.watermark_url;
-        if (!url) return;
-  
-        await triggerFileDownload(url, buildPhotoFilename(photo));
-        // Pausa mínima para evitar bloqueo del navegador en descargas sucesivas
-        await new Promise((r) => setTimeout(r, 300));
-      });
-      await Promise.all(downloadPromises);
+      const files = digitalOrderPhotos
+        .map((photo) => {
+          const url = photo.url || photo.watermark_url
+          if (!url) return null
+          return { url, filename: buildPhotoFilename(photo) }
+        })
+        .filter((f): f is { url: string; filename: string } => Boolean(f))
+
+      await downloadMultiple(files)
     } catch (error) {
       console.error("Error descargando fotos", error);
     } finally {
