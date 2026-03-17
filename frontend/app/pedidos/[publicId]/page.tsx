@@ -15,7 +15,7 @@ import { apiFetch } from "@/lib/api"
 import Image from "next/image"
 import { Logo } from "@/components/atoms/logo"
 import { formatDateTime } from "@/lib/datetime"
-import { downloadFile, downloadMultiple } from "@/lib/download"
+import { downloadFile, downloadMultiple, isIOS } from "@/lib/download"
 
 // Define un tipo para el pedido que incluye los detalles de las fotos en los items
 // Usamos OrderItemPhoto directamente, ya que ahora el backend las devuelve con url y watermark_url
@@ -60,14 +60,14 @@ function PhotoGridItem({ photo }: { photo: OrderItemPhoto }) {
         objectFit="cover"
         className="transition-transform group-hover:scale-105"
       />
-      <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+      {/* Botón flotante en esquina inferior derecha */}
+      <div className="absolute bottom-2 right-2">
         <Button
-          size="sm"
+          size="icon"
           onClick={() => downloadFile(imageUrl, buildPhotoFilename(photo))}
-          className="gap-2 rounded-lg bg-primary text-foreground"
+          className="rounded-full bg-black/70 backdrop-blur"
         >
           <Download className="h-4 w-4" />
-          Descargar
         </Button>
       </div>
     </div>
@@ -81,6 +81,7 @@ export default function PublicOrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [iosDownloadMessage, setIosDownloadMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (publicId) {
@@ -196,7 +197,11 @@ export default function PublicOrderDetailPage() {
 
       await downloadMultiple(files)
     } catch (error) {
-      console.error("Error descargando fotos", error);
+      if (error instanceof Error && error.message === "MULTIPLE_DOWNLOAD_NOT_SUPPORTED_ON_IOS") {
+        setIosDownloadMessage("En iPhone/iPad, las descargas múltiples no están soportadas. Tocá cada foto individualmente para descargarla o mantené presionada para guardar.")
+      } else {
+        console.error("Error descargando fotos", error);
+      }
     } finally {
       setIsDownloading(false);
     }
@@ -319,24 +324,38 @@ export default function PublicOrderDetailPage() {
                 <Download className="mr-2 h-5 w-5" />
                 {isDownloading ? "Descargando..." : `Descargar Todas las Fotos (${digitalOrderPhotos.length})`}
               </Button>
+              {iosDownloadMessage && (
+                <div className="mt-4 rounded-xl bg-blue-500/10 p-4">
+                  <p className="text-sm text-blue-600 dark:text-blue-400">{iosDownloadMessage}</p>
+                </div>
+              )}
             </div>
           )}
 
           {/* Photos Grid - Mostrar solo si hay fotos y si está pagado/completado */}
           {digitalOrderPhotos.length > 0 && isPaidOrCompleted && (
-            <Card className="rounded-2xl border-gray-200 shadow-lg">
-              <CardHeader>
-                <CardTitle>Tus Fotos ({digitalOrderPhotos.length})</CardTitle>
-                <CardDescription>Haz clic en cada foto para descargarla individualmente</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                  {digitalOrderPhotos.map((photo) => (
-                    <PhotoGridItem key={photo.id} photo={photo} />
-                  ))}
+            <>
+              {isIOS() && (
+                <div className="mb-4 rounded-xl bg-blue-500/10 p-4">
+                  <p className="text-sm text-blue-600">
+                    En iPhone/iPad: tocá la imagen y luego mantené presionada para guardarla.
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+              <Card className="rounded-2xl border-gray-200 shadow-lg">
+                <CardHeader>
+                  <CardTitle>Tus Fotos ({digitalOrderPhotos.length})</CardTitle>
+                  <CardDescription>Haz clic en cada foto para descargarla individualmente. En iPhone/iPad, mantén presionada la imagen para guardar.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                    {digitalOrderPhotos.map((photo) => (
+                      <PhotoGridItem key={photo.id} photo={photo} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           )}
 
           {/* Help Section */}

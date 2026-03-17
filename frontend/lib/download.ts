@@ -115,7 +115,7 @@ export async function downloadFile(
 
     if (!newWindow) {
       // fallback si popup fue bloqueado
-      window.location.href = url
+      window.location.assign(url)
     }    
     return
   }
@@ -182,24 +182,41 @@ export async function downloadMultiple(files: ReadonlyArray<DownloadMultipleItem
   if (downloadMultipleInFlight) return
   if (!files?.length) return
 
+  const { isIOS, isIPadOS } = detectPlatform()
+  const isAppleMobile = isIOS || isIPadOS
+
+  if (isAppleMobile) {
+    // En iOS, no intentar múltiples descargas automáticas. Lanzar error para fallback UX.
+    throw new Error("MULTIPLE_DOWNLOAD_NOT_SUPPORTED_ON_IOS")
+  }
+
   downloadMultipleInFlight = true
   try {
-    const { isIOS, isIPadOS } = detectPlatform()
-    const isAppleMobile = isIOS || isIPadOS
-    const iosDelayMs = 1100
-
     for (const file of files) {
       if (!file?.url) continue
       await downloadFile(file.url, file.filename)
-
-      if (isAppleMobile) {
-        // Espera mínima solo en iOS/iPadOS para evitar bloqueos por múltiples acciones seguidas.
-        await new Promise<void>((resolve) => window.setTimeout(resolve, iosDelayMs))
-      }
     }
   } finally {
     downloadMultipleInFlight = false
   }
 }
+
+/**
+ * Placeholder para futura implementación de descarga ZIP.
+ * Cuando el backend implemente GET /orders/{id}/download-zip,
+ * esta función podrá usarse para descargar un ZIP con todas las fotos.
+ *
+ * Por ahora, no implementada.
+ */
+export async function downloadOrderAsZip(orderId: string): Promise<void> {
+  // TODO: Implementar cuando el backend tenga el endpoint.
+  // const zipUrl = `/api/orders/${orderId}/download-zip`;
+  // await downloadFile(zipUrl, `pedido-${orderId}.zip`);
+  throw new Error("ZIP download not yet implemented");
+}
+
+// Utils convenientes para detección de plataforma
+export const isIOS = () => detectPlatform().isIOS
+export const isSafari = () => detectPlatform().isSafari
 
 
