@@ -20,7 +20,7 @@ const nextConfig = {
   },
 
   // ✅ Reducir superficie futura (si algún dev intenta usar Server Actions)
-  serverActions: false,
+  // serverActions: false, // REMOVIDO: opción inválida en Next.js 14.2.35
 
   // ✅ Headers de seguridad (básicos y seguros)
   async headers() {
